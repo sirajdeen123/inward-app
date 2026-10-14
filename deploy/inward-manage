@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Run a Django management command for one Inward environment as the inward user.
+#   inward-manage uat create_inward_user --username cfa.manager --full-name "CFA Manager" --role CFA_MANAGER
+set -euo pipefail
+ENVNAME="${1:?usage: inward-manage uat|live <command> [args]}"; shift
+case "$ENVNAME" in uat|live) ;; *) echo "environment must be uat or live" >&2; exit 2 ;; esac
+ROOT=/srv/inward/$ENVNAME
+exec sudo -u inward -H bash -c 'set -a; . "$0/env"; set +a; cd "$0/app"; exec "$0/venv/bin/python" manage.py "$@"' "$ROOT" "$@"

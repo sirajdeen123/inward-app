@@ -46,7 +46,7 @@ INWARD_ADMIN_URL=control-035/
 INWARD_GMAIL_ADDRESS=
 INWARD_GMAIL_APP_PASSWORD=
 INWARD_TEST_MAIL_TO=
-INWARD_SIT_SUBJECT=BPIL Depot Stock In Transit Report
+INWARD_SIT_SUBJECT="BPIL Depot Stock In Transit Report"
 INWARD_MESSAGE_ID_DOMAIN=inward.rainbowlogistics.co.in
 ENV
   chown inward:inward "$ROOT/env"; chmod 600 "$ROOT/env"
@@ -69,4 +69,4 @@ systemctl daemon-reload
 systemctl enable --quiet "inward@$ENVNAME"
 systemctl restart "inward@$ENVNAME"
 sleep 3
-curl -fsS "http://127.0.0.1:$PORT/healthz" >/dev/null && echo "service inward@$ENVNAME healthy on :$PORT"
+curl -fsS -H "Host: $HOST" "http://127.0.0.1:$PORT/healthz" >/dev/null && echo "service inward@$ENVNAME healthy on :$PORT"

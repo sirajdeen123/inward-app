@@ -1,0 +1,35 @@
+# Inward application (Django + Gunicorn). One instance per environment:
+#   inward@uat  -> 127.0.0.1:8100   (TEST copy, uat.inward.rainbowlogistics.co.in)
+#   inward@live -> 127.0.0.1:8110   (live,      inward.rainbowlogistics.co.in)
+# Installed to /etc/systemd/system/inward@.service by deploy/deploy.sh
+[Unit]
+Description=Inward application (%i)
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=inward
+Group=inward
+WorkingDirectory=/srv/inward/%i/app
+EnvironmentFile=/srv/inward/%i/env
+ExecStart=/srv/inward/%i/venv/bin/gunicorn config.wsgi:application \
+    --pythonpath src --bind ${INWARD_BIND} --workers 3 --timeout 120 \
+    --access-logfile - --error-logfile -
+Restart=on-failure
+RestartSec=5
+
+# hardening: the service can write only its own data and log folders
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+ReadWritePaths=/srv/inward/%i/data /srv/inward/%i/logs
+UMask=0027
+
+[Install]
+WantedBy=multi-user.target

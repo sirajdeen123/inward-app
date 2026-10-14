@@ -79,7 +79,7 @@ def _database(url: str) -> dict:
         "NAME": u.path.lstrip("/"),
         "USER": unquote(u.username or ""),
         "PASSWORD": unquote(u.password or ""),
-        "HOST": u.hostname or "localhost",
+        "HOST": u.hostname or "",  # empty = local socket (peer authentication on the server)
         "PORT": str(u.port or 5432),
         "CONN_MAX_AGE": 60,
         "ATOMIC_REQUESTS": False,
@@ -111,7 +111,13 @@ AXES_COOLOFF_TIME = timedelta(minutes=15)
 # Lock the account, not the IP: the whole depot shares one public IP, so IP lockout would block everyone.
 # IP-level rate limiting is done by Nginx / fail2ban on the server (SoT 14.5).
 AXES_LOCKOUT_PARAMETERS = ["username"]
-SILENCED_SYSTEM_CHECKS = ["axes.W006"]
+SILENCED_SYSTEM_CHECKS = [
+    "axes.W006",
+    # HSTS stays limited to this host: includeSubDomains/preload would force every other
+    # *.rainbowlogistics.co.in site (accounts, attendance, future ones) onto HTTPS permanently.
+    "security.W005",
+    "security.W021",
+]
 AXES_RESET_ON_SUCCESS = True
 AXES_LOCKOUT_TEMPLATE = "accounts/locked.html"
 
@@ -142,7 +148,7 @@ USE_TZ = True
 
 # ---------------------------------------------------------------- static and documents
 STATIC_URL = "/static/"
-STATIC_ROOT = BASE_DIR / "var" / "static"
+STATIC_ROOT = Path(env("INWARD_STATIC_ROOT", str(BASE_DIR / "var" / "static")))
 STATIC_ROOT.mkdir(parents=True, exist_ok=True)
 STORAGES = {
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},

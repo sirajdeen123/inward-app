@@ -65,6 +65,7 @@ run_manage collectstatic --noinput --clear -v 0
 # 4. service and web site
 install -m 644 "$ROOT/app/deploy/inward@.service" /etc/systemd/system/inward@.service
 install -m 644 "$ROOT/app/deploy/inward_proxy.conf" /etc/nginx/inward_proxy.conf
+install -m 755 "$ROOT/app/deploy/inward-manage" /usr/local/bin/inward-manage
 systemctl daemon-reload
 systemctl enable --quiet "inward@$ENVNAME"
 systemctl restart "inward@$ENVNAME"

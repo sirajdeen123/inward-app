@@ -1,0 +1,31 @@
+{% load static %}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Stock Inward{% endblock %} · Depot {{ depot.code }}</title>
+<link rel="stylesheet" href="{% static 'inward/app.css' %}">
+</head>
+<body>
+{% if TEST_MODE %}<div class="test-banner" role="status">TEST MODE · test data only · all e-mails go to the test address</div>{% endif %}
+<div class="shell">
+  {% if user.is_authenticated and user.is_verified %}
+  <nav class="sidebar" aria-label="Main">
+    <div class="brand">Stock Inward</div>
+    <div class="depot">Depot {{ depot.code }} · {{ depot.name }}{% if depot.cfa %}<br>Operated by {{ depot.cfa }} (CFA){% endif %}</div>
+    <a href="{% url 'web:home' %}" class="nav{% if request.resolver_match.url_name == 'home' %} active{% endif %}">Home</a>
+    <a href="{% url 'web:import_preview' %}" class="nav{% if request.resolver_match.url_name == 'import_preview' %} active{% endif %}">Import preview</a>
+    <a href="{% url 'web:health' %}" class="nav{% if request.resolver_match.url_name == 'health' %} active{% endif %}">System health</a>
+    {% if user.is_staff %}<a href="/{{ ADMIN_URL }}" class="nav">Masters &amp; users</a>{% endif %}
+    <div class="grow"></div>
+    <div class="who">{{ user.full_name|default:user.username }}</div>
+    <form method="post" action="{% url 'accounts:logout' %}">{% csrf_token %}<button type="submit" class="btn btn-sm">Sign out</button></form>
+  </nav>
+  {% endif %}
+  <main class="main">
+    {% if messages %}{% for m in messages %}<div class="alert alert-{{ m.tags }}">{{ m }}</div>{% endfor %}{% endif %}
+    {% block content %}{% endblock %}
+  </main>
+</div>
+</body>
+</html>

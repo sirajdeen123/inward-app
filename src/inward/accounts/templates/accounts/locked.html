@@ -1,0 +1,9 @@
+{% extends "web/base.html" %}
+{% block title %}Account locked{% endblock %}
+{% block content %}
+<div class="auth">
+  <h1>Account locked</h1>
+  <div class="alert alert-error">Too many failed sign-in attempts. The account is locked for 15 minutes. If this was not you, inform the CFA Manager.</div>
+  <a href="{% url 'accounts:login' %}" class="btn">Back to sign-in</a>
+</div>
+{% endblock %}

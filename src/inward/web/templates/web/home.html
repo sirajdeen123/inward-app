@@ -1,0 +1,11 @@
+{% extends "web/base.html" %}
+{% block title %}Home{% endblock %}
+{% block content %}
+<h1>Stock Inward Process</h1>
+<p>Phase 0 foundations are in place: sign-in with two-factor codes, roles and approvals, audit trail, document store, masters and the four file importers.</p>
+<p>The operational screens follow in phases 1-3 (SIT, IW, linking, unloading, MRA, ERP / IRR and closure), as defined in the Source of Truth v1.5.</p>
+<div class="card">
+  <h2>Your roles</h2>
+  <p>{% for r in roles %}<span class="chip">{{ r }}</span> {% empty %}No role assigned yet - ask the CFA Manager.{% endfor %}</p>
+</div>
+{% endblock %}

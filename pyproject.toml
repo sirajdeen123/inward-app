@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "inward"
+version = "0.2.0"
+description = "Stock Inward Process application - Coimbatore Depot 035 (operated by RAINBOW LOGISTICS, CFA)"
+requires-python = ">=3.12"
+dependencies = [
+    "django>=5.2,<5.3",
+    "psycopg[binary]>=3.2",
+    "argon2-cffi>=23.1",
+    "django-otp>=1.5",
+    "qrcode>=7.4",
+    "django-axes>=7.0",
+    "whitenoise>=6.7",
+    "openpyxl>=3.1",
+    "xlrd>=2.0",
+    "python-dotenv>=1.0",
+    "gunicorn>=23; sys_platform != 'win32'",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pytest-django>=4.9"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings"
+pythonpath = ["src", "."]
+testpaths = ["tests"]
+addopts = "--reuse-db"
+markers = [
+    "samples: reads the real sample files in 'Sample Input files'",
+]

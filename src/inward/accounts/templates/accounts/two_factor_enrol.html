@@ -1,0 +1,21 @@
+{% extends "web/base.html" %}
+{% block title %}Set up two-factor sign-in{% endblock %}
+{% block content %}
+<div class="auth">
+  <h1>Set up two-factor sign-in</h1>
+  <ol>
+    <li>Install an authenticator app on your phone (Google Authenticator or Microsoft Authenticator).</li>
+    <li>In the app, add an account and scan this code.</li>
+    <li>Enter the 6-digit code the app shows.</li>
+  </ol>
+  <div class="qr">{{ qr_svg|safe }}</div>
+  <p class="muted">Can't scan? Enter this key manually (time-based): <code class="secret">{{ secret }}</code></p>
+  {% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
+  <form method="post" class="card form">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ next }}">
+    <label for="id_code">6-digit code</label>{{ form.code }}
+    <button type="submit" class="btn btn-primary">Confirm</button>
+  </form>
+</div>
+{% endblock %}

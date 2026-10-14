@@ -1,0 +1,10 @@
+{% extends "web/base.html" %}
+{% block title %}Recovery codes{% endblock %}
+{% block content %}
+<div class="auth">
+  <h1>Your recovery codes</h1>
+  <div class="alert alert-warning">These are shown only once. Write them down or print this page and keep it safe. Each code works one time if you lose your phone.</div>
+  <ul class="codes">{% for c in codes %}<li><code>{{ c }}</code></li>{% endfor %}</ul>
+  <a href="{{ next }}" class="btn btn-primary">I have saved them - continue</a>
+</div>
+{% endblock %}

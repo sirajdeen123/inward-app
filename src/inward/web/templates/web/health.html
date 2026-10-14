@@ -1,0 +1,17 @@
+{% extends "web/base.html" %}
+{% block title %}System health{% endblock %}
+{% block content %}
+<h1>System health</h1>
+<div class="card">
+  <table class="tbl"><tbody>
+  {% for name, ok, detail in checks %}
+    <tr><td>{{ name }}</td><td><span class="chip {% if ok %}chip-ok{% else %}chip-bad{% endif %}">{% if ok %}OK{% else %}ATTENTION{% endif %}</span></td><td>{{ detail }}</td></tr>
+  {% endfor %}
+  </tbody></table>
+</div>
+<div class="card">
+  <h2>Latest imports</h2>
+  {% for b in latest %}<div>{{ b.kind }} · {{ b.filename }} · {{ b.uploaded_at|date:"d-M H:i" }} · {{ b.status }}</div>{% empty %}<div class="muted">None yet.</div>{% endfor %}
+</div>
+<p class="muted">Worker, Gmail queue, HTTPS certificate and backup status are added with the worker (Phase 2) and deployment.</p>
+{% endblock %}

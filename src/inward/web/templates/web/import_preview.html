@@ -1,0 +1,36 @@
+{% extends "web/base.html" %}
+{% block title %}Import preview{% endblock %}
+{% block content %}
+<h1>Import preview</h1>
+<p class="muted">Reads a file with the production importer and shows what would be imported. Nothing is saved.</p>
+<form method="post" enctype="multipart/form-data" class="card form">
+  {% csrf_token %}
+  <fieldset><legend>File type</legend>{% for radio in form.kind %}<label class="radio">{{ radio.tag }} {{ radio.choice_label }}</label>{% endfor %}</fieldset>
+  <label for="{{ form.file.id_for_label }}">{{ form.file.label }}</label>
+  {{ form.file }}
+  <div class="muted">{{ form.file.help_text }}</div>
+  {% if form.errors %}<div class="alert alert-error">{{ form.errors }}</div>{% endif %}
+  <button type="submit" class="btn btn-primary">Preview</button>
+</form>
+{% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
+{% if result %}
+<div class="card">
+  <h2>Summary</h2>
+  <dl class="summary">{% for k, v in result.summary %}<dt>{{ k }}</dt><dd>{{ v }}</dd>{% endfor %}</dl>
+  {% if result.issues %}
+    <div class="alert alert-warning">{{ result.issues|length }} row issue(s)</div>
+    <table class="tbl"><thead><tr><th>Row</th><th>Reference</th><th>Issue</th></tr></thead><tbody>
+    {% for i in result.issues %}<tr><td>{{ i.row_no }}</td><td>{{ i.ref|default:"" }}</td><td>{{ i.message }}</td></tr>{% endfor %}
+    </tbody></table>
+  {% endif %}
+</div>
+<div class="card">
+  <h2>Rows</h2>
+  <p class="muted">Showing {{ result.rows|length }} of {{ result.total }}{% if result.total > preview_rows %} (first {{ preview_rows }}){% endif %}.</p>
+  <div class="scroll"><table class="tbl">
+    <thead><tr>{% for c in result.columns %}<th>{{ c }}</th>{% endfor %}</tr></thead>
+    <tbody>{% for row in result.rows %}<tr>{% for v in row %}<td>{{ v }}</td>{% endfor %}</tr>{% endfor %}</tbody>
+  </table></div>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,16 @@
+{% extends "web/base.html" %}
+{% block title %}Sign in{% endblock %}
+{% block content %}
+<div class="auth">
+  <h1>Stock Inward · Sign in</h1>
+  <p class="muted">Depot {{ depot.code }} · {{ depot.name }}{% if depot.cfa %} · operated by {{ depot.cfa }} (CFA){% endif %}</p>
+  {% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
+  <form method="post" class="card form">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ next }}">
+    <label for="id_username">Username</label>{{ form.username }}
+    <label for="id_password">Password</label>{{ form.password }}
+    <button type="submit" class="btn btn-primary">Sign in</button>
+  </form>
+</div>
+{% endblock %}

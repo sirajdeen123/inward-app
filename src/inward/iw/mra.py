@@ -21,7 +21,7 @@ from django.utils import timezone
 
 from inward.accounts.models import User
 from inward.accounts.services import require
-from inward.core import audit, documents, pdf
+from inward.core import audit, branding, documents, pdf
 from inward.core.models import Depot, DepotOperator
 from inward.domain.normalize import clean_text
 from inward.iw import sed, unloading
@@ -136,7 +136,9 @@ def build(iw: Iw) -> dict:
     return {
         "depot": {"code": op.depot_id if op else "", "name": depot.name if depot else "",
                   "address": depot.address if depot else "", "cfa": op.cfa_name if op else "",
-                  "seal": f"For {op.cfa_name}, CFA - {depot.name if depot else ''} Depot {op.depot_id}" if op else ""},
+                  "company": depot.company_name if depot else "",
+                  "seal": branding.seal_lines(depot.company_name if depot else "", op.cfa_name if op else "",
+                                              op.depot_id if op else "", depot.name if depot else "")},
         "iw": {"no": iw.iw_no, "arrival": arrival.strftime("%d-%b-%Y %H:%M"), "load_type": str(iw.load_type),
                "source_org": str(iw.source_org or ""), "vehicle": iw.vehicle_no, "transporter": str(iw.transporter or ""),
                "lr": iw.lr_no, "driver": iw.driver_name, "driver_mobile": iw.driver_mobile,
@@ -155,6 +157,7 @@ def _hash(content: dict) -> str:
 
 def render(content: dict, revision: int, issued_at, issued_by: str, reason: str = "") -> str:
     return pdf.render_html("iw/mra_pdf.html", {"c": content, "rev": f"R{revision:02d}", "issued_by": issued_by,
+                                              "logo": branding.logo_data_uri(),
                                               "issued_at": timezone.localtime(issued_at).strftime("%d-%b-%Y %H:%M"),
                                               "reason": reason, "copies": ["DRIVER COPY", "DEPOT COPY"]})
 

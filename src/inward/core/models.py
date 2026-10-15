@@ -68,6 +68,7 @@ class DocumentLink(models.Model):
 class Depot(models.Model):
     code = models.CharField(max_length=10, primary_key=True)
     name = models.CharField(max_length=80)
+    company_name = models.CharField(max_length=120, default="BERGER PAINTS INDIA LTD")  # principal, on every document
     address = models.TextField(blank=True)
 
     class Meta:

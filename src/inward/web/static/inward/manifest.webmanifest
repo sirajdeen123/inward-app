@@ -1,11 +1,11 @@
 {
- "name": "Stock Inward - Depot 035",
+ "name": "Berger Stock Inward - Depot 035",
  "short_name": "Inward",
  "start_url": "/",
  "scope": "/",
  "display": "standalone",
  "background_color": "#ffffff",
- "theme_color": "#1F2A44",
+ "theme_color": "#2E2560",
  "icons": [
   {
    "src": "icon-192.png",

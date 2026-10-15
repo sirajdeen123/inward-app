@@ -18,7 +18,8 @@ def depot_info() -> dict:
         op = (DepotOperator.objects.filter(depot_id=code, effective_from__lte=today)
               .filter(Q(effective_to__isnull=True) | Q(effective_to__gte=today))
               .order_by("-effective_from").first())
-        info = {"code": code, "name": depot.name if depot else "", "cfa": op.cfa_name if op else ""}
+        info = {"code": code, "name": depot.name if depot else "", "cfa": op.cfa_name if op else "",
+                "company": depot.company_name if depot else ""}
         cache.set(f"depot-info-{code}", info, 300)
     return info
 
@@ -39,5 +40,5 @@ def depot(request) -> dict:
     try:
         ctx["depot"] = depot_info()
     except Exception:  # noqa: BLE001 - the banner must never break a page (e.g. before migrations)
-        ctx["depot"] = {"code": settings.INWARD["DEPOT_CODE"], "name": "", "cfa": ""}
+        ctx["depot"] = {"code": settings.INWARD["DEPOT_CODE"], "name": "", "cfa": "", "company": ""}
     return ctx

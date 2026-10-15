@@ -5,7 +5,7 @@ body{margin:0;font-family:"Segoe UI",Arial,sans-serif;color:#000;background:#fff
 .page{padding:14mm 12mm;page-break-after:always;break-after:page}
 .page:last-child{page-break-after:auto;break-after:auto}
 .ph{display:flex;justify-content:space-between;border-bottom:2px solid #000;padding-bottom:6px;margin-bottom:8px}
-.doc{font-size:18px;font-weight:700}.depot{font-size:12px}.meta{text-align:right;font-size:12px}
+.doc{font-size:16px;font-weight:700;margin-top:2px}.brandrow{display:flex;gap:10px;align-items:flex-start}.logo{width:80px;height:auto}.company{font-size:15px;font-weight:700;letter-spacing:.3px}.depot{font-size:12px}.meta{text-align:right;font-size:12px}
 .sheet-title{font-size:16px;margin:6px 0;padding:4px 8px;background:#e9e9e9;border-left:6px solid #000}
 .sheet-sum{margin:2px 0 6px}
 h3{font-size:13px;margin:10px 0 4px}

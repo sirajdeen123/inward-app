@@ -83,6 +83,7 @@ input.qty{font:inherit;width:90px;min-height:36px;padding:4px 8px;border:1px sol
 .tbl.cl .count{width:70px;border-left:1px dashed var(--line)}.tbl.cl .rem{width:120px}
 .tbl.cl .flag{color:var(--warn);font-weight:600;font-size:13px}
 .sheet-sum{margin:2px 0 8px;color:var(--muted)}
+.auth-logo{display:block;width:120px;height:auto;margin:0 0 8px}.auth-company{font-weight:700;letter-spacing:.3px}
 .visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .thumbs{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .thumb{width:72px;height:72px;object-fit:cover;border-radius:6px;border:1px solid var(--line)}

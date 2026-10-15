@@ -17,7 +17,7 @@
   {% if user.is_authenticated and user.is_verified %}
   <nav class="sidebar" aria-label="Main">
     <div class="brand">Stock Inward</div>
-    <div class="depot">Depot {{ depot.code }} · {{ depot.name }}{% if depot.cfa %}<br>Operated by {{ depot.cfa }} (CFA){% endif %}</div>
+    <div class="depot">{% if depot.company %}<b>{{ depot.company }}</b><br>{% endif %}Depot {{ depot.code }} · {{ depot.name }}{% if depot.cfa %}<br>Operated by {{ depot.cfa }} (CFA){% endif %}</div>
     <a href="{% url 'web:home' %}" class="nav{% if request.resolver_match.url_name == 'home' %} active{% endif %}">Home</a>
     <a href="{% url 'sit:home' %}" class="nav{% if request.resolver_match.app_name == 'sit' %} active{% endif %}">01 SIT import</a>
     <a href="{% url 'iw:list' %}" class="nav{% if request.resolver_match.app_name == 'iw' and 'ledger' not in request.resolver_match.url_name %} active{% endif %}">02 IW vehicles</a>

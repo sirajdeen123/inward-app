@@ -43,7 +43,9 @@ def test_content_and_revisions(verified):
     rev, created = mra.issue(clerk, w["iw"].pk)
     assert created and rev.label == "R01"
     c = rev.content
-    assert c["depot"]["cfa"] == "RAINBOW LOGISTICS" and c["depot"]["seal"].startswith("For RAINBOW LOGISTICS, CFA")
+    assert c["depot"]["cfa"] == "RAINBOW LOGISTICS" and c["depot"]["company"] == "BERGER PAINTS INDIA LTD"
+    assert c["depot"]["seal"] == {"for": "For BERGER PAINTS INDIA LTD",
+                                  "operated": "Operated by RAINBOW LOGISTICS - 035 Coimbatore Depot"}
     assert c["sed_totals"]["claimable"] == "3900.00" and c["unloading"]["outstanding"] == "1960.00"
     assert "Retail warehouse" in c["package_counts"] and "rate" not in c["unloading"]   # rate never printed
     kinds = {m["kind"]: m for m in c["memos"]}
@@ -89,6 +91,7 @@ def test_html_render_and_screens(client, verified):
     assert "MRA R01 issued" in resp.content.decode()
     html = c.get(reverse("iw:mra_view", args=[w["iw"].pk, 1])).content.decode()
     assert "DRIVER COPY" in html and "DEPOT COPY" in html and "Operated by: RAINBOW LOGISTICS (CFA)" in html
+    assert "BERGER PAINTS INDIA LTD" in html and "data:image/png;base64," in html
     assert "SHORT MEMO" in html and "DAMAGE MEMO" in html and "EXCESS MEMO" not in html
     assert "300" not in html.split("Unloading</h2>")[1].split("</p>")[0]   # no rate on the MRA
     if pdf.available():

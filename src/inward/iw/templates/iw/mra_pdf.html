@@ -10,12 +10,13 @@
 {% for copy in copies %}
 <section class="page">
   <header class="head">
-    <div>
-      <div class="title">MATERIALS RECEIPT ACKNOWLEDGMENT</div>
+    <div class="brandrow">{% if logo %}<img src="{{ logo }}" alt="logo" class="logo">{% endif %}<div>
+      {% if c.depot.company %}<div class="company">{{ c.depot.company }}</div>{% endif %}
       <div class="depot">Depot {{ c.depot.code }} · {{ c.depot.name }}</div>
       <div class="cfa">Operated by: {{ c.depot.cfa }} (CFA)</div>
       {% if c.depot.address %}<div class="addr">{{ c.depot.address }}</div>{% endif %}
-    </div>
+      <div class="title">MATERIALS RECEIPT ACKNOWLEDGMENT</div>
+    </div></div>
     <div class="right">
       <div class="copy">{{ copy }}</div>
       <div><b>MRA {{ c.iw.no }} {{ rev }}</b></div>
@@ -56,8 +57,8 @@
   {% if c.unloading %}<p>Unloading amount Rs {{ c.unloading.charge }} · {{ c.unloading.status }}{% if c.unloading.mode %} · {{ c.unloading.mode }}{% endif %}{% if c.unloading.ref %} ({{ c.unloading.ref }}){% endif %}{% if c.unloading.outstanding != '0.00' %} · outstanding Rs {{ c.unloading.outstanding }}{% endif %}</p>{% endif %}
 
   <div class="sign">
-    <div class="box"><div class="line"></div>Driver signature · {{ c.iw.driver|default:"name" }}<div class="small">Received this acknowledgment and agree with the above.</div></div>
-    <div class="box"><div class="line"></div>{{ c.depot.seal }}<div class="small">Authorised signatory and depot seal</div></div>
+    <div class="box"><div class="sealfor">&nbsp;</div><div class="line"></div>Driver signature · {{ c.iw.driver|default:"name" }}<div class="small">Received this acknowledgment and agree with the above.</div></div>
+    <div class="box">{% if c.depot.seal.for %}<div class="sealfor">{{ c.depot.seal.for }}</div>{% endif %}<div class="line"></div>Authorised signatory &amp; depot seal{% if c.depot.seal.operated %}<div class="small">{{ c.depot.seal.operated }}</div>{% elif c.depot.seal %}<div class="small">{{ c.depot.seal }}</div>{% endif %}</div>
   </div>
   <footer class="foot">MRA {{ c.iw.no }} {{ rev }} · issued by {{ issued_by }} · {{ copy|lower }}</footer>
 </section>
@@ -66,7 +67,7 @@
 {% for m in c.memos %}
 <section class="page">
   <header class="head">
-    <div><div class="title">{{ m.title }}</div><div class="depot">Depot {{ c.depot.code }} · {{ c.depot.name }}</div><div class="cfa">Operated by: {{ c.depot.cfa }} (CFA)</div></div>
+    <div class="brandrow">{% if logo %}<img src="{{ logo }}" alt="logo" class="logo">{% endif %}<div>{% if c.depot.company %}<div class="company">{{ c.depot.company }}</div>{% endif %}<div class="depot">Depot {{ c.depot.code }} · {{ c.depot.name }}</div><div class="cfa">Operated by: {{ c.depot.cfa }} (CFA)</div><div class="title">{{ m.title }}</div></div></div>
     <div class="right"><div><b>{{ c.iw.no }} · MRA {{ rev }}</b></div><div>{{ c.iw.vehicle }} · {{ c.iw.arrival }}</div><div>For: System Supervisor (Oracle entry)</div></div>
   </header>
   {% if m.all_lscrr %}<p class="note">All lines are LSCRR-covered - no separate TRX expected.</p>{% endif %}
@@ -75,8 +76,8 @@
     <tbody>{% for r in m.rows %}<tr><td>{{ r.source }}</td><td class="mono">{{ r.sku }}<div class="small">{{ r.floor_sku }}</div></td><td>{{ r.description }}</td><td class="num">{{ r.qty }}</td>
       {% if m.kind != 'EXCESS' %}<td class="num">{{ r.value }}</td>{% endif %}<td><b>{{ r.action }}</b>{% if r.note %}<div class="small">{{ r.note }}</div>{% endif %}</td><td>{{ r.remarks }}</td><td class="trx">{% if r.action == 'LSCRR-covered' %}n/a{% endif %}</td></tr>{% endfor %}</tbody></table>
   <div class="sign">
-    <div class="box"><div class="line"></div>Prepared by (clerk)</div>
-    <div class="box"><div class="line"></div>System Supervisor · TRX entered on (date)</div>
+    <div class="box">{% if c.depot.seal.for %}<div class="sealfor">{{ c.depot.seal.for }}</div>{% endif %}<div class="line"></div>Authorised signatory &amp; depot seal{% if c.depot.seal.operated %}<div class="small">{{ c.depot.seal.operated }}</div>{% elif c.depot.seal %}<div class="small">{{ c.depot.seal }}</div>{% endif %}</div>
+    <div class="box"><div class="sealfor">&nbsp;</div><div class="line"></div>System Supervisor · TRX entered on (date)</div>
   </div>
   <footer class="foot">{{ m.title|title }} · {{ c.iw.no }} · MRA {{ rev }}</footer>
 </section>

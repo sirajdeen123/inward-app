@@ -109,5 +109,5 @@ def test_screens(client, world):
     assert "Packaging not set (1)" in page and "Add packaging" in page
     c.post(reverse("iw:checklist_generate", args=[world["iw"].pk]))
     page = c.get(reverse("iw:checklist_print", args=[world["iw"].pk, 1])).content.decode()
-    assert "RETAIL WAREHOUSE" in page and "Operated by RAINBOW LOGISTICS (CFA)" in page and "XG9 991" in page
+    assert "RETAIL WAREHOUSE" in page and "Operated by: RAINBOW LOGISTICS (CFA)" in page and "BERGER PAINTS INDIA LTD" in page and "XG9 991" in page
     assert "KEEP SEPARATE" in page and "print.js" in page

@@ -1,6 +1,6 @@
 from django.urls import path
 
-from inward.iw import views, views_link, views_outbound
+from inward.iw import views, views_checklist, views_link, views_outbound
 
 app_name = "iw"
 urlpatterns = [
@@ -25,4 +25,7 @@ urlpatterns = [
     path("outbound/ships/<int:ship_pk>/reopen/", views_outbound.outbound_reopen, name="outbound_reopen"),
     path("<int:pk>/vendor/", views_outbound.vendor_page, name="vendor"),
     path("vendor/<int:cons_pk>/remove/", views_outbound.vendor_remove, name="vendor_remove"),
+    path("<int:pk>/checklist/", views_checklist.checklist_page, name="checklist"),
+    path("<int:pk>/checklist/generate/", views_checklist.checklist_generate, name="checklist_generate"),
+    path("<int:pk>/checklist/<int:revision>/print/", views_checklist.checklist_print, name="checklist_print"),
 ]

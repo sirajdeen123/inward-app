@@ -20,7 +20,11 @@
   {% if iw.remarks %}<dt>Remarks</dt><dd>{{ iw.remarks }}</dd>{% endif %}
   <dt>Created</dt><dd>{{ iw.created_at|date:"d-M-Y H:i" }} by {{ iw.created_by }}</dd>
 </dl></div>
-{% if iw.status != 'DRAFT' %}{% include "iw/_references.html" %}{% endif %}
+{% if iw.status != 'DRAFT' %}
+<div class="card bar"><h2>Unloading checklist</h2>
+  {% with cl=iw.checklists.first %}{% if cl %}<span class="chip chip-ok">Revision {{ cl.revision }} · {{ cl.generated_at|date:"d-M-Y H:i" }}</span>{% else %}<span class="chip chip-warn">Not generated</span>{% endif %}{% endwith %}
+  <div class="grow"></div><a class="btn btn-primary" href="{% url 'iw:checklist' iw.pk %}">Open checklist</a></div>
+{% include "iw/_references.html" %}{% endif %}
 {% if iw.status == 'DRAFT' and can_edit %}
 <form method="post" action="{% url 'iw:discard' iw.pk %}" class="bar">{% csrf_token %}<button type="submit" class="btn btn-sm">Discard draft</button></form>
 {% endif %}

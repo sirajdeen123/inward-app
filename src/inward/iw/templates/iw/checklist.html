@@ -1,0 +1,34 @@
+{% extends "web/base.html" %}
+{% block title %}Checklist · {{ iw }}{% endblock %}
+{% block content %}
+<p><a href="{% url 'iw:detail' iw.pk %}">&larr; {{ iw }}</a></p>
+<div class="bar"><h1>Unloading checklist · {{ iw }}</h1><div class="grow"></div>
+  {% if current %}<a class="btn btn-primary" href="{% url 'iw:checklist_print' iw.pk current.revision %}" target="_blank" rel="noopener">Print revision {{ current.revision }}</a>{% endif %}</div>
+<p class="muted">{{ iw.load_type }} · {{ iw.vehicle_no }} · arrival {{ iw.arrival_at|date:"d-M-Y H:i" }} · {{ iw.get_status_display }}</p>
+
+{% for b in build.blockers %}<div class="alert alert-error">{{ b }}</div>{% endfor %}
+{% for w in build.warnings %}<div class="alert alert-warning">{{ w }}</div>{% endfor %}
+{% if stale %}<div class="alert alert-warning">Material on this IW changed after revision {{ current.revision }} was generated - generate a new revision before unloading.</div>{% endif %}
+
+{% if build.missing_packaging %}
+<div class="card"><h2>Packaging not set ({{ build.missing_packaging|length }})</h2>
+  <p class="muted">These lines are counted in pieces. Add their packaging and regenerate to get cartons / drums.</p>
+  <table class="tbl"><tbody>{% for ln in build.missing_packaging %}
+    <tr><td class="mono">{{ ln.floor_sku }}</td><td class="mono">{{ ln.sku }}</td><td>{{ ln.description }}</td><td><a class="btn btn-sm" href="{{ ln.add_url }}">Add packaging</a></td></tr>{% endfor %}</tbody></table>
+</div>{% endif %}
+
+<div class="card">
+  <div class="bar"><h2>{% if current %}Revision {{ current.revision }} · generated {{ current.generated_at|date:"d-M-Y H:i" }} by {{ current.generated_by }}{% else %}Not generated yet{% endif %}</h2><div class="grow"></div>
+    {% if can_generate and not build.blockers %}<form method="post" action="{% url 'iw:checklist_generate' iw.pk %}">{% csrf_token %}<button type="submit" class="btn{% if not current or stale %} btn-primary{% endif %}">{% if current %}Generate new revision{% else %}Generate checklist{% endif %}</button></form>{% endif %}</div>
+  {% if older %}<p class="muted">Earlier: {% for o in older %}<a href="{% url 'iw:checklist_print' iw.pk o.revision %}" target="_blank" rel="noopener">R{{ o.revision }}</a> {% endfor %}</p>{% endif %}
+  {% if current %}
+    {% for sheet in current.content.sheets %}
+      <h2 class="sheet-title">{{ sheet.title }}</h2>
+      {% include "iw/_checklist_sheet.html" %}
+    {% endfor %}
+  {% else %}
+    <p class="muted">Preview of what will be generated:</p>
+    {% for sheet in build.sheets %}<p><b>{{ sheet.title }}</b>{% if sheet.lines %} · {{ sheet.lines }} line(s){% endif %}</p>{% endfor %}
+  {% endif %}
+</div>
+{% endblock %}

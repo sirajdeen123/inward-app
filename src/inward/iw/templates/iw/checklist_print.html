@@ -1,0 +1,27 @@
+{% load static %}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Checklist {{ iw }} R{{ snap.revision }}</title>
+<link rel="stylesheet" href="{% static 'inward/print.css' %}">
+</head>
+<body>
+<div class="no-print toolbar"><button type="button" id="print-btn">Print</button> <a href="{% url 'iw:checklist' iw.pk %}">Back to the IW</a></div>
+{% for sheet in snap.content.sheets %}
+<section class="page">
+  <header class="ph">
+    <div><div class="doc">UNLOADING CHECKLIST</div><div class="depot">Depot {{ depot.code }} · {{ depot.name }}{% if depot.cfa %}<br>Operated by {{ depot.cfa }} (CFA){% endif %}</div></div>
+    <div class="meta"><b>{{ iw }}</b> · R{{ snap.revision }}<br>{{ iw.vehicle_no }} · {{ iw.arrival_at|date:"d-M-Y H:i" }}<br>{{ iw.source_org|default:"" }}<br>{{ iw.transporter|default:"" }}{% if iw.lr_no %} · LR {{ iw.lr_no }}{% endif %}</div>
+  </header>
+  <h2 class="sheet-title">{{ sheet.title }}</h2>
+  {% include "iw/_checklist_sheet.html" %}
+  <footer class="pf">
+    <div>Unloading supervisor / hamali: ____________________</div><div>Clerk: ____________________</div>
+    <div class="small">Generated {{ snap.generated_at|date:"d-M-Y H:i" }} by {{ snap.generated_by }} · sheet {{ forloop.counter }} of {{ snap.content.sheets|length }}</div>
+  </footer>
+</section>
+{% endfor %}
+<script src="{% static 'inward/print.js' %}" defer></script>
+</body>
+</html>

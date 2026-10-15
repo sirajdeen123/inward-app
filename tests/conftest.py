@@ -29,7 +29,7 @@ def seeded(db):
     from datetime import date
 
     from inward.core.seed import seed_reference_data
-    seed_reference_data(date(2026, 10, 19))
+    seed_reference_data(date(2026, 4, 1))
 
 
 @pytest.fixture
@@ -40,3 +40,12 @@ def make_user(db):
         return create_user(None, username=username, full_name=username.title(), email=f"{username}@example.com",
                            password="Correct-Horse-Battery-9", role_code=role)
     return _make
+
+
+@pytest.fixture(autouse=True)
+def _clear_cache():
+    """The depot / CFA banner is cached for 5 minutes; tests must not see each other's values."""
+    from django.core.cache import cache
+    cache.clear()
+    yield
+    cache.clear()

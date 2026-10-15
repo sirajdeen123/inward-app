@@ -246,3 +246,19 @@ class VendorLine(models.Model):
 
     class Meta:
         db_table = "iw_vendor_line"
+
+
+class ChecklistSnapshot(models.Model):
+    """A generated unloading checklist (SoT 7.1, iw_package_snapshot). Frozen once generated; regenerating
+    creates a new revision so a printed checklist never changes afterwards."""
+    iw = models.ForeignKey(Iw, on_delete=models.CASCADE, related_name="checklists")
+    revision = models.PositiveIntegerField()
+    content = models.JSONField()                 # sheets -> groups -> lines, with the packaging used
+    content_hash = models.CharField(max_length=64)  # of the material it was built from (to detect changes)
+    generated_by = models.ForeignKey(USER, on_delete=models.PROTECT, related_name="+")
+    generated_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "iw_checklist"
+        ordering = ["-revision"]
+        constraints = [models.UniqueConstraint(fields=["iw", "revision"], name="uq_iw_checklist_revision")]

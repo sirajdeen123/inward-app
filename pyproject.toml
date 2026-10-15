@@ -18,6 +18,7 @@ dependencies = [
     "openpyxl>=3.1",
     "xlrd>=2.0",
     "python-dotenv>=1.0",
+    "pillow>=10",
     "gunicorn>=23; sys_platform != 'win32'",
 ]
 

@@ -1,0 +1,148 @@
+"""Screen 04 part A - SED capture, damage photos, physical verification (SoT 7.2, decisions 16-Oct-2026)."""
+import io
+from decimal import Decimal
+
+import pytest
+from django.urls import reverse
+from PIL import Image
+
+from inward.accounts.services import PermissionDenied
+from inward.iw import checklist, linking, sed
+from inward.iw.models import Iw
+from inward.iw.services import IwError
+from tests.helpers import verified_client
+from tests.test_checklist import _tally, world  # noqa: F401  (fixture)
+
+pytestmark = pytest.mark.django_db
+WEATHERCOAT = "F002980000020000"   # 49 pcs, drum
+EASYCLEAN = "F00XG90991003600"     # 97 pcs, carton of 4
+
+
+def _jpeg(color="red") -> bytes:
+    out = io.BytesIO()
+    Image.new("RGB", (1600, 1200), color).save(out, "JPEG")
+    return out.getvalue()
+
+
+@pytest.fixture
+def unloading(world):  # noqa: F811
+    _tally(world)
+    checklist.generate(world["clerk"], world["iw"].pk)
+    iw = Iw.objects.get(pk=world["iw"].pk)
+    world["iw"] = iw
+    world["ship_key"] = f"SHIP:{iw.ship_links.get().pk}"
+    return world
+
+
+def _in(w, sku, **kw):
+    return sed.SedInput(source_key=w["ship_key"], sku=sku, **kw)
+
+
+def test_needs_checklist_first(world):  # noqa: F811
+    with pytest.raises(IwError, match="checklist first"):
+        sed.save_line(world["clerk"], world["iw"].pk, sed.SedInput(source_key="SHIP:1", sku=WEATHERCOAT, short_qty="1"))
+
+
+def test_quantity_rules(unloading):
+    w, clerk = unloading, unloading["clerk"]
+    with pytest.raises(IwError, match="Enter a Short"):
+        sed.save_line(clerk, w["iw"].pk, _in(w, EASYCLEAN))
+    with pytest.raises(IwError, match="both short and excess"):
+        sed.save_line(clerk, w["iw"].pk, _in(w, EASYCLEAN, short_qty="1", excess_qty="2"))
+    with pytest.raises(IwError, match="more than the document"):
+        sed.save_line(clerk, w["iw"].pk, _in(w, EASYCLEAN, short_qty="90", damage_qty="8", damage_kind="MATERIAL",
+                                               damage_remarks="wet"))
+    with pytest.raises(IwError, match="whole pieces"):
+        sed.save_line(clerk, w["iw"].pk, _in(w, EASYCLEAN, short_qty="1.5"))
+    with pytest.raises(IwError, match="remarks are mandatory"):
+        sed.save_line(clerk, w["iw"].pk, _in(w, EASYCLEAN, damage_qty="2", damage_kind="MATERIAL"))
+    line = sed.save_line(clerk, w["iw"].pk, _in(w, EASYCLEAN, short_qty="3", short_value="1,250"))
+    assert line.short_remarks == "Short received - 3 pcs" and line.short_value == Decimal("1250.00")
+    assert line.floor_sku == "XG9 991" and line.doc_pieces == 97
+    with pytest.raises(IwError, match="already has an SED line"):
+        sed.save_line(clerk, w["iw"].pk, _in(w, EASYCLEAN, excess_qty="1"))
+
+
+def test_extra_sku_is_excess_only(unloading):
+    w, clerk = unloading, unloading["clerk"]
+    with pytest.raises(IwError, match="only be Excess"):
+        sed.save_line(clerk, w["iw"].pk, _in(w, "F000000134001000", short_qty="2"))
+    line = sed.save_line(clerk, w["iw"].pk, _in(w, "f000000134001000", excess_qty="6"))
+    assert line.is_extra and line.description == "LUXOL SKY BLUE 1 L" and line.excess_remarks.startswith("Wrong item")
+
+
+def test_container_damage_uses_rate_snapshot(unloading):
+    w, clerk = unloading, unloading["clerk"]
+    with pytest.raises(IwError, match="carton or drum"):
+        sed.save_line(clerk, w["iw"].pk, _in(w, WEATHERCOAT, damage_qty="2", damage_kind="CONTAINER",
+                                               damage_remarks="dented"))
+    line = sed.save_line(clerk, w["iw"].pk, _in(w, WEATHERCOAT, damage_qty="2", damage_kind="CONTAINER",
+                                                container_type="drum", container_count="2", damage_remarks="dented"))
+    assert line.container_rate == Decimal("150.00") and line.damage_value == Decimal("300.00")
+
+
+def test_values_need_sed_value_permission(unloading, make_user):
+    w = unloading
+    sup = make_user("sup_sed", "SYSTEM_SUPERVISOR")
+    with pytest.raises(PermissionDenied):
+        sed.save_line(sup, w["iw"].pk, _in(w, EASYCLEAN, short_qty="1", short_value="10"))
+    line = sed.save_line(sup, w["iw"].pk, _in(w, EASYCLEAN, short_qty="1"))
+    assert line.short_value is None
+    sed.save_line(w["clerk"], w["iw"].pk, _in(w, EASYCLEAN, short_qty="1", short_value="10"), line_pk=line.pk)
+    line = sed.save_line(sup, w["iw"].pk, _in(w, EASYCLEAN, short_qty="2"), line_pk=line.pk)
+    assert line.short_value == Decimal("10.00")     # supervisor's quantity edit keeps the clerk's value
+    assert sed.totals(w["iw"]).values_missing == 0
+
+
+def test_photos_and_verification(unloading):
+    w, clerk = unloading, unloading["clerk"]
+    line = sed.save_line(clerk, w["iw"].pk, _in(w, EASYCLEAN, damage_qty="4", damage_kind="MATERIAL",
+                                                damage_remarks="cartons wet, 4 tins leaking", damage_value="900"))
+    assert any("needs at least one photo" in b for b in sed.verification_blockers(w["iw"]))
+    with pytest.raises(IwError, match="not a photo"):
+        sed.add_photo(clerk, line.pk, b"not an image", "x.jpg")
+    photo = sed.add_photo(clerk, line.pk, _jpeg(), "IMG_001.jpg")
+    assert photo.original.content_type == "image/jpeg" and photo.preview.size_bytes < photo.original.size_bytes
+    iw = sed.confirm_verification(clerk, w["iw"].pk)
+    assert iw.status == Iw.Status.PHYSICALLY_VERIFIED and iw.verified_by == clerk
+    with pytest.raises(IwError, match="Reopen it"):
+        sed.save_line(clerk, iw.pk, _in(w, WEATHERCOAT, short_qty="1"))
+    with pytest.raises(IwError, match="reopen it"):
+        linking.add_colour_bank(clerk, iw.pk, direction="IN", challan_no="CB-9")
+    with pytest.raises(IwError, match="reason"):
+        sed.reopen_verification(clerk, iw.pk, " ")
+    assert sed.reopen_verification(clerk, iw.pk, "one more drum found damaged").status == Iw.Status.UNLOADING_IN_PROGRESS
+
+
+def test_stale_checklist_blocks_verification(unloading):
+    w = unloading
+    linking.add_colour_bank(w["clerk"], w["iw"].pk, direction="IN", challan_no="CB-1")
+    with pytest.raises(IwError, match="regenerate"):
+        sed.confirm_verification(w["clerk"], w["iw"].pk)
+
+
+def test_screens(client, unloading):
+    w = unloading
+    c = verified_client(client, w["clerk"])
+    url = reverse("iw:unloading", args=[w["iw"].pk])
+    page = c.get(url).content.decode()
+    assert "XG9 991" in page and "Extra SKU" in page and "Confirm physical verification" in page
+    resp = c.post(url, {"pick": f"{w['ship_key']}|{EASYCLEAN}", "damage_qty": "2", "damage_kind": "MATERIAL",
+                        "damage_remarks": "leaking", "damage_value": "450"}, follow=True)
+    assert "Now add the damage photo" in resp.content.decode() and "photo needed" in resp.content.decode()
+    line = w["iw"].sed_lines.get()
+    resp = c.post(reverse("iw:sed_photo_add", args=[line.pk]),
+                  {"photo": _upload()}, follow=True)
+    assert "1 photo(s) added" in resp.content.decode()
+    photo = line.photos.get()
+    img = c.get(reverse("iw:sed_photo", args=[photo.pk, "preview"]))
+    assert img["Content-Type"] == "image/jpeg"
+    page = c.get(reverse("iw:sed_edit", args=[line.pk])).content.decode()
+    assert 'value="450"' in page
+    resp = c.post(reverse("iw:verification_confirm", args=[w["iw"].pk]), follow=True)
+    assert "Physical verification confirmed" in resp.content.decode() and "Reopen physical verification" in resp.content.decode()
+
+
+def _upload():
+    from django.core.files.uploadedfile import SimpleUploadedFile
+    return SimpleUploadedFile("IMG_002.jpg", _jpeg("blue"), content_type="image/jpeg")

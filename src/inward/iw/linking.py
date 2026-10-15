@@ -32,6 +32,8 @@ def _require_open(iw: Iw) -> None:
         raise IwError("Create the IW (issue its number) before linking material.")
     if not iw.is_editable:
         raise IwError("Material can no longer be changed on this IW (MRA issued, closed or void).")
+    if iw.status == Iw.Status.PHYSICALLY_VERIFIED:
+        raise IwError("Physical verification is confirmed - reopen it (Unloading & SED) before changing material.")
 
 
 def _refresh_status(iw: Iw) -> None:

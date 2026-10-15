@@ -1,0 +1,13 @@
+{% extends "web/base.html" %}
+{% block title %}SED {{ line.floor_sku }} · {{ iw }}{% endblock %}
+{% block content %}
+<p><a href="{% url 'iw:unloading' iw.pk %}">&larr; Unloading &amp; SED on {{ iw }}</a></p>
+<h1>SED · {{ line.floor_sku }} <span class="muted">{{ line.sku }}</span></h1>
+<p class="muted">{{ line.source_label }} · {{ line.description }} · {% if line.is_extra %}not on the document (wrong item){% else %}document {{ line.doc_pieces|floatformat:"-3" }} pcs{% endif %}</p>
+{% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
+<form method="post" class="card form-grid">{% csrf_token %}
+  <input type="hidden" name="version" value="{{ line.version }}">
+  {% include "iw/_sed_fields.html" %}
+  <div class="span-all"><button type="submit" class="btn btn-primary">Save SED</button></div>
+</form>
+{% endblock %}

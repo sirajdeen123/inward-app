@@ -1,0 +1,16 @@
+  <div class="field"><label for="f-short">Short (pieces)</label><input id="f-short" name="short_qty" inputmode="numeric" value="{{ post.short_qty }}"></div>
+  <div class="field"><label for="f-excess">Excess (pieces)</label><input id="f-excess" name="excess_qty" inputmode="numeric" value="{{ post.excess_qty }}"></div>
+  <div class="field"><label for="f-damage">Damage (pieces)</label><input id="f-damage" name="damage_qty" inputmode="numeric" value="{{ post.damage_qty }}"></div>
+  <div class="field span-all"><label>If damaged: what is damaged?</label>
+    {% for value, label in kinds %}<label class="check"><input type="radio" name="damage_kind" value="{{ value }}"{% if post.damage_kind == value %} checked{% endif %}> {{ label }}</label>{% endfor %}</div>
+  <div class="field"><label for="f-ctype">Container (container-only damage)</label><select id="f-ctype" name="container_type"><option value="">-</option><option value="CARTON"{% if post.container_type == 'CARTON' %} selected{% endif %}>Carton</option><option value="DRUM"{% if post.container_type == 'DRUM' %} selected{% endif %}>Drum</option></select></div>
+  <div class="field"><label for="f-ccount">Damaged containers</label><input id="f-ccount" name="container_count" inputmode="numeric" value="{{ post.container_count }}"></div>
+  <div class="field"><label for="f-pct">Damage % (optional)</label><input id="f-pct" name="damage_pct" inputmode="decimal" value="{{ post.damage_pct }}"></div>
+  <div class="field span-all"><label for="f-drem">Damage remarks (mandatory for damage)</label><input id="f-drem" name="damage_remarks" value="{{ post.damage_remarks }}" placeholder="e.g. 2 tins dented and leaking, carton wet"></div>
+  <div class="field"><label for="f-srem">Short remarks</label><input id="f-srem" name="short_remarks" value="{{ post.short_remarks }}" placeholder="Short received - n pcs"></div>
+  <div class="field"><label for="f-erem">Excess remarks</label><input id="f-erem" name="excess_remarks" value="{{ post.excess_remarks }}" placeholder="Excess received - n pcs"></div>
+  <div class="field"></div>
+  {% if can_value %}
+  <div class="field"><label for="f-sval">Short value (Rs)</label><input id="f-sval" name="short_value" inputmode="decimal" value="{{ post.short_value }}"></div>
+  <div class="field"><label for="f-dval">Damage value (Rs)</label><input id="f-dval" name="damage_value" inputmode="decimal" value="{{ post.damage_value }}" placeholder="blank = container charge"></div>
+  {% else %}<p class="muted span-all">Financial values are entered by the depot clerk or CFA Manager.</p>{% endif %}

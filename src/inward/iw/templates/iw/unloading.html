@@ -1,0 +1,86 @@
+{% extends "web/base.html" %}
+{% block title %}Unloading &amp; SED · {{ iw }}{% endblock %}
+{% block content %}
+<p><a href="{% url 'iw:detail' iw.pk %}">&larr; {{ iw }}</a></p>
+<h1>Unloading &amp; SED · {{ iw }}</h1>
+<p class="muted">{{ iw.vehicle_no }} · {{ iw.load_type }}{% if iw.source_org %} · from {{ iw.source_org }}{% endif %}. Record only the SKUs that differ from the documents; every other checklist line counts as received as per document.</p>
+{% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
+
+<div class="card bar">
+  {% if snap %}<span class="chip chip-ok">Checklist R{{ snap.revision }} · {{ snap.generated_at|date:"d-M-Y H:i" }}</span>
+    {% if stale %}<span class="chip chip-warn">Material changed - regenerate the checklist</span>{% endif %}
+    <a class="btn btn-sm" href="{% url 'iw:checklist_print' iw.pk snap.revision %}">Print checklist</a>
+  {% else %}<span class="chip chip-warn">Checklist not generated</span>{% endif %}
+  <a class="btn btn-sm" href="{% url 'iw:checklist' iw.pk %}">Checklist</a>
+  <div class="grow"></div>
+  {% if iw.status == 'PHYSICALLY_VERIFIED' %}<span class="chip chip-ok">Verified by {{ iw.verified_by.full_name|default:iw.verified_by.username }} · {{ iw.verified_at|date:"d-M-Y H:i" }}</span>{% endif %}
+</div>
+
+<div class="kpis">
+  <div class="card kpi"><div class="kpi-label">SED lines</div><div class="kpi-value">{{ totals.lines }}</div></div>
+  <div class="card kpi"><div class="kpi-label">Short / Excess / Damage pcs</div><div class="kpi-value">{{ totals.short|floatformat:"-3" }} / {{ totals.excess|floatformat:"-3" }} / {{ totals.damage|floatformat:"-3" }}</div></div>
+  <div class="card kpi"><div class="kpi-label">Short + Damage value</div><div class="kpi-value">Rs {{ totals.short_value|floatformat:2 }} + {{ totals.damage_value|floatformat:2 }}</div></div>
+  <div class="card kpi"><div class="kpi-label">Total claimable</div><div class="kpi-value">Rs {{ totals.claimable|floatformat:2 }}</div>{% if totals.values_missing %}<div class="warn-text">{{ totals.values_missing }} line(s) without value</div>{% endif %}</div>
+</div>
+
+<div class="card">
+  <h2>SED lines</h2>
+  {% if lines %}
+  <div class="scroll"><table class="tbl stack">
+    <thead><tr><th>From</th><th>Floor SKU</th><th>Description</th><th class="num">Doc pcs</th><th class="num">Short</th><th class="num">Excess</th><th class="num">Damage</th><th class="num">Value Rs</th><th>Remarks</th><th>Photos</th><th></th></tr></thead>
+    <tbody>{% for ln in lines %}
+    <tr><td class="nowrap" data-label="From">{{ ln.source_label }}</td><td class="mono nowrap" data-label="Floor SKU"><b>{{ ln.floor_sku }}</b><div class="muted">{{ ln.sku }}</div></td>
+      <td data-label="Description">{{ ln.description }}{% if ln.is_extra %} <span class="chip chip-warn">not on document</span>{% endif %}</td>
+      <td class="num" data-label="Doc pcs">{% if ln.is_extra %}-{% else %}{{ ln.doc_pieces|floatformat:"-3" }}{% endif %}</td>
+      <td class="num" data-label="Short">{{ ln.short_qty|floatformat:"-3" }}</td><td class="num" data-label="Excess">{{ ln.excess_qty|floatformat:"-3" }}</td>
+      <td class="num" data-label="Damage">{{ ln.damage_qty|floatformat:"-3" }}{% if ln.damage_kind == 'CONTAINER' %}<div class="muted">{{ ln.container_count }} {{ ln.container_type|lower }}(s) @ {{ ln.container_rate|floatformat:0 }}</div>{% endif %}</td>
+      <td class="num" data-label="Value Rs">{% if ln.short_qty %}S {{ ln.short_value|floatformat:2|default:"-" }}{% endif %}{% if ln.damage_qty %}<div>D {{ ln.damage_value|floatformat:2|default:"-" }}</div>{% endif %}</td>
+      <td data-label="Remarks">{% if ln.short_remarks %}<div>{{ ln.short_remarks }}</div>{% endif %}{% if ln.excess_remarks %}<div>{{ ln.excess_remarks }}</div>{% endif %}{% if ln.damage_remarks %}<div>{{ ln.damage_remarks }}</div>{% endif %}</td>
+      <td data-label="Photos">{% if ln.damage_qty %}
+        <div class="thumbs">{% for ph in ln.photos.all %}<a href="{% url 'iw:sed_photo' ph.pk 'original' %}" target="_blank" rel="noopener"><img src="{% url 'iw:sed_photo' ph.pk 'preview' %}" alt="Damage photo {{ forloop.counter }} of {{ ln.floor_sku }}" class="thumb"></a>
+          {% if editable %}<form method="post" action="{% url 'iw:sed_photo_remove' ph.pk %}" class="inline-form">{% csrf_token %}<button type="submit" class="btn btn-sm" aria-label="Remove photo {{ forloop.counter }}">&times;</button></form>{% endif %}{% empty %}<span class="chip chip-warn">photo needed</span>{% endfor %}</div>
+        {% if editable %}<form method="post" action="{% url 'iw:sed_photo_add' ln.pk %}" enctype="multipart/form-data" class="photo-form">{% csrf_token %}
+          <label class="btn btn-sm">Take / choose photo<input type="file" name="photo" accept="image/*" capture="environment" multiple class="visually-hidden"></label>
+          <button type="submit" class="btn btn-sm btn-primary">Upload</button></form>{% endif %}
+      {% else %}-{% endif %}</td>
+      <td class="nowrap" data-label="">{% if editable %}<a class="btn btn-sm" href="{% url 'iw:sed_edit' ln.pk %}">Edit</a>
+        <form method="post" action="{% url 'iw:sed_delete' ln.pk %}" class="inline-form">{% csrf_token %}<button type="submit" class="btn btn-sm">Remove</button></form>{% endif %}</td></tr>
+    {% endfor %}</tbody>
+  </table></div>
+  {% else %}<p class="muted">No Short / Excess / Damage recorded - everything as per document.</p>{% endif %}
+</div>
+
+{% if editable %}
+<form method="post" class="card form-grid">{% csrf_token %}
+  <h2 class="span-all">Add SED</h2>
+  <div class="field span-all"><label for="f-pick">SKU *</label>
+    <select id="f-pick" name="pick" required><option value="">Select the SKU from the documents...</option>
+      {% regroup options by source_label as groups %}{% for g in groups %}<optgroup label="{{ g.grouper }}">{% for o in g.list %}<option value="{{ o.key }}"{% if post.pick == o.key %} selected{% endif %}>{{ o.floor_sku }} · {{ o.description|truncatechars:48 }} · {{ o.doc_pieces|floatformat:"-3" }} pcs</option>{% endfor %}</optgroup>{% endfor %}
+      <option value="EXTRA"{% if post.pick == 'EXTRA' %} selected{% endif %}>Extra SKU - not on any document (wrong item received)</option>
+    </select></div>
+  <div class="field"><label for="f-xsrc">Extra SKU came with</label><select id="f-xsrc" name="extra_source"><option value="">-</option>{% for key, label in sources %}<option value="{{ key }}"{% if post.extra_source == key %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+  <div class="field"><label for="f-xsku">Extra SKU (16 characters)</label><input id="f-xsku" name="extra_sku" maxlength="16" value="{{ post.extra_sku }}"></div>
+  <div class="field"><label for="f-xdesc">Extra SKU description</label><input id="f-xdesc" name="extra_desc" value="{{ post.extra_desc }}"></div>
+  {% include "iw/_sed_fields.html" %}
+  <div class="span-all"><button type="submit" class="btn btn-primary">Save SED line</button></div>
+</form>
+
+<div class="card">
+  <h2>Confirm physical verification</h2>
+  <p>Confirms that unloading is complete and every checklist line not listed above was received as per document.</p>
+  {% for b in blockers %}<div class="alert alert-error">{{ b }}</div>{% endfor %}
+  <form method="post" action="{% url 'iw:verification_confirm' iw.pk %}">{% csrf_token %}
+    <button type="submit" class="btn btn-primary"{% if blockers %} disabled{% endif %}>Confirm physical verification</button></form>
+</div>
+{% elif iw.status == 'PHYSICALLY_VERIFIED' %}
+<div class="card">
+  <h2>Reopen physical verification</h2>
+  <p class="muted">Only before the MRA is issued. SED and material can then be changed again.</p>
+  <form method="post" action="{% url 'iw:verification_reopen' iw.pk %}" class="inline">{% csrf_token %}
+    <label for="f-reason">Reason *</label><input id="f-reason" name="reason" required>
+    <button type="submit" class="btn">Reopen</button></form>
+</div>
+{% else %}
+<div class="card"><p class="muted">Generate the unloading checklist first; SED is recorded during unloading.</p></div>
+{% endif %}
+{% endblock %}

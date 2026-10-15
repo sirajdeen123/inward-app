@@ -5,6 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}Stock Inward{% endblock %} · Depot {{ depot.code }}</title>
 <link rel="stylesheet" href="{% static 'inward/app.css' %}">
+<link rel="manifest" href="{% static 'inward/manifest.webmanifest' %}">
+<link rel="apple-touch-icon" href="{% static 'inward/apple-touch-icon.png' %}">
+<meta name="theme-color" content="#1F2A44">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Inward">
 </head>
 <body>
 {% if TEST_MODE %}<div class="test-banner" role="status">TEST MODE · test data only · all e-mails go to the test address</div>{% endif %}

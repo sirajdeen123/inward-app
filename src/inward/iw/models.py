@@ -47,6 +47,8 @@ class Iw(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     void_reason = models.TextField(blank=True)
     voided_at = models.DateTimeField(null=True, blank=True)
+    verified_at = models.DateTimeField(null=True, blank=True)  # physical verification confirmed (SoT 7.2)
+    verified_by = models.ForeignKey(USER, null=True, blank=True, on_delete=models.PROTECT, related_name="+")
     version = models.PositiveIntegerField(default=1)
 
     class Meta:
@@ -276,3 +278,75 @@ class ChecklistSnapshot(models.Model):
         db_table = "iw_checklist"
         ordering = ["-revision"]
         constraints = [models.UniqueConstraint(fields=["iw", "revision"], name="uq_iw_checklist_revision")]
+
+
+# ---------------------------------------------------------------- Screen 04: SED (SoT 7.2)
+
+
+class SedLine(models.Model):
+    """Short / Excess / Damage of one SKU of one linked reference, in pieces. Physical verification records
+    exceptions only: every checklist line without an SED line was received as per the document (16-Oct-2026)."""
+
+    class Source(models.TextChoices):
+        SHIP = "SHIP", "Inbound Ship"
+        VENDOR = "VENDOR", "Vendor challan"
+        OUTBOUND = "OUTBOUND", "Outbound Ship"
+
+    class DamageKind(models.TextChoices):
+        MATERIAL = "MATERIAL", "Material damaged"
+        CONTAINER = "CONTAINER", "Container only (material usable after decanting)"
+
+    iw = models.ForeignKey(Iw, on_delete=models.CASCADE, related_name="sed_lines")
+    source = models.CharField(max_length=10, choices=Source.choices)
+    source_key = models.CharField(max_length=30)  # "SHIP:<link pk>" / "VENDOR:<consignment pk>" / "OUTBOUND:<ship pk>"
+    source_label = models.CharField(max_length=120)
+    ship_link = models.ForeignKey(ShipLink, null=True, blank=True, on_delete=models.CASCADE, related_name="sed_lines")
+    vendor_consignment = models.ForeignKey(VendorConsignment, null=True, blank=True, on_delete=models.CASCADE,
+                                           related_name="sed_lines")
+    outbound_ship = models.ForeignKey(OutboundShip, null=True, blank=True, on_delete=models.CASCADE,
+                                      related_name="sed_lines")
+    sku = models.CharField(max_length=16)
+    floor_sku = models.CharField(max_length=8)
+    description = models.CharField(max_length=200, blank=True)
+    is_extra = models.BooleanField(default=False)  # SKU not on the document (wrong item received): excess only
+    doc_pieces = models.DecimalField(max_digits=14, decimal_places=3, default=0)
+    short_qty = models.DecimalField(max_digits=14, decimal_places=3, default=0)
+    excess_qty = models.DecimalField(max_digits=14, decimal_places=3, default=0)
+    damage_qty = models.DecimalField(max_digits=14, decimal_places=3, default=0)
+    damage_kind = models.CharField(max_length=10, choices=DamageKind.choices, blank=True)
+    damage_pct = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    container_type = models.CharField(max_length=10, blank=True)  # CARTON / DRUM (container-only damage)
+    container_count = models.PositiveIntegerField(null=True, blank=True)
+    container_rate = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)  # snapshot
+    short_value = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)   # Rs
+    damage_value = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)  # Rs
+    short_remarks = models.CharField(max_length=300, blank=True)
+    excess_remarks = models.CharField(max_length=300, blank=True)
+    damage_remarks = models.CharField(max_length=300, blank=True)
+    created_by = models.ForeignKey(USER, on_delete=models.PROTECT, related_name="+")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_by = models.ForeignKey(USER, on_delete=models.PROTECT, related_name="+")
+    updated_at = models.DateTimeField(auto_now=True)
+    version = models.PositiveIntegerField(default=1)
+
+    class Meta:
+        db_table = "iw_sed_line"
+        ordering = ["source_key", "floor_sku", "sku"]
+        constraints = [models.UniqueConstraint(fields=["iw", "source_key", "sku"], name="uq_sed_source_sku")]
+
+    @property
+    def claimable(self):
+        return (self.short_value or 0) + (self.damage_value or 0)
+
+
+class SedPhoto(models.Model):
+    """Damage evidence: original kept as taken (SHA-256) plus a compressed preview (SoT 7.2)."""
+    line = models.ForeignKey(SedLine, on_delete=models.CASCADE, related_name="photos")
+    original = models.ForeignKey("core.Document", on_delete=models.PROTECT, related_name="+")
+    preview = models.ForeignKey("core.Document", null=True, blank=True, on_delete=models.PROTECT, related_name="+")
+    uploaded_by = models.ForeignKey(USER, on_delete=models.PROTECT, related_name="+")
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "iw_sed_photo"
+        ordering = ["uploaded_at"]

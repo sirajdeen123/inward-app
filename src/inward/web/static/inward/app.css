@@ -84,6 +84,8 @@ input.qty{font:inherit;width:90px;min-height:36px;padding:4px 8px;border:1px sol
 .tbl.cl .flag{color:var(--warn);font-weight:600;font-size:13px}
 .sheet-sum{margin:2px 0 8px;color:var(--muted)}
 .auth-logo{display:block;width:120px;height:auto;margin:0 0 8px}.auth-company{font-weight:700;letter-spacing:.3px}
+.report .rt{border-collapse:collapse;width:100%;margin:4px 0 12px;font-size:14px}.report .rt th,.report .rt td{border:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:top}.report .rt th{background:var(--side)}
+.report{overflow-x:auto}
 .strip{display:flex;gap:2px;flex-wrap:wrap}
 .step{font-size:11px;padding:2px 6px;border-radius:4px;background:#eef0f4;color:var(--muted)}
 .step-done{background:#d9f0e1;color:#1d5c34}.step-current{background:var(--ink);color:#fff;font-weight:600}

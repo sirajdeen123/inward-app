@@ -1,0 +1,5 @@
+{% extends "iw/mail/_base.html" %}
+{% block body %}
+<p>The IW <b>{{ snap.iw.iw_no }}</b> (vehicle {{ snap.iw.vehicle_no }}) was closed on {{ snap.closed_at|date:"d-M-Y H:i" }} by {{ snap.closed_by.full_name|default:snap.closed_by.username }}. The Final IRR Reconciliation Report (closure C{{ snap.number }}) is attached.</p>
+<ul>{% for r in snap.recon %}<li>{{ r.track }}: <b>{{ r.status }}</b></li>{% empty %}<li>Nothing to reconcile (ends at the MRA).</li>{% endfor %}</ul>
+{% endblock %}

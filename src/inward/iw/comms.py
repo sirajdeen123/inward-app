@@ -180,16 +180,21 @@ def verify_email(user: User, kind: str, pk: str, corrected: str = "") -> None:
 # ---------------------------------------------------------------- queueing
 
 
-def _branding(iw: Iw) -> dict:
+def _branding(iw: Iw | None) -> dict:
     depot = Depot.objects.filter(code=settings.INWARD["DEPOT_CODE"]).first()
-    content = (iw.mras.first().content if iw.mras.exists() else {}) or {}
+    content = (iw.mras.first().content if iw and iw.mras.exists() else {}) or {}
+    if not content.get("depot") and depot:
+        from inward.web.context import depot_info
+        info = depot_info()
+        content = {"depot": {"company": depot.company_name, "code": depot.code, "name": depot.name, "cfa": info["cfa"],
+                             "seal": branding.seal_lines(depot.company_name, info["cfa"], depot.code, depot.name)}}
     d = content.get("depot") or {}
     return {"company": d.get("company") or (depot.company_name if depot else ""),
             "depot_code": d.get("code") or settings.INWARD["DEPOT_CODE"], "depot_name": d.get("name", ""),
             "cfa": d.get("cfa", ""), "seal": d.get("seal") or {}}
 
 
-def _queue(iw: Iw, purpose: str, mra: MraRevision | None, tag: str, to: list[str], cc: list[str], subject: str,
+def _queue(iw: Iw | None, purpose: str, mra: MraRevision | None, tag: str, to: list[str], cc: list[str], subject: str,
            template: str, context: dict, attachments, user: User) -> MailMessage:
     from inward.mail.gmail import new_message_id
     m = MailMessage.objects.create(iw=iw, mra=mra, purpose=purpose, to=to, cc=[c for c in cc if c not in to],
@@ -424,15 +429,16 @@ PERMANENT = (smtplib.SMTPAuthenticationError, smtplib.SMTPRecipientsRefused, smt
 def _mark_sent(m: MailMessage, ev) -> None:
     doc = documents.store(ev.eml, filename=f"{m.stamp.replace('#', '').replace(' ', '_')}.eml",
                           content_type="message/rfc822", doc_type="MAIL_SENT_EML",
-                          links=[("iw", m.iw_id, f"mail_{m.purpose.lower()}")])
+                          links=[("iw", m.iw_id, f"mail_{m.purpose.lower()}")] if m.iw_id else [])
     m.status, m.sent_at, m.eml, m.last_error = M.SENT, ev.sent_at, doc, ""
     m.save(update_fields=["status", "sent_at", "eml", "last_error"])
     audit.record("MAIL_SENT", "iw", m.iw_id, iw_id=m.iw_id,
                  after={"purpose": m.purpose, "stamp": m.stamp, "message_id": ev.message_id, "to": ev.to, "cc": ev.cc,
                         "eml_sha256": doc.sha256,
                         "attachments": [{"name": d.original_filename, "sha256": d.sha256} for d in m.attachments.all()]})
-    with transaction.atomic():
-        try_complete(m.iw)
+    if m.iw_id:
+        with transaction.atomic():
+            try_complete(m.iw)
 
 
 def process_outbox(transport, now=None) -> dict:
@@ -592,9 +598,10 @@ def send_reminders(now=None) -> int:
 
 
 def run_once(transport, read_inbox: bool = True) -> dict:
-    stats = {}
+    from inward.iw import reports
+    stats = {"reports": len(reports.due_reports())}
     if MailMessage.objects.exclude(status__in=[M.SENT, M.FAILED]).exists():
-        stats = process_outbox(transport)  # Gmail is contacted only when something waits
+        stats.update(process_outbox(transport))  # Gmail is contacted only when something waits
     stats["reminders"] = send_reminders()
     if not read_inbox or not SedApproval.objects.filter(status__in=[A.REQUESTED, A.REJECTED]).exists():
         return stats

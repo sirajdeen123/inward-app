@@ -1,0 +1,4 @@
+<h3>SED report - {{ r.from|date:"d-M-Y" }} to {{ r.to|date:"d-M-Y" }}</h3>
+<p>{{ r.lines|length }} line(s) · short {{ r.totals.short|floatformat:"-3" }} · excess {{ r.totals.excess|floatformat:"-3" }} · damage {{ r.totals.damage|floatformat:"-3" }} pcs · claimable <b>Rs {{ r.totals.value|floatformat:2 }}</b></p>
+{% if r.lines %}<table class="rt"><tr><th>IW</th><th>Source</th><th>Reference</th><th>SKU</th><th>Description</th><th>Short</th><th>Excess</th><th>Damage</th><th>Claimable Rs</th></tr>
+{% for ln in r.lines %}<tr><td>{{ ln.iw }}</td><td>{{ ln.iw.source_org|default:"-" }}</td><td>{{ ln.source_label }}</td><td>{{ ln.floor_sku }}</td><td>{{ ln.description }}</td><td>{{ ln.short_qty|floatformat:"-3" }}</td><td>{{ ln.excess_qty|floatformat:"-3" }}</td><td>{{ ln.damage_qty|floatformat:"-3" }}</td><td>{{ ln.claimable|floatformat:2 }}</td></tr>{% endfor %}</table>{% endif %}

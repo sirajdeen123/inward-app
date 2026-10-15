@@ -147,6 +147,8 @@ def close(user: User, iw_pk: int) -> IwClosure:
     iw.status = Iw.Status.CLOSED
     iw.version += 1
     iw.save(update_fields=["status", "version", "updated_at"])
+    from inward.iw.reports import send_irr_report
+    send_irr_report(snap, user)  # Admin Officer, CFA Manager, Clerk (SoT table 15)
     audit.record("IW_CLOSED", "iw", iw.pk, user=user, iw_id=iw.pk,
                  after={"closure": number, "report": str(doc.pk) if doc else None,
                         "results": {r.track: r.status for r in results}})

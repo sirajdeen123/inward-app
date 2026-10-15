@@ -1,0 +1,20 @@
+<h3>Daily escalation - {{ r.day|date:"d-M-Y" }}</h3>
+<p>Open IWs {{ r.open|length }} · aged over 48 h {{ r.aged|length }} · ERP pending {{ r.erp_pending|length }} · open SED value Rs {{ r.claim_open|floatformat:2 }}{% if r.mail.show %} · <b>mail problems: {{ r.mail.failed }} failed, {{ r.mail.late }} late</b>{% endif %}</p>
+
+<h4>Aged open IWs (48 h and more since arrival)</h4>
+{% if r.aged %}<table class="rt"><tr><th>IW</th><th>Vehicle</th><th>Status</th><th>Age</th><th>Next action</th></tr>
+{% for o in r.aged %}<tr><td>{{ o.iw }}</td><td>{{ o.iw.vehicle_no }}</td><td>{{ o.iw.get_status_display }}</td><td>{{ o.age_text }}</td><td>{% for a in o.actions|slice:":2" %}{{ a.text }}{% if not forloop.last %}; {% endif %}{% endfor %}</td></tr>{% endfor %}</table>{% else %}<p>None.</p>{% endif %}
+
+<h4>ERP / IRR pending</h4>
+{% if r.erp_pending %}<table class="rt"><tr><th>IW</th><th>Vehicle</th><th>Status</th><th>Next action</th></tr>
+{% for o in r.erp_pending %}<tr><td>{{ o.iw }}</td><td>{{ o.iw.vehicle_no }}</td><td>{{ o.iw.get_status_display }}</td><td>{% for a in o.actions|slice:":2" %}{{ a.text }}{% if not forloop.last %}; {% endif %}{% endfor %}</td></tr>{% endfor %}</table>{% else %}<p>None.</p>{% endif %}
+{% if r.irr_problem %}<table class="rt"><tr><th>IW</th><th>Item</th><th>IRR result</th></tr>{% for iw, track, st in r.irr_problem %}<tr><td>{{ iw }}</td><td>{{ track }}</td><td>{{ st }}</td></tr>{% endfor %}</table>{% endif %}
+
+<h4>SIT Ships needing attention</h4>
+{% if r.ships %}<table class="rt"><tr><th>Ship</th><th>From</th><th>Status</th></tr>{% for s in r.ships %}<tr><td>{{ s.ship_id }}</td><td>{{ s.from_org_code }} {{ s.from_org_name }}</td><td>{{ s.get_status_display }}</td></tr>{% endfor %}</table>{% else %}<p>None.</p>{% endif %}
+
+<h4>SED approvals pending / rejected</h4>
+{% if r.approvals %}<table class="rt"><tr><th>IW</th><th>MRA</th><th>Status</th><th>Requested</th></tr>{% for a in r.approvals %}<tr><td>{{ a.iw }}</td><td>{{ a.mra.label }}</td><td>{{ a.get_status_display }}</td><td>{{ a.created_at|date:"d-M-Y H:i" }}</td></tr>{% endfor %}</table>{% else %}<p>None.</p>{% endif %}
+
+<h4>Mail-pending releases still unsent</h4>
+{% if r.releases %}<table class="rt"><tr><th>IW</th><th>Released</th><th>Reason</th></tr>{% for x in r.releases %}<tr><td>{{ x.iw }}</td><td>{{ x.released_at|date:"d-M-Y H:i" }}</td><td>{{ x.reason }}</td></tr>{% endfor %}</table>{% else %}<p>None.</p>{% endif %}

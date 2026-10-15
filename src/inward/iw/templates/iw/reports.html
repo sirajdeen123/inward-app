@@ -1,0 +1,26 @@
+{% extends "web/base.html" %}
+{% block title %}Reports{% endblock %}
+{% block content %}
+<h1>Reports</h1>
+<div class="bar">{% for k, label in kinds %}<a class="btn btn-sm{% if k == kind %} btn-primary{% endif %}" href="?r={{ k }}">{{ label }}</a> {% endfor %}</div>
+<form method="get" class="card inline">
+  <input type="hidden" name="r" value="{{ kind }}">
+  {% if kind == 'daily' or kind == 'unloading' %}<label for="rp-day">Day</label><input id="rp-day" type="date" name="day" value="{{ day|date:'Y-m-d' }}">
+  {% elif kind == 'sed' %}<label for="rp-from">From</label><input id="rp-from" type="date" name="from" value="{{ d1|date:'Y-m-d' }}"><label for="rp-to">To</label><input id="rp-to" type="date" name="to" value="{{ d2|date:'Y-m-d' }}">
+  {% else %}<label for="rp-m">Month</label><input id="rp-m" type="month" name="month" value="{{ month }}">{% endif %}
+  <button type="submit" class="btn">Show</button>
+  {% if kind == 'sed' %}<button type="submit" name="xlsx" value="1" class="btn">Download Excel</button>{% endif %}
+</form>
+<div class="card report">{% include template %}</div>
+{% if can_send %}
+<form method="post" action="{% url 'iw:report_send' %}" class="card inline">{% csrf_token %}
+  <input type="hidden" name="r" value="{{ kind }}"><input type="hidden" name="day" value="{{ day|date:'Y-m-d' }}"><input type="hidden" name="from" value="{{ d1|date:'Y-m-d' }}"><input type="hidden" name="to" value="{{ d2|date:'Y-m-d' }}"><input type="hidden" name="month" value="{{ month }}">
+  <span class="muted">Scheduled: daily reports after the report time every day; MIS and SED report on the 1st for the previous month.</span>
+  <button type="submit" class="btn">E-mail this report now</button></form>
+{% endif %}
+<div class="card"><h2>Report e-mails</h2>
+  {% if runs %}<table class="tbl stack"><thead><tr><th>Report</th><th>Period</th><th>Queued</th><th>Mail</th></tr></thead>
+    <tbody>{% for x in runs %}<tr><td data-label="Report">{{ x.kind }}</td><td data-label="Period">{{ x.period }}</td><td data-label="Queued">{{ x.created_at|date:"d-M-Y H:i" }}</td>
+      <td data-label="Mail">{% if x.skipped %}<span class="chip chip-warn">skipped: {{ x.skipped }}</span>{% elif x.mail %}<span class="chip {% if x.mail.status == 'SENT' %}chip-ok{% else %}chip-warn{% endif %}">{{ x.mail.get_status_display }}</span>{% endif %}</td></tr>{% endfor %}</tbody></table>
+  {% else %}<p class="muted">No report sent yet.</p>{% endif %}</div>
+{% endblock %}

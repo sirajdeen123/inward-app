@@ -1,0 +1,14 @@
+<h3>Monthly MIS - {{ r.month|date:"F Y" }}</h3>
+<table class="rt">
+<tr><th>IWs (arrived in the month)</th><td>{{ r.iws }}</td></tr>
+<tr><th>Closed in the month</th><td>{{ r.closed }}{% if r.avg_close_days is not None %} · average {{ r.avg_close_days|floatformat:1 }} days, longest {{ r.max_close_days|floatformat:1 }} days from arrival{% endif %}</td></tr>
+<tr><th>ERP receipts entered</th><td>{{ r.receipts }}</td></tr>
+<tr><th>IRR results (latest run)</th><td>{% for k, v in r.recon.items %}{% if v %}{{ k }} {{ v }} · {% endif %}{% endfor %}</td></tr>
+<tr><th>SED</th><td>{{ r.sed_iws }} IW(s) · short {{ r.sed.short|floatformat:"-3" }} · excess {{ r.sed.excess|floatformat:"-3" }} · damage {{ r.sed.damage|floatformat:"-3" }} pcs · claimable Rs {{ r.sed.value|floatformat:2 }}</td></tr>
+<tr><th>Unloading</th><td>charged Rs {{ r.unloading.charged|floatformat:2 }} · collected at unloading Rs {{ r.unloading.paid|floatformat:2 }} · exempt {{ r.unloading.exempt }}</td></tr>
+</table>
+<h4>IWs by load type</h4>
+<table class="rt"><tr><th>Load type</th><th>IWs</th></tr>{% for t in r.by_type %}<tr><td>{{ t.load_type__name }}</td><td>{{ t.n }}</td></tr>{% empty %}<tr><td colspan="2">None</td></tr>{% endfor %}</table>
+<h4>Non-Stock Receipt Register</h4>
+{% if r.non_stock %}<table class="rt"><tr><th>IW</th><th>Arrival</th><th>Sender</th><th>Document</th><th>Items</th></tr>
+{% for iw in r.non_stock %}{% for ref in iw.non_stock_refs.all %}<tr><td>{{ iw }}</td><td>{{ iw.arrival_at|date:"d-M-Y" }}</td><td>{{ ref.sender }}</td><td>{{ ref.document_no }}</td><td>{% for x in ref.lines.all %}{{ x.description }} {{ x.quantity|floatformat:"-3" }} {{ x.unit }}{% if not forloop.last %}; {% endif %}{% endfor %}</td></tr>{% endfor %}{% endfor %}</table>{% else %}<p>None.</p>{% endif %}

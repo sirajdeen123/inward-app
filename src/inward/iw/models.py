@@ -479,6 +479,11 @@ class MailMessage(models.Model):
         SED_NOTIFY = "SED_NOTIFY", "Internal SED notification"
         SED_APPROVAL = "SED_APPROVAL", "SED approval request"
         SED_REMINDER = "SED_REMINDER", "SED approval reminder"
+        IRR_RECON = "IRR_RECON", "IRR Reconciliation Report"
+        DAILY_ESCALATION = "DAILY_ESC", "Daily escalation report"
+        DAILY_UNLOADING = "DAILY_UNL", "Daily unloading collection"
+        SED_REPORT = "SED_REPORT", "SED report"
+        MONTHLY_MIS = "MONTHLY_MIS", "Monthly MIS"
 
     class Status(models.TextChoices):
         PENDING = "PENDING", "Waiting to send"
@@ -487,7 +492,7 @@ class MailMessage(models.Model):
         FAILED = "FAILED", "Failed"
         FAILED_UNCONFIRMED = "FAILED_UNCONF", "Not confirmed - retrying"
 
-    iw = models.ForeignKey(Iw, on_delete=models.PROTECT, related_name="mails")
+    iw = models.ForeignKey(Iw, null=True, blank=True, on_delete=models.PROTECT, related_name="mails")  # null: reports
     mra = models.ForeignKey("MraRevision", null=True, blank=True, on_delete=models.PROTECT, related_name="mails")
     purpose = models.CharField(max_length=14, choices=Purpose.choices)
     stamp = models.CharField(max_length=80, unique=True, null=True)
@@ -649,3 +654,16 @@ class IwClosure(models.Model):
         db_table = "iw_closure"
         ordering = ["-number"]
         constraints = [models.UniqueConstraint(fields=["iw", "number"], name="uq_iw_closure_number")]
+
+
+class ReportRun(models.Model):
+    """A scheduled report sent for a period (e.g. DAILY_ESC 2026-10-16, MONTHLY_MIS 2026-09): sent once only."""
+    kind = models.CharField(max_length=14)
+    period = models.CharField(max_length=10)
+    mail = models.ForeignKey(MailMessage, null=True, blank=True, on_delete=models.PROTECT, related_name="+")
+    skipped = models.CharField(max_length=200, blank=True)  # e.g. no recipient e-mail set
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "report_run"
+        constraints = [models.UniqueConstraint(fields=["kind", "period"], name="uq_report_period")]

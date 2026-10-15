@@ -1,0 +1,52 @@
+{% extends "web/base.html" %}
+{% block title %}Packages &amp; unloading · {{ iw }}{% endblock %}
+{% block content %}
+<p><a href="{% url 'iw:detail' iw.pk %}">&larr; {{ iw }}</a></p>
+<h1>Package counts &amp; unloading · {{ iw }}</h1>
+<p class="muted">{{ iw.vehicle_no }} · {{ iw.load_type }}{% if iw.transporter %} · {{ iw.transporter }}{% endif %} · arrived {{ iw.arrival_at|date:"d-M-Y H:i" }}</p>
+{% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
+{% with editable=iw.is_editable %}
+
+<form method="post" class="card">{% csrf_token %}
+  <h2>1 · Package counts (as per documents) {% if counts_saved %}<span class="chip chip-ok">Saved</span>{% else %}<span class="chip chip-warn">Not saved - proposal from the checklist</span>{% endif %}</h2>
+  {% if warehouses %}
+  <p class="muted">Pre-filled from checklist R{{ snap.revision }}. Correct any figure to match the documents; the MRA prints these counts per warehouse.</p>
+  <div class="grid2">{% for label, rows in warehouses %}
+    <div><h3>{{ label }}</h3>
+    <table class="tbl"><thead><tr><th>Package</th><th class="num">Checklist</th><th class="num">Documents</th></tr></thead>
+    <tbody>{% for r in rows %}<tr><td>{{ r.label }} <span class="muted">({{ r.unit }})</span></td><td class="num">{{ r.checklist_count|floatformat:"-3"|default:"-" }}</td>
+      <td class="num">{% if editable %}<input name="pc_{{ r.warehouse }}|{{ r.group }}" class="qty" inputmode="decimal" value="{{ r.count|floatformat:'-3' }}" aria-label="{{ label }} {{ r.label }}">{% else %}{{ r.count|floatformat:"-3" }}{% endif %}</td></tr>{% endfor %}</tbody></table></div>
+  {% endfor %}</div>
+  {% if editable %}<p><button type="submit" name="action" value="counts" class="btn btn-primary">Save package counts</button>
+    {% if counts_saved %}<button type="submit" name="action" value="reload" class="btn">Reload from checklist</button>{% endif %}</p>{% endif %}
+  {% else %}<p class="muted">Generate the unloading checklist first - package counts are taken from it.</p>{% endif %}
+</form>
+
+<form method="post" class="card form-grid">{% csrf_token %}
+  <h2 class="span-all">2 · Unloading charge and payment
+    {% if rec %}<span class="chip {% if rec.status == 'EXEMPT_REQ' %}chip-warn{% else %}chip-ok{% endif %}">{{ rec.get_status_display }}</span>{% else %}<span class="chip chip-warn">Not recorded</span>{% endif %}</h2>
+  {% if exempt_rejected %}<div class="alert alert-error span-all">The CFA Manager rejected Exempt / Nil{% if rec.exempt_request.decision_note %}: {{ rec.exempt_request.decision_note }}{% endif %}. Record the payment position.</div>{% endif %}
+  {% if rec %}<div class="span-all kpis">
+    <div class="card kpi"><div class="kpi-label">Tonnage</div><div class="kpi-value">{{ rec.tonnage|floatformat:"-3" }} t</div></div>
+    <div class="card kpi"><div class="kpi-label">Rate (from {{ rec.rate_effective_from|date:"d-M-Y" }})</div><div class="kpi-value">Rs {{ rec.rate|floatformat:2 }}/t</div></div>
+    <div class="card kpi"><div class="kpi-label">Unloading charge</div><div class="kpi-value">Rs {{ rec.charge|floatformat:2 }}</div></div>
+    <div class="card kpi"><div class="kpi-label">Paid / outstanding</div><div class="kpi-value">Rs {{ rec.paid_amount|floatformat:2 }} / {{ rec.outstanding|floatformat:2 }}</div>
+      {% if settled is not None %}<div class="{% if settled %}muted{% else %}warn-text{% endif %}">{% if settled %}Ledger: received{% else %}In transporter ledger{% endif %}</div>{% endif %}</div>
+  </div>{% endif %}
+  {% if editable %}
+  <input type="hidden" name="action" value="unloading">{% if rec %}<input type="hidden" name="version" value="{{ rec.version }}">{% endif %}
+  <div class="field"><label for="u-ton">Tonnage from documents (tonnes) *</label><input id="u-ton" name="tonnage" inputmode="decimal" placeholder="e.g. 13.2" value="{% if post %}{{ post.tonnage }}{% elif rec %}{{ rec.tonnage|floatformat:'-3' }}{% endif %}"></div>
+  <div class="field"><label>Rate on {{ arrival|date:"d-M-Y" }}</label><div class="kpi-value">{% if rate %}Rs {{ rate|floatformat:2 }} per ton{% else %}<span class="warn-text">not set</span>{% endif %}</div></div>
+  <div class="field"></div>
+  <div class="field span-all"><label>Payment position *</label>
+    {% for value, label in statuses %}<label class="check"><input type="radio" name="status" value="{{ value }}"{% if post and post.status == value %} checked{% elif not post and rec and rec.status == value %} checked{% elif not post and rec.status == 'EXEMPT_REQ' and value == 'EXEMPT' %} checked{% endif %}> {{ label }}{% if value == 'EXEMPT' %} (needs CFA Manager approval){% endif %}</label>{% endfor %}</div>
+  <div class="field"><label for="u-paid">Amount paid (Rs) - Part paid</label><input id="u-paid" name="paid_amount" inputmode="decimal" placeholder="Paid = full charge" value="{% if post %}{{ post.paid_amount }}{% elif rec and rec.status == 'PART_PAID' %}{{ rec.paid_amount }}{% endif %}"></div>
+  <div class="field"><label for="u-mode">Paid by</label><select id="u-mode" name="payment_mode"><option value="">-</option>{% for value, label in modes %}<option value="{{ value }}"{% if post and post.payment_mode == value or not post and rec.payment_mode == value %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+  <div class="field"><label for="u-ref">Receipt / UPI reference</label><input id="u-ref" name="payment_ref" value="{% if post %}{{ post.payment_ref }}{% elif rec %}{{ rec.payment_ref }}{% endif %}"></div>
+  <div class="field span-all"><label for="u-ex">Reason for Exempt / Nil</label><input id="u-ex" name="exempt_reason" value="{% if post %}{{ post.exempt_reason }}{% elif rec %}{{ rec.exempt_reason }}{% endif %}"></div>
+  {% if not iw.transporter %}<p class="warn-text span-all">No transporter on this IW - Part paid / Outstanding need one (edit the IW).</p>{% endif %}
+  <div class="span-all"><button type="submit" class="btn btn-primary">Save unloading</button> <a class="btn" href="{% url 'iw:ledger' %}">Transporter ledger</a></div>
+  {% endif %}
+</form>
+{% endwith %}
+{% endblock %}

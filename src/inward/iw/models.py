@@ -350,3 +350,92 @@ class SedPhoto(models.Model):
     class Meta:
         db_table = "iw_sed_photo"
         ordering = ["uploaded_at"]
+
+
+# ---------------------------------------------------------------- Screen 04: package counts and unloading (SoT 6, 7.5)
+
+
+class PackageCount(models.Model):
+    """Document package counts per warehouse for the MRA, pre-filled from the checklist and confirmed by the clerk."""
+    iw = models.ForeignKey(Iw, on_delete=models.CASCADE, related_name="package_counts")
+    warehouse = models.CharField(max_length=10)  # RETAIL / INDUSTRIAL / OUTBOUND / OTHER
+    group = models.CharField(max_length=20)      # package group code, LOOSE, COLOUR_BANK, NON_STOCK
+    label = models.CharField(max_length=60)
+    unit = models.CharField(max_length=10, default="packages")  # packages / pieces / units
+    count = models.DecimalField(max_digits=14, decimal_places=3)
+    checklist_count = models.DecimalField(max_digits=14, decimal_places=3, null=True, blank=True)
+    sort_order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        db_table = "iw_package_count"
+        ordering = ["warehouse", "sort_order"]
+        constraints = [models.UniqueConstraint(fields=["iw", "warehouse", "group"], name="uq_iw_package_count")]
+
+
+class UnloadingRecord(models.Model):
+    """Unloading charge = tonnage x effective rate (snapshotted), and its settlement (SoT 6, 7.5)."""
+
+    class Status(models.TextChoices):
+        PAID = "PAID", "Paid"
+        PART_PAID = "PART_PAID", "Part paid"
+        OUTSTANDING = "OUTSTANDING", "Outstanding - transporter ledger"
+        EXEMPT_REQUESTED = "EXEMPT_REQ", "Exempt / Nil - awaiting CFA Manager"
+        EXEMPT = "EXEMPT", "Exempt / Nil"
+
+    class Mode(models.TextChoices):
+        CASH = "CASH", "Cash"
+        UPI = "UPI", "UPI"
+        BANK = "BANK", "Bank transfer"
+        OTHER = "OTHER", "Other"
+
+    SETTLED = {Status.PAID, Status.PART_PAID, Status.OUTSTANDING, Status.EXEMPT}  # G04-ULC passes
+
+    iw = models.OneToOneField(Iw, on_delete=models.CASCADE, related_name="unloading")
+    tonnage = models.DecimalField(max_digits=10, decimal_places=3)
+    rate = models.DecimalField(max_digits=14, decimal_places=2)
+    rate_effective_from = models.DateField()
+    charge = models.DecimalField(max_digits=14, decimal_places=2)
+    status = models.CharField(max_length=12, choices=Status.choices)
+    paid_amount = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    payment_mode = models.CharField(max_length=6, choices=Mode.choices, blank=True)
+    payment_ref = models.CharField(max_length=60, blank=True)
+    exempt_reason = models.TextField(blank=True)
+    exempt_request = models.ForeignKey("accounts.ApprovalRequest", null=True, blank=True, on_delete=models.PROTECT,
+                                       related_name="+")
+    recorded_by = models.ForeignKey(USER, on_delete=models.PROTECT, related_name="+")
+    recorded_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    version = models.PositiveIntegerField(default=1)
+
+    class Meta:
+        db_table = "iw_unloading"
+
+    @property
+    def outstanding(self):
+        if self.status in (self.Status.EXEMPT, self.Status.EXEMPT_REQUESTED):
+            return 0
+        return self.charge - self.paid_amount
+
+
+class TransporterLedgerEntry(models.Model):
+    """Transporter unloading ledger: CHARGE = outstanding unloading of an IW (debit), RECEIPT = money received
+    later (credit). It runs independently of IW closure (SoT 7.5)."""
+
+    class Kind(models.TextChoices):
+        CHARGE = "CHARGE", "Unloading outstanding"
+        RECEIPT = "RECEIPT", "Receipt"
+
+    transporter = models.ForeignKey(Transporter, on_delete=models.PROTECT, related_name="ledger")
+    iw = models.OneToOneField(Iw, null=True, blank=True, on_delete=models.PROTECT, related_name="ledger_charge")
+    kind = models.CharField(max_length=8, choices=Kind.choices)
+    amount = models.DecimalField(max_digits=14, decimal_places=2)
+    entry_date = models.DateField()
+    payment_mode = models.CharField(max_length=6, blank=True)
+    reference = models.CharField(max_length=60, blank=True)
+    remarks = models.CharField(max_length=200, blank=True)
+    created_by = models.ForeignKey(USER, on_delete=models.PROTECT, related_name="+")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "transporter_ledger"
+        ordering = ["entry_date", "id"]

@@ -1,0 +1,37 @@
+{% extends "web/base.html" %}
+{% block title %}Ledger · {{ v.transporter.name }}{% endblock %}
+{% block content %}
+<p><a href="{% url 'iw:ledger' %}">&larr; Transporter ledger</a></p>
+<h1>{{ v.transporter.name }}</h1>
+<div class="kpis">
+  <div class="card kpi"><div class="kpi-label">Outstanding posted</div><div class="kpi-value">Rs {{ v.charges|floatformat:2 }}</div></div>
+  <div class="card kpi"><div class="kpi-label">Received</div><div class="kpi-value">Rs {{ v.receipts|floatformat:2 }}</div></div>
+  <div class="card kpi"><div class="kpi-label">Balance</div><div class="kpi-value">Rs {{ v.balance|floatformat:2 }}</div></div>
+  <div class="card kpi"><div class="kpi-label">Open IWs</div><div class="kpi-value">{{ v.open_iws|length }}</div></div>
+</div>
+{% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
+{% if v.balance > 0 %}
+<form method="post" class="card form-grid">{% csrf_token %}
+  <h2 class="span-all">Record a receipt</h2>
+  <div class="field"><label for="r-amt">Amount received (Rs) *</label><input id="r-amt" name="amount" inputmode="decimal" value="{{ post.amount }}"></div>
+  <div class="field"><label for="r-date">Date *</label><input id="r-date" name="entry_date" type="date" value="{% if post.entry_date %}{{ post.entry_date }}{% else %}{{ today|date:'Y-m-d' }}{% endif %}"></div>
+  <div class="field"><label for="r-mode">Received by *</label><select id="r-mode" name="payment_mode"><option value="">-</option>{% for value, label in modes %}<option value="{{ value }}"{% if post.payment_mode == value %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+  <div class="field"><label for="r-ref">Reference</label><input id="r-ref" name="reference" value="{{ post.reference }}"></div>
+  <div class="field span-all"><label for="r-rem">Remarks</label><input id="r-rem" name="remarks" value="{{ post.remarks }}"></div>
+  <div class="span-all"><button type="submit" class="btn btn-primary">Save receipt</button></div>
+</form>
+{% endif %}
+<div class="card">
+  <h2>Entries</h2>
+  <table class="tbl stack">
+    <thead><tr><th>Date</th><th>Entry</th><th>IW / reference</th><th class="num">Outstanding</th><th class="num">Received</th><th class="num">Balance</th><th>Status</th></tr></thead>
+    <tbody>{% for e, running, still in rows %}<tr>
+      <td data-label="Date">{{ e.entry_date|date:"d-M-Y" }}</td><td data-label="Entry">{{ e.get_kind_display }}</td>
+      <td data-label="IW / reference">{% if e.iw %}<a href="{% url 'iw:detail' e.iw.pk %}">{{ e.iw }}</a> · {{ e.iw.vehicle_no }}{% else %}{{ e.get_payment_mode_display|default:e.payment_mode }} {{ e.reference }} {{ e.remarks }}{% endif %}</td>
+      <td class="num" data-label="Outstanding">{% if e.kind == 'CHARGE' %}{{ e.amount|floatformat:2 }}{% endif %}</td>
+      <td class="num" data-label="Received">{% if e.kind == 'RECEIPT' %}{{ e.amount|floatformat:2 }}{% endif %}</td>
+      <td class="num" data-label="Balance">{{ running|floatformat:2 }}</td>
+      <td data-label="Status">{% if e.kind == 'CHARGE' %}{% if still %}<span class="chip chip-warn">Rs {{ still|floatformat:2 }} due</span>{% else %}<span class="chip chip-ok">Settled</span>{% endif %}{% endif %}</td></tr>{% endfor %}</tbody>
+  </table>
+</div>
+{% endblock %}

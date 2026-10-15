@@ -8,6 +8,7 @@ class IwConfig(AppConfig):
 
     def ready(self):
         from inward.accounts import approvals
-        from inward.iw import services
+        from inward.iw import services, unloading
 
         approvals.register("IW_VOID", services.apply_void)
+        approvals.register("UNLOADING_EXEMPT", unloading.apply_exempt)

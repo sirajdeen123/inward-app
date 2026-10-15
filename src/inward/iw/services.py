@@ -150,6 +150,9 @@ def update(user: User, iw_pk: int, version: int, data: IwData) -> Iw:
     _apply(iw, data)
     iw.version += 1
     iw.save()
+    if hasattr(iw, "unloading"):  # an outstanding unloading follows the transporter on the IW
+        from inward.iw.unloading import _sync_ledger
+        _sync_ledger(user, iw, iw.unloading)
     audit.record("IW_UPDATED", "iw", iw.pk, user=user, iw_id=iw.pk, before=before, after=_snapshot(iw))
     return iw
 
@@ -174,6 +177,8 @@ def apply_void(req: ApprovalRequest, approver: User) -> None:
     iw.voided_at = timezone.now()
     iw.version += 1
     iw.save()
+    from inward.iw.unloading import _sync_ledger
+    _sync_ledger(approver, iw, None)  # a voided IW owes no unloading
     audit.record("IW_VOIDED", "iw", iw.pk, user=approver, iw_id=iw.pk, before=before, after=_snapshot(iw),
                  requested_by=req.requested_by_id, approval_request=req.pk)
 

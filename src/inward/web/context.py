@@ -30,6 +30,10 @@ def depot(request) -> dict:
         try:
             from inward.accounts.approvals import pending_for
             ctx["approvals_pending"] = pending_for(user).count()
+            from inward.accounts.services import modes_for
+            if "GRANT" in modes_for(user, "PACKAGING_REVIEW"):
+                from inward.core.models import PackagingChange
+                ctx["packaging_review_pending"] = PackagingChange.objects.filter(review="PENDING").count()
         except Exception:  # noqa: BLE001
             ctx["approvals_pending"] = 0
     try:

@@ -1,0 +1,30 @@
+{% extends "web/base.html" %}
+{% block title %}Packaging upload preview{% endblock %}
+{% block content %}
+<p><a href="{% url 'core:packaging' %}">&larr; SKU packaging</a></p>
+<h1>Preview: {{ up.filename }}</h1>
+<div class="kpis">
+  <div class="kpi"><div class="kpi-label">New SKUs</div><div class="kpi-value">{{ up.counts.new }}</div></div>
+  <div class="kpi"><div class="kpi-label">Changed</div><div class="kpi-value">{{ up.counts.changed }}</div></div>
+  <div class="kpi"><div class="kpi-label">Drastic changes</div><div class="kpi-value">{{ up.counts.drastic }}</div></div>
+  <div class="kpi"><div class="kpi-label">Unchanged / errors</div><div class="kpi-value">{{ up.counts.unchanged }} / {{ up.counts.errors }}</div></div>
+</div>
+{% if up.bulk_flagged %}<div class="alert alert-warning">This list changes more than {{ bulk_limit }} existing SKUs at once - all those changes will be flagged to the CFA Manager.</div>{% endif %}
+{% if up.counts.verify %}<p class="muted">{{ up.counts.verify }} SKU(s) are drums / barrels / bags with more than one unit per package; they get a "Verify physically" flag for the clerk.</p>{% endif %}
+{% if up.sample.drastic %}<div class="card"><h2>Drastic changes (flagged to the CFA Manager)</h2>
+  <table class="tbl"><thead><tr><th>SKU</th><th>Description</th><th>Now</th><th>New</th><th>Why</th></tr></thead><tbody>
+  {% for r in up.sample.drastic %}<tr><td class="mono">{{ r.0 }}</td><td>{{ r.1 }}</td><td>{{ r.2 }} · {{ r.3|default:"-" }}</td><td>{{ r.4 }} · {{ r.5|default:"-" }}</td><td>{{ r.6 }}</td></tr>{% endfor %}
+  </tbody></table></div>{% endif %}
+{% if up.sample.changed %}<div class="card"><h2>Other changes (logged)</h2>
+  <table class="tbl"><thead><tr><th>SKU</th><th>Description</th><th>Now</th><th>New</th></tr></thead><tbody>
+  {% for r in up.sample.changed %}<tr><td class="mono">{{ r.0 }}</td><td>{{ r.1 }}</td><td>{{ r.2 }} · {{ r.3|default:"-" }}</td><td>{{ r.4 }} · {{ r.5|default:"-" }}</td></tr>{% endfor %}
+  </tbody></table></div>{% endif %}
+{% if up.sample.errors %}<div class="card"><h2>Rows not used</h2>
+  <table class="tbl"><tbody>{% for r in up.sample.errors %}<tr><td>Row {{ r.0 }}</td><td>{{ r.1 }}</td></tr>{% endfor %}</tbody></table></div>{% endif %}
+{% if up.status == 'PREVIEW' %}
+<form method="post" class="bar">{% csrf_token %}
+  <button type="submit" name="action" value="apply" class="btn btn-primary">Confirm and apply</button>
+  <button type="submit" name="action" value="cancel" class="btn">Cancel</button>
+</form>
+{% else %}<div class="alert alert-info">This upload is {{ up.get_status_display|lower }}.</div>{% endif %}
+{% endblock %}

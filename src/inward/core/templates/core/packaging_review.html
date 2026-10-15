@@ -1,0 +1,19 @@
+{% extends "web/base.html" %}
+{% block title %}Packaging changes to review{% endblock %}
+{% block content %}
+<p><a href="{% url 'core:packaging' %}">&larr; SKU packaging</a></p>
+<h1>Drastic packaging changes to review</h1>
+<p class="muted">These changes are already in use. Accept them, or Revert to restore the previous packaging.</p>
+{% for c in pending %}
+<div class="card">
+  <div class="bar"><b class="mono"><a href="{% url 'core:packaging_sku' c.sku %}">{{ c.sku }}</a></b>
+    <span>{{ c.before.description }}</span><div class="grow"></div>
+    <span class="muted">{{ c.get_source_display|default:c.source }} · {{ c.changed_by }} · {{ c.changed_at|date:"d-M-Y H:i" }}</span></div>
+  <p>{{ c.before.group }} · {{ c.before.units|default:"-" }} per package &rarr; <b>{{ c.after.group }} · {{ c.after.units|default:"-" }} per package</b>
+    <span class="chip chip-warn">{{ c.drastic_why }}</span>{% if c.reason %} · reason: "{{ c.reason }}"{% endif %}</p>
+  <form method="post" class="inline">{% csrf_token %}<input type="hidden" name="change" value="{{ c.pk }}">
+    <button type="submit" name="decision" value="accept" class="btn btn-primary btn-sm">Accept</button>
+    <button type="submit" name="decision" value="revert" class="btn btn-sm">Revert</button></form>
+</div>
+{% empty %}<div class="alert alert-info">Nothing to review.</div>{% endfor %}
+{% endblock %}

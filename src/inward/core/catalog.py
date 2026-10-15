@@ -29,6 +29,8 @@ PERMISSIONS = {
     "MAIL_PENDING_RELEASE": "Mail-Pending Release",
     "EXCEPTION_RESOLVE": "Resolve critical exceptions",
     "MASTER_CHANGE": "Propose / approve master changes",
+    "SKU_PACKAGING_EDIT": "Upload / add / edit SKU packaging",
+    "PACKAGING_REVIEW": "Review drastic SKU packaging changes",
     "USER_ADMIN": "Manage users, roles, permissions",
     "TWO_FACTOR_RESET": "Reset a user's two-factor sign-in",
     "SYSTEM_ADMIN": "System configuration, backup, health",
@@ -56,6 +58,8 @@ MATRIX: dict[str, dict[str, str]] = {
     "MAIL_PENDING_RELEASE": {"CFA_MANAGER": G},
     "EXCEPTION_RESOLVE": {"SYSTEM_SUPERVISOR": R, "CFA_MANAGER": A},
     "MASTER_CHANGE": {"DEPOT_CLERK": R, "SYSTEM_SUPERVISOR": R, "CFA_MANAGER": A},
+    "SKU_PACKAGING_EDIT": {"DEPOT_CLERK": G, "SYSTEM_SUPERVISOR": G, "CFA_MANAGER": G},
+    "PACKAGING_REVIEW": {"CFA_MANAGER": G},
     "USER_ADMIN": {"CFA_MANAGER": G, "ADMINISTRATOR": G},
     "TWO_FACTOR_RESET": {"CFA_MANAGER": R, "ADMINISTRATOR": A},
     "SYSTEM_ADMIN": {"CFA_MANAGER": V, "ADMINISTRATOR": G},
@@ -75,9 +79,16 @@ LOAD_TYPES = [
     ("OTHERS_NON_STOCK", "Others (Non-Stock)", False, False, False, False, True),
 ]
 
-PACKAGE_TYPES = [("CARTON", "Carton / Box", 10), ("DRUM", "Drum", 20), ("PAIL", "Pail", 30), ("BAG", "Bag", 40),
-                 ("TIN", "Tin", 50), ("LOOSE", "Loose", 60), ("MACHINE", "Machine", 70),
-                 ("EMPTY_PACKING", "Fresh empty packing", 80), ("OTHER", "Other", 90)]
+# checklist groups in unloading order (cartons first); confirmed 15-Oct-2026
+PACKAGE_TYPES = [("CARTON", "Cartons / Boxes", 10), ("DRUM", "Drums", 20), ("BARREL", "Barrels", 25),
+                 ("PAIL", "Pails", 28), ("BAG", "Bags", 30), ("PACKET", "Packets / Pieces / Bundles", 40),
+                 ("TIN", "Tins", 50), ("LOOSE", "Loose", 60), ("MACHINE", "Machines", 70),
+                 ("EMPTY_PACKING", "Fresh empty packing", 80), ("SHOTS", "Colorant shots", 85), ("OTHER", "Other", 90)]
+
+# company list "Pack Type" -> checklist group
+PACK_TYPE_MAP = {"CARTON BOX": "CARTON", "CARTON": "CARTON", "BOX": "CARTON", "DRUM": "DRUM", "BARREL": "BARREL",
+                 "PAIL": "PAIL", "BAG": "BAG", "PACKET": "PACKET", "PCS": "PACKET", "BUNDLE": "PACKET",
+                 "TIN": "TIN", "EMPTY CONT": "EMPTY_PACKING", "SHOTS": "SHOTS", "MACHINE": "MACHINE"}
 
 # Business line -> warehouse for the split unloading checklist (SoT 7.1); confirmed 14-Oct-2026
 BUSINESS_LINE_WAREHOUSE = {
@@ -97,6 +108,7 @@ FEATURE_FLAGS = {
     "outbound_row_reuse_days": (60, "Window for warning about re-use of an identical Despatch row"),
     "measure_tolerance": ("0.001", "LTR/KG tolerance per SKU in reconciliation"),
     "cloud_only_after_months": (12, "Closed IW documents kept on OneDrive only after this many months"),
+    "packaging_bulk_change_limit": (50, "An upload changing more existing SKUs than this is flagged as a whole"),
 }
 
 # purpose -> [(role label, TO/CC)]

@@ -210,19 +210,90 @@ class PackageType(models.Model):
 
 
 class SkuPackaging(models.Model):
+    """How pieces of a SKU are packed - converts document pieces into physical packages (SoT 7.1).
+    Loaded from the company list and corrected by clerks; every change is versioned in PackagingChange."""
+
+    class Source(models.TextChoices):
+        COMPANY_LIST = "COMPANY_LIST", "Company list"
+        CLERK = "CLERK", "Added / edited by clerk"
+
     sku = models.CharField(max_length=16, primary_key=True)
     floor_sku = models.CharField(max_length=8, db_index=True)
     description = models.CharField(max_length=200)
     business_line = models.CharField(max_length=40, blank=True)
+    uom = models.CharField(max_length=4, blank=True)
     pack_size = models.DecimalField(max_digits=18, decimal_places=6, null=True, blank=True)
-    measure_family = models.CharField(max_length=3, choices=[("LTR", "LTR"), ("KG", "KG"), ("PCS", "PCS")])
+    measure_family = models.CharField(max_length=3, blank=True, choices=[("LTR", "LTR"), ("KG", "KG"), ("PCS", "PCS")])
     package_type = models.ForeignKey(PackageType, on_delete=models.PROTECT)
-    units_per_package = models.PositiveIntegerField(default=1)
+    pack_type_text = models.CharField(max_length=30, blank=True)   # as written in the company list
+    units_per_package = models.PositiveIntegerField(null=True, blank=True)  # null = packaging not set
+    verify_note = models.CharField(max_length=200, blank=True)     # "Verify physically" flag shown at unloading
+    source = models.CharField(max_length=14, choices=Source.choices, default=Source.COMPANY_LIST)
     active = models.BooleanField(default=True)
+    updated_by = models.ForeignKey(USER, null=True, blank=True, on_delete=models.PROTECT, related_name="+")
+    updated_at = models.DateTimeField(auto_now=True)
+    version = models.PositiveIntegerField(default=1)
 
     class Meta:
         db_table = "sku_packaging"
-        constraints = [models.CheckConstraint(condition=models.Q(units_per_package__gte=1), name="units_positive")]
+        constraints = [models.CheckConstraint(condition=models.Q(units_per_package__isnull=True)
+                                              | models.Q(units_per_package__gte=1), name="units_positive")]
+
+    @property
+    def is_set(self) -> bool:
+        return self.units_per_package is not None
+
+
+class PackagingUpload(models.Model):
+    """One upload of the company SKU packaging list: previewed first, applied on confirmation."""
+
+    class Status(models.TextChoices):
+        PREVIEW = "PREVIEW", "Preview"
+        APPLIED = "APPLIED", "Applied"
+        CANCELLED = "CANCELLED", "Cancelled"
+
+    document = models.ForeignKey(Document, on_delete=models.PROTECT, related_name="+")
+    filename = models.CharField(max_length=260)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.PREVIEW)
+    counts = models.JSONField(default=dict)   # new / changed / drastic / unchanged / errors
+    sample = models.JSONField(default=dict)   # first changed / drastic / error rows for the preview screen
+    uploaded_by = models.ForeignKey(USER, on_delete=models.PROTECT, related_name="+")
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+    applied_at = models.DateTimeField(null=True, blank=True)
+    bulk_flagged = models.BooleanField(default=False)  # too many existing SKUs changed at once
+
+    class Meta:
+        db_table = "packaging_upload"
+        ordering = ["-uploaded_at"]
+
+
+class PackagingChange(models.Model):
+    """Version history of SKU packaging; drastic changes wait for the CFA Manager's review (accept / revert)."""
+
+    class Review(models.TextChoices):
+        NONE = "NONE", "Not needed"
+        PENDING = "PENDING", "To review"
+        ACCEPTED = "ACCEPTED", "Accepted"
+        REVERTED = "REVERTED", "Reverted"
+
+    sku = models.CharField(max_length=16, db_index=True)
+    action = models.CharField(max_length=20)  # ADDED / UPDATED / VERIFIED / REVERTED
+    source = models.CharField(max_length=14)  # COMPANY_LIST / CLERK / MANAGER
+    upload = models.ForeignKey(PackagingUpload, null=True, blank=True, on_delete=models.PROTECT, related_name="changes")
+    before = models.JSONField(null=True, blank=True)
+    after = models.JSONField(null=True, blank=True)
+    reason = models.CharField(max_length=300, blank=True)
+    drastic = models.BooleanField(default=False)
+    drastic_why = models.CharField(max_length=200, blank=True)
+    review = models.CharField(max_length=10, choices=Review.choices, default=Review.NONE, db_index=True)
+    changed_by = models.ForeignKey(USER, on_delete=models.PROTECT, related_name="+")
+    changed_at = models.DateTimeField(auto_now_add=True)
+    reviewed_by = models.ForeignKey(USER, null=True, blank=True, on_delete=models.PROTECT, related_name="+")
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "packaging_change"
+        ordering = ["-changed_at"]
 
 
 class NonStockItem(models.Model):

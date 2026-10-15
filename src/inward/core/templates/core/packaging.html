@@ -1,0 +1,44 @@
+{% extends "web/base.html" %}
+{% block title %}SKU packaging{% endblock %}
+{% block content %}
+<h1>SKU packaging master</h1>
+<p class="muted">Converts document pieces into packages for the unloading checklist (e.g. 33 pcs at 6 per carton = 5 cartons + 3 loose).</p>
+<div class="kpis">
+  <div class="kpi"><div class="kpi-label">SKUs</div><div class="kpi-value">{{ total }}</div></div>
+  <div class="kpi"><div class="kpi-label">Packaging not set</div><div class="kpi-value"><a href="?show=not_set">{{ not_set }}</a></div></div>
+  <div class="kpi"><div class="kpi-label">Verify physically</div><div class="kpi-value"><a href="?show=verify">{{ verify }}</a></div></div>
+  <div class="kpi"><div class="kpi-label">Drastic changes to review</div><div class="kpi-value">{% if can_review %}<a href="{% url 'core:packaging_review' %}">{{ pending }}</a>{% else %}{{ pending }}{% endif %}</div></div>
+</div>
+{% if can_edit %}
+<div class="card">
+  <h2>Upload the company packaging list</h2>
+  <form method="post" action="{% url 'core:packaging_upload' %}" enctype="multipart/form-data" class="inline">{% csrf_token %}
+    <label for="pk-file">Excel (SKU Code, SKU Name, UOM, Volume, Pack Type, Units Per Box)</label><input id="pk-file" type="file" name="file" required>
+    <button type="submit" class="btn">Upload and preview</button>
+  </form>
+  <p class="muted">Nothing changes until you confirm the preview. Drastic changes are flagged to the CFA Manager.</p>
+  {% for u in uploads %}<p class="muted">{{ u.uploaded_at|date:"d-M-Y H:i" }} · {{ u.filename }} · {{ u.get_status_display }} · {{ u.counts.new }} new, {{ u.counts.changed }} changed{% if u.counts.drastic %}, {{ u.counts.drastic }} drastic{% endif %} · by {{ u.uploaded_by }}</p>{% endfor %}
+</div>
+{% endif %}
+<form method="get" class="filters">
+  <label for="q">SKU, Floor SKU or description</label><input id="q" name="q" value="{{ q }}">
+  <label for="show">Show</label>
+  <select id="show" name="show"><option value="">All</option>
+    <option value="not_set"{% if show == 'not_set' %} selected{% endif %}>Packaging not set</option>
+    <option value="verify"{% if show == 'verify' %} selected{% endif %}>Verify physically</option>
+    <option value="clerk"{% if show == 'clerk' %} selected{% endif %}>Added / edited by clerk</option></select>
+  <button type="submit" class="btn btn-sm">Filter</button>
+  {% if can_edit %}<a class="btn btn-sm" href="{% url 'core:packaging_sku' 'NEW' %}">Add a SKU</a>{% endif %}
+</form>
+<div class="scroll"><table class="tbl">
+  <thead><tr><th>SKU</th><th>Floor SKU</th><th>Description</th><th>Pack type</th><th>Group</th><th class="num">Units / package</th><th>Flags</th></tr></thead>
+  <tbody>{% for p in page %}
+    <tr><td class="mono"><a href="{% url 'core:packaging_sku' p.sku %}">{{ p.sku }}</a></td><td class="mono nowrap">{{ p.floor_sku }}</td><td>{{ p.description }}</td>
+    <td>{{ p.pack_type_text }}</td><td>{{ p.package_type.name }}</td><td class="num">{{ p.units_per_package|default:"-" }}</td>
+    <td>{% if not p.is_set %}<span class="chip chip-bad">not set</span>{% endif %}{% if p.verify_note %} <span class="chip chip-warn">verify physically</span>{% endif %}{% if p.source == 'CLERK' %} <span class="chip">clerk</span>{% endif %}</td></tr>
+  {% empty %}<tr><td colspan="7" class="muted">No SKUs.</td></tr>{% endfor %}</tbody>
+</table></div>
+<p class="pager">{% if page.has_previous %}<a href="?q={{ q }}&amp;show={{ show }}&amp;page={{ page.previous_page_number }}">Previous</a>{% endif %}
+  Page {{ page.number }} of {{ page.paginator.num_pages }} ({{ page.paginator.count }})
+  {% if page.has_next %}<a href="?q={{ q }}&amp;show={{ show }}&amp;page={{ page.next_page_number }}">Next</a>{% endif %}</p>
+{% endblock %}

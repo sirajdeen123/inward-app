@@ -60,6 +60,7 @@ as_inward "$ROOT/venv/bin/pip" install --quiet -e "$ROOT/app"
 run_manage() { as_inward bash -c "set -a; . '$ROOT/env'; set +a; cd '$ROOT/app'; '$ROOT/venv/bin/python' manage.py $*"; }
 run_manage check --deploy --fail-level ERROR
 run_manage migrate --noinput
+run_manage seed_reference_data   # adds new roles / permissions / package types; never overwrites edits
 run_manage collectstatic --noinput --clear -v 0
 
 # 4. service and web site

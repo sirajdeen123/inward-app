@@ -1,0 +1,40 @@
+{% extends "web/base.html" %}
+{% block title %}SIT Ships{% endblock %}
+{% block content %}
+<h1>SIT Ships</h1>
+<form method="get" class="filters">
+  <label for="q">Ship ID or From Org</label>
+  <input id="q" name="q" value="{{ q }}" placeholder="e.g. 52497520 or 390">
+  <label for="status">Status</label>
+  <select id="status" name="status"><option value="">All</option>
+    {% for value, label in statuses %}<option value="{{ value }}"{% if value == status %} selected{% endif %}>{{ label }}</option>{% endfor %}
+  </select>
+  <label class="check"><input type="checkbox" name="pre_go_live" value="1"{% if pre_go_live_filter %} checked{% endif %}> Pre-go-live only</label>
+  <button type="submit" class="btn btn-sm">Filter</button>
+</form>
+<form method="post" action="{% url 'sit:mark_pre_go_live' %}">{% csrf_token %}
+  <input type="hidden" name="back" value="{{ request.get_full_path }}">
+  <div class="scroll"><table class="tbl">
+    <thead><tr><th><span class="sr-only">Select</span></th><th>Ship ID</th><th>From Org</th><th>Shipment date</th><th>Status</th><th>Flags</th></tr></thead>
+    <tbody>{% for s in page %}
+      <tr>
+        <td>{% if not s.pre_go_live %}<input type="checkbox" name="ship_id" value="{{ s.ship_id }}" aria-label="Select {{ s.ship_id }}">{% endif %}</td>
+        <td><a href="{% url 'sit:ship' s.ship_id %}">{{ s.ship_id }}</a></td>
+        <td>{{ s.from_org_code }} : {{ s.from_org_name }}</td>
+        <td>{{ s.shipment_date|date:"d-M-Y" }}</td>
+        <td><span class="chip {% if s.status == 'REMOVED_NEVER_LINKED' %}chip-bad{% elif s.status == 'PARTIAL' %}chip-warn{% endif %}">{{ s.get_status_display }}</span></td>
+        <td>{% if s.pre_go_live %}<span class="chip">Pre-go-live</span>{% endif %}{% if s.has_issues %} <span class="chip chip-bad">Row issues - not linkable</span>{% endif %}</td>
+      </tr>
+    {% empty %}<tr><td colspan="6" class="muted">No Ships match.</td></tr>{% endfor %}</tbody>
+  </table></div>
+  <div class="bar">
+    <button type="submit" class="btn">Mark selected as Pre-go-live</button>
+    <span class="muted">Only for Ships of vehicles received before go-live; they are then excluded from SIT exceptions.</span>
+  </div>
+</form>
+<p class="pager">
+  {% if page.has_previous %}<a href="?{% if q %}q={{ q }}&amp;{% endif %}{% if status %}status={{ status }}&amp;{% endif %}page={{ page.previous_page_number }}">Previous</a>{% endif %}
+  Page {{ page.number }} of {{ page.paginator.num_pages }} ({{ page.paginator.count }} Ships)
+  {% if page.has_next %}<a href="?{% if q %}q={{ q }}&amp;{% endif %}{% if status %}status={{ status }}&amp;{% endif %}page={{ page.next_page_number }}">Next</a>{% endif %}
+</p>
+{% endblock %}

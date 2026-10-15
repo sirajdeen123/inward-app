@@ -1,0 +1,60 @@
+{% extends "web/base.html" %}
+{% block title %}SIT import{% endblock %}
+{% block content %}
+<h1>01 · SIT Import &amp; Monitoring</h1>
+
+<div class="grid2">
+  <div class="card">
+    <h2>Get the latest SIT report</h2>
+    <form method="post" action="{% url 'sit:fetch' %}" class="inline">{% csrf_token %}
+      <button type="submit" class="btn btn-primary">Fetch from Gmail</button>
+      <span class="muted">Imports the newest "BPIL Depot Stock In Transit Report" e-mail if it is not imported yet.</span>
+    </form>
+    <hr>
+    <form method="post" action="{% url 'sit:upload' %}" enctype="multipart/form-data" class="form">{% csrf_token %}
+      <label for="{{ upload_form.file.id_for_label }}">Or upload a SIT file (.xls / .xlsx)</label>
+      {{ upload_form.file }}
+      <button type="submit" class="btn">Upload and import</button>
+    </form>
+  </div>
+  <div class="card">
+    <h2>Ships by status</h2>
+    <table class="tbl"><tbody>
+      {% for label, n, value in status_counts %}
+      <tr><td><a href="{% url 'sit:ships' %}?status={{ value }}">{{ label }}</a></td><td class="num">{{ n }}</td></tr>
+      {% endfor %}
+      <tr><td><a href="{% url 'sit:ships' %}?pre_go_live=1">Marked Pre-go-live</a></td><td class="num">{{ pre_go_live }}</td></tr>
+    </tbody></table>
+    <p><a href="{% url 'sit:ships' %}">All Ships</a> · <a href="{% url 'sit:imports' %}">Import history</a></p>
+  </div>
+</div>
+
+{% if latest %}
+<div class="card">
+  <h2>Last import</h2>
+  <dl class="summary">
+    <dt>File</dt><dd>{{ latest.batch.filename }} <span class="chip">{{ latest.batch.source }}</span></dd>
+    <dt>Report window</dt><dd>{{ latest.report_from|date:"d-M-Y" }} to {{ latest.report_to|date:"d-M-Y" }} · system date {{ latest.system_date|date:"d-M-Y" }}</dd>
+    <dt>Imported</dt><dd>{{ latest.batch.uploaded_at|date:"d-M-Y H:i" }}{% if latest.batch.uploaded_by %} by {{ latest.batch.uploaded_by }}{% endif %}</dd>
+    <dt>Content</dt><dd>{{ latest.ship_count }} Ships · {{ latest.line_count }} SKU lines · {{ latest.batch.issue_count }} row issue(s)</dd>
+    <dt>Changes</dt><dd>{{ latest.event_count }} · <b>{{ latest.critical_count }} critical</b></dd>
+  </dl>
+</div>
+<div class="card">
+  <h2>Changes in the last import</h2>
+  {% if events %}
+  <div class="scroll"><table class="tbl">
+    <thead><tr><th>Ship ID</th><th>Change</th><th>SKU</th><th class="num">Before</th><th class="num">After</th></tr></thead>
+    <tbody>{% for e in events %}
+      <tr{% if e.critical %} class="row-bad"{% endif %}><td><a href="{% url 'sit:ship' e.ship_id %}">{{ e.ship_id }}</a></td>
+      <td>{% if e.critical %}<span class="chip chip-bad">CRITICAL</span> {% endif %}{{ e.label }}</td>
+      <td class="mono">{{ e.sku }}</td><td class="num">{{ e.before|default_if_none:"" }}</td><td class="num">{{ e.after|default_if_none:"" }}</td></tr>
+    {% endfor %}</tbody>
+  </table></div>
+  {% if latest.event_count > events|length %}<p class="muted">Showing {{ events|length }} of {{ latest.event_count }} - <a href="{% url 'sit:import' latest.pk %}">see all</a>.</p>{% endif %}
+  {% else %}<p class="muted">No changes.</p>{% endif %}
+</div>
+{% else %}
+<div class="alert alert-info">No SIT report imported yet. Use "Fetch from Gmail" or upload a file.</div>
+{% endif %}
+{% endblock %}

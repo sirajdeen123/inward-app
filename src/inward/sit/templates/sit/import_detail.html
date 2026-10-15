@@ -1,0 +1,22 @@
+{% extends "web/base.html" %}
+{% block title %}SIT import #{{ imp.pk }}{% endblock %}
+{% block content %}
+<p><a href="{% url 'sit:imports' %}">&larr; Import history</a></p>
+<h1>SIT import #{{ imp.pk }}</h1>
+<div class="card"><dl class="summary">
+  <dt>File</dt><dd>{{ imp.batch.filename }} ({{ imp.batch.source }})</dd>
+  <dt>SHA-256</dt><dd class="mono">{{ imp.batch.sha256 }}</dd>
+  <dt>Window</dt><dd>{{ imp.report_from|date:"d-M-Y" }} to {{ imp.report_to|date:"d-M-Y" }} · system date {{ imp.system_date|date:"d-M-Y" }}</dd>
+  <dt>Content</dt><dd>{{ imp.ship_count }} Ships · {{ imp.line_count }} SKU lines</dd>
+</dl></div>
+{% if issues %}<div class="card"><h2>Row issues</h2>
+  <table class="tbl"><thead><tr><th>Row</th><th>Ship ID</th><th>Issue</th></tr></thead><tbody>
+  {% for i in issues %}<tr><td>{{ i.row_no }}</td><td>{{ i.ship_id }}</td><td>{{ i.message }}</td></tr>{% endfor %}
+  </tbody></table></div>{% endif %}
+<div class="card"><h2>Changes ({{ events|length }})</h2>
+  <div class="scroll"><table class="tbl"><thead><tr><th>Ship ID</th><th>Change</th><th>SKU</th><th class="num">Before</th><th class="num">After</th></tr></thead><tbody>
+  {% for e in events %}<tr{% if e.critical %} class="row-bad"{% endif %}><td><a href="{% url 'sit:ship' e.ship_id %}">{{ e.ship_id }}</a></td>
+  <td>{% if e.critical %}<span class="chip chip-bad">CRITICAL</span> {% endif %}{{ e.label }}</td><td class="mono">{{ e.sku }}</td>
+  <td class="num">{{ e.before|default_if_none:"" }}</td><td class="num">{{ e.after|default_if_none:"" }}</td></tr>{% endfor %}
+  </tbody></table></div></div>
+{% endblock %}

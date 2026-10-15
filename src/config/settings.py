@@ -36,6 +36,7 @@ INSTALLED_APPS = [
     "axes",
     "inward.accounts",
     "inward.core",
+    "inward.sit",
     "inward.web",
 ]
 

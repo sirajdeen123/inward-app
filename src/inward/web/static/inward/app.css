@@ -37,4 +37,16 @@ fieldset{border:0;padding:0;margin:0 0 6px}legend{font-weight:600;margin-bottom:
 .qr svg{width:220px;height:220px;background:#fff}
 .secret{word-break:break-all}
 .codes{columns:2;font-size:16px}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.inline{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.filters{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:0 0 14px}
+.filters input:not([type=checkbox]),.filters select{font:inherit;height:38px;padding:4px 8px;border:1px solid #c9ccd6;border-radius:8px;background:var(--side)}
+.bar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:12px 0}
+.pager{display:flex;gap:14px;align-items:center}
+.chip-warn{background:var(--warn-bg);color:var(--warn)}
+.row-bad td{background:#fff6f7}
+.mono{font-family:Consolas,"Courier New",monospace;font-size:13px}
+hr{border:0;border-top:1px solid var(--line);margin:14px 0}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+@media (max-width:900px){.grid2{grid-template-columns:1fr}}
 @media (max-width:760px){.shell{flex-direction:column}.sidebar{width:auto}.main{padding:18px 16px}}

@@ -1,0 +1,36 @@
+{% extends "web/base.html" %}
+{% block title %}Ship {{ ship.ship_id }}{% endblock %}
+{% block content %}
+<p><a href="{% url 'sit:ships' %}">&larr; All Ships</a></p>
+<h1>Ship {{ ship.ship_id }}</h1>
+<div class="card">
+  <dl class="summary">
+    <dt>From Org</dt><dd>{{ ship.from_org_code }} : {{ ship.from_org_name }}</dd>
+    <dt>To Org</dt><dd>{{ ship.to_org_code }}</dd>
+    <dt>Shipment date</dt><dd>{{ ship.shipment_date|date:"d-M-Y" }}</dd>
+    <dt>Status</dt><dd><span class="chip {% if ship.status == 'REMOVED_NEVER_LINKED' %}chip-bad{% elif ship.status == 'PARTIAL' %}chip-warn{% endif %}">{{ ship.get_status_display }}</span>{% if ship.pre_go_live %} <span class="chip">Pre-go-live</span>{% endif %}{% if ship.has_issues %} <span class="chip chip-bad">Row issues - not linkable</span>{% endif %}</dd>
+    <dt>Seen in</dt><dd>imports #{{ ship.first_seen_id }} to #{{ ship.last_seen_id }}</dd>
+  </dl>
+</div>
+<div class="card">
+  <h2>{% if still_in_sit %}Pending in SIT now{% else %}Last pending quantities (import #{{ ship.last_seen_id }}){% endif %}</h2>
+  <div class="scroll"><table class="tbl">
+    <thead><tr><th>Full SKU</th><th>Floor SKU</th><th>Description</th><th>Business line</th><th>Warehouse</th><th>UOM</th><th class="num">Pack</th><th class="num">Pcs</th><th class="num">LTR / KG</th></tr></thead>
+    <tbody>{% for ln in lines %}
+      <tr><td class="mono">{{ ln.sku }}</td><td class="mono"><b>{{ ln.floor_sku }}</b></td><td>{{ ln.description }}</td>
+      <td>{{ ln.business_line }}</td><td><span class="chip{% if ln.warehouse == 'UNMAPPED' %} chip-bad{% endif %}">{{ ln.warehouse }}</span></td>
+      <td>{{ ln.uom|default:"-" }}</td><td class="num">{{ ln.pack_size|default_if_none:"" }}</td>
+      <td class="num">{{ ln.quantity|floatformat:"-3" }}</td><td class="num">{% if ln.measure_family != 'PCS' %}{{ ln.measure|floatformat:"-3" }} {{ ln.measure_family }}{% endif %}</td></tr>
+    {% endfor %}</tbody>
+  </table></div>
+</div>
+<div class="card">
+  <h2>History</h2>
+  <table class="tbl"><thead><tr><th>Import</th><th>Change</th><th>SKU</th><th class="num">Before</th><th class="num">After</th></tr></thead>
+  <tbody>{% for e in events %}
+    <tr><td><a href="{% url 'sit:import' e.sit_import_id %}">#{{ e.sit_import_id }}</a> {{ e.sit_import.system_date|date:"d-M-Y" }}</td>
+    <td>{% if e.critical %}<span class="chip chip-bad">CRITICAL</span> {% endif %}{{ e.label }}</td><td class="mono">{{ e.sku }}</td>
+    <td class="num">{{ e.before|default_if_none:"" }}</td><td class="num">{{ e.after|default_if_none:"" }}</td></tr>
+  {% endfor %}</tbody></table>
+</div>
+{% endblock %}

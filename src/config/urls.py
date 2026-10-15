@@ -8,5 +8,6 @@ admin.site.site_title = "Stock Inward administration"
 urlpatterns = [
     path(settings.INWARD["ADMIN_URL"], admin.site.urls),  # non-default admin address (SoT 14.5)
     path("accounts/", include("inward.accounts.urls")),
+    path("sit/", include("inward.sit.urls")),
     path("", include("inward.web.urls")),
 ]

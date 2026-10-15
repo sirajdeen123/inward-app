@@ -1,0 +1,14 @@
+{% extends "web/base.html" %}
+{% block title %}SIT import history{% endblock %}
+{% block content %}
+<p><a href="{% url 'sit:home' %}">&larr; SIT</a></p>
+<h1>SIT import history</h1>
+<div class="scroll"><table class="tbl">
+  <thead><tr><th>#</th><th>Imported</th><th>Source</th><th>File</th><th>System date</th><th class="num">Ships</th><th class="num">Changes</th><th class="num">Critical</th><th class="num">Row issues</th></tr></thead>
+  <tbody>{% for imp in page %}
+    <tr><td><a href="{% url 'sit:import' imp.pk %}">{{ imp.pk }}</a></td><td>{{ imp.batch.uploaded_at|date:"d-M-Y H:i" }}</td>
+    <td>{{ imp.batch.source }}</td><td>{{ imp.batch.filename }}</td><td>{{ imp.system_date|date:"d-M-Y" }}</td>
+    <td class="num">{{ imp.ship_count }}</td><td class="num">{{ imp.event_count }}</td><td class="num">{{ imp.critical_count }}</td><td class="num">{{ imp.batch.issue_count }}</td></tr>
+  {% empty %}<tr><td colspan="9" class="muted">None yet.</td></tr>{% endfor %}</tbody>
+</table></div>
+{% endblock %}

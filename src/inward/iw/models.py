@@ -464,3 +464,103 @@ class MraRevision(models.Model):
     @property
     def label(self) -> str:
         return f"R{self.revision:02d}"
+
+
+# ---------------------------------------------------------------- Screen 04: communications (SoT 7.6 - 7.8, 14.2)
+
+
+class MailMessage(models.Model):
+    """Application mail queue with SENT evidence. PENDING (in the app queue) -> QUEUED (accepted by Gmail SMTP)
+    -> SENT (found in Gmail 'Sent Mail'; .eml stored). FAILED = rejected / sign-in failure;
+    FAILED_UNCONFIRMED = not seen in Sent Mail in time, retried up to 3 times."""
+
+    class Purpose(models.TextChoices):
+        MRA = "MRA", "MRA to source"
+        SED_NOTIFY = "SED_NOTIFY", "Internal SED notification"
+        SED_APPROVAL = "SED_APPROVAL", "SED approval request"
+        SED_REMINDER = "SED_REMINDER", "SED approval reminder"
+
+    class Status(models.TextChoices):
+        PENDING = "PENDING", "Waiting to send"
+        QUEUED = "QUEUED", "Handed to Gmail"
+        SENT = "SENT", "Sent (confirmed)"
+        FAILED = "FAILED", "Failed"
+        FAILED_UNCONFIRMED = "FAILED_UNCONF", "Not confirmed - retrying"
+
+    iw = models.ForeignKey(Iw, on_delete=models.PROTECT, related_name="mails")
+    mra = models.ForeignKey("MraRevision", null=True, blank=True, on_delete=models.PROTECT, related_name="mails")
+    purpose = models.CharField(max_length=14, choices=Purpose.choices)
+    stamp = models.CharField(max_length=80, unique=True, null=True)
+    message_id = models.CharField(max_length=200, blank=True)
+    to = models.JSONField(default=list)
+    cc = models.JSONField(default=list)
+    subject = models.CharField(max_length=250)
+    html_body = models.TextField()
+    attachments = models.ManyToManyField("core.Document", blank=True, related_name="+")
+    status = models.CharField(max_length=14, choices=Status.choices, default=Status.PENDING, db_index=True)
+    attempts = models.PositiveIntegerField(default=0)
+    last_error = models.TextField(blank=True)
+    queued_at = models.DateTimeField(null=True, blank=True)
+    sent_at = models.DateTimeField(null=True, blank=True)
+    eml = models.ForeignKey("core.Document", null=True, blank=True, on_delete=models.PROTECT, related_name="+")
+    created_by = models.ForeignKey(USER, on_delete=models.PROTECT, related_name="+")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "mail_message"
+        ordering = ["created_at", "id"]
+
+
+class SedApproval(models.Model):
+    """Depot Manager approval of an IW's SED (SoT 7.8): tracked and shown, never blocking."""
+
+    class Status(models.TextChoices):
+        REQUESTED = "REQUESTED", "Approval requested"
+        APPROVED = "APPROVED", "Approved - mail on file"
+        REJECTED = "REJECTED", "Rejected - correction needed"
+        MANUAL_PENDING = "MANUAL_PENDING", "Manual evidence - awaiting check"
+        MANUAL_ACCEPTED = "MANUAL_OK", "Approved - manual evidence accepted"
+
+    iw = models.ForeignKey(Iw, on_delete=models.PROTECT, related_name="sed_approvals")
+    mra = models.ForeignKey("MraRevision", on_delete=models.PROTECT, related_name="sed_approvals")
+    request_mail = models.ForeignKey(MailMessage, on_delete=models.PROTECT, related_name="+")
+    status = models.CharField(max_length=14, choices=Status.choices, default=Status.REQUESTED)
+    decided_at = models.DateTimeField(null=True, blank=True)
+    decision_text = models.TextField(blank=True)  # first line / reason from the reply
+    reply_from = models.CharField(max_length=256, blank=True)
+    evidence = models.ForeignKey("core.Document", null=True, blank=True, on_delete=models.PROTECT, related_name="+")
+    evidence_by = models.ForeignKey(USER, null=True, blank=True, on_delete=models.PROTECT, related_name="+")
+    accepted_by = models.ForeignKey(USER, null=True, blank=True, on_delete=models.PROTECT, related_name="+")
+    reminded_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "sed_approval"
+        ordering = ["-created_at"]
+
+
+class InboundMail(models.Model):
+    """Inbox messages already processed (SED approval replies), so a reply is never applied twice."""
+    message_id = models.CharField(max_length=250, unique=True)
+    subject = models.CharField(max_length=250)
+    sender = models.CharField(max_length=256)
+    received_at = models.DateTimeField(null=True, blank=True)
+    outcome = models.CharField(max_length=200)
+    approval = models.ForeignKey(SedApproval, null=True, blank=True, on_delete=models.PROTECT, related_name="+")
+    eml = models.ForeignKey("core.Document", null=True, blank=True, on_delete=models.PROTECT, related_name="+")
+    processed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "inbound_mail"
+
+
+class MailRelease(models.Model):
+    """Mail-Pending Release (SoT 7.7): CFA Manager lets the IW go to ERP while a mandatory mail is still unsent."""
+    iw = models.ForeignKey(Iw, on_delete=models.PROTECT, related_name="mail_releases")
+    reason = models.TextField()
+    pending = models.JSONField(default=list)  # stamps of the mails still unsent at release
+    released_by = models.ForeignKey(USER, on_delete=models.PROTECT, related_name="+")
+    released_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "mail_release"

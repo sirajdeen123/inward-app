@@ -5,7 +5,9 @@
 <h1>MRA &amp; SED memos · {{ iw }}</h1>
 <p class="muted">The PDF holds the MRA twice (driver copy and depot copy) followed by the SED memos for the System Supervisor. The driver signs both copies; the depot signs and seals both; one copy goes with the driver.</p>
 
-{% if blockers %}
+{% if iw.status != 'PHYSICALLY_VERIFIED' and latest %}
+<div class="card bar"><span class="chip chip-ok">{{ iw.get_status_display }}</span>{% if releases %}<span class="chip chip-warn">Released with mail pending</span>{% endif %}</div>
+{% elif blockers %}
 <div class="card"><h2>Before the MRA can be issued</h2>{% for b in blockers %}<div class="alert alert-error">{{ b }}</div>{% endfor %}
   <p><a class="btn" href="{% url 'iw:unloading' iw.pk %}">Unloading &amp; SED</a> <a class="btn" href="{% url 'iw:charges' iw.pk %}">Packages &amp; unloading charge</a></p></div>
 {% elif not latest %}
@@ -33,4 +35,5 @@
   {% else %}<p class="muted">No MRA issued yet.</p>{% endif %}
   {% if not pdf_available %}<p class="muted">PDF creation is not installed on this computer; PDFs are made on the server.</p>{% endif %}
 </div>
+{% include "iw/_comms.html" %}
 {% endblock %}

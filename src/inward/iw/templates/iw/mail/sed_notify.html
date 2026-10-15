@@ -1,0 +1,8 @@
+{% extends "iw/mail/_base.html" %}
+{% block body %}
+<p><b>SED notification - {{ c.iw.no }} {{ mra.label }}</b></p>
+<p>Vehicle <b>{{ c.iw.vehicle }}</b> · {{ c.iw.load_type }} · source {{ c.iw.source_org|default:"-" }} · arrived {{ c.iw.arrival }}<br>
+References: {% for r in c.references %}{{ r.kind }} {{ r.ref }}{% if not forloop.last %}; {% endif %}{% endfor %}</p>
+{% include "iw/mail/_sed_table.html" %}
+<p>The MRA and the damage photos are attached.</p>
+{% endblock %}

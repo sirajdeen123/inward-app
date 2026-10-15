@@ -145,5 +145,17 @@ def health(request):
     gmail = settings.INWARD["GMAIL_ADDRESS"]
     checks.append(("Gmail account", bool(gmail and settings.INWARD["GMAIL_APP_PASSWORD"]),
                    gmail or "not configured (INWARD_GMAIL_ADDRESS / INWARD_GMAIL_APP_PASSWORD)"))
+    from django.utils import timezone
+
+    from inward.iw.models import MailMessage
+    stuck = MailMessage.objects.exclude(status=MailMessage.Status.SENT)
+    failed = stuck.filter(status__in=[MailMessage.Status.FAILED, MailMessage.Status.FAILED_UNCONFIRMED]).count()
+    oldest = stuck.order_by("created_at").first()
+    waiting = f"oldest waiting since {timezone.localtime(oldest.created_at):%d-%b %H:%M}" if oldest else "nothing waiting"
+    checks.append(("Mail queue", failed == 0 and (not oldest or timezone.now() - oldest.created_at
+                                                  < timezone.timedelta(minutes=30)),
+                   f"{stuck.count()} not yet sent, {failed} failed · {waiting}"))
     latest = ImportBatch.objects.order_by("-uploaded_at")[:5]
-    return render(request, "web/health.html", {"checks": checks, "latest": latest})
+    problems = stuck.filter(status__in=[MailMessage.Status.FAILED, MailMessage.Status.FAILED_UNCONFIRMED]
+                            ).select_related("iw").order_by("-id")[:10]
+    return render(request, "web/health.html", {"checks": checks, "latest": latest, "mail_problems": problems})

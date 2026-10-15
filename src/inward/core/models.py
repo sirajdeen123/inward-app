@@ -174,6 +174,8 @@ class Vendor(models.Model):
     name = models.CharField(max_length=160)
     oracle_vendor_id = models.CharField(max_length=20, blank=True)
     site = models.CharField(max_length=80, blank=True)
+    email = models.EmailField(max_length=256, blank=True)  # MRA recipient for vendor loads (SoT 7.6)
+    email_status = models.CharField(max_length=10, choices=EmailStatus.choices, default=EmailStatus.UNVERIFIED)
     active = models.BooleanField(default=True)
 
     class Meta:

@@ -1,0 +1,31 @@
+# Inward background worker: mail queue, Sent Mail confirmation, SED approval replies (SoT 14.2).
+#   inward-worker@uat / inward-worker@live
+# Installed to /etc/systemd/system/inward-worker@.service by deploy/deploy.sh
+[Unit]
+Description=Inward worker (%i)
+After=network-online.target postgresql.service
+Wants=network-online.target postgresql.service
+
+[Service]
+Type=simple
+User=inward
+Group=inward
+WorkingDirectory=/srv/inward/%i/app
+EnvironmentFile=/srv/inward/%i/env
+ExecStart=/srv/inward/%i/venv/bin/python manage.py inward_worker
+Restart=always
+RestartSec=10
+
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+ReadWritePaths=/srv/inward/%i/data /srv/inward/%i/logs
+UMask=0027
+
+[Install]
+WantedBy=multi-user.target

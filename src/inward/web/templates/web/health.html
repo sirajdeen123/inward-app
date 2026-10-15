@@ -14,4 +14,12 @@
   {% for b in latest %}<div>{{ b.kind }} · {{ b.filename }} · {{ b.uploaded_at|date:"d-M H:i" }} · {{ b.status }}</div>{% empty %}<div class="muted">None yet.</div>{% endfor %}
 </div>
 <p class="muted">Worker, Gmail queue, HTTPS certificate and backup status are added with the worker (Phase 2) and deployment.</p>
+{% if mail_problems %}
+<div class="card">
+  <h2>E-mails that need attention</h2>
+  <table class="tbl stack"><thead><tr><th>IW</th><th>Mail</th><th>Status</th><th>Error</th></tr></thead>
+    <tbody>{% for m in mail_problems %}<tr><td data-label="IW"><a href="{% url 'iw:mra' m.iw_id %}">{{ m.iw }}</a></td><td data-label="Mail">{{ m.get_purpose_display }}<div class="muted mono">{{ m.stamp }}</div></td>
+      <td data-label="Status">{{ m.get_status_display }}</td><td data-label="Error">{{ m.last_error|truncatechars:200 }}</td></tr>{% endfor %}</tbody></table>
+</div>
+{% endif %}
 {% endblock %}

@@ -1,0 +1,63 @@
+{% if latest %}
+<div class="card">
+  <h2>Send MRA and notifications</h2>
+  <p class="muted">The MRA goes to the source; for any Short / Excess / Damage the internal SED notification (Depot Manager, Admin Officer, CFA Manager) and the SED approval request (To Depot Manager, CC Admin Officer) go at the same time. Printing and the driver hand-over never wait for e-mail.</p>
+  <table class="tbl stack"><thead><tr><th>MRA goes to</th><th>To</th><th>Cc</th><th></th></tr></thead>
+    <tbody>{% for t in targets %}<tr><td data-label="MRA goes to">{{ t.name }}</td>
+      <td data-label="To">{% for e in t.to %}{{ e }}{% if e in t.unverified %} <span class="chip chip-warn">Unverified</span>{% endif %}<br>{% empty %}<span class="warn-text">no e-mail</span>{% endfor %}</td>
+      <td data-label="Cc">{{ t.cc|join:", "|default:"-" }}</td>
+      <td data-label="">{% if iw.status == 'PHYSICALLY_VERIFIED' %}<form method="post" action="{% url 'iw:mra_capture_email' iw.pk %}" class="inline">{% csrf_token %}<input type="hidden" name="kind" value="{{ t.kind }}"><input type="hidden" name="key" value="{{ t.key }}">
+        <input name="email" type="email" placeholder="add e-mail" aria-label="E-mail for {{ t.name }}" class="input-inline"><button type="submit" class="btn btn-sm">Add</button></form>{% endif %}</td></tr>{% endfor %}</tbody></table>
+  {% if iw.status == 'PHYSICALLY_VERIFIED' %}
+    {% for b in send_blockers %}<div class="alert alert-error">{{ b }}</div>{% endfor %}
+    <form method="post" action="{% url 'iw:mra_send' iw.pk %}" class="form-grid">{% csrf_token %}
+      <div class="field span-all"><label for="m-cc">Extra Cc (optional, comma separated)</label><input id="m-cc" name="extra_cc"></div>
+      <div class="span-all"><button type="submit" class="btn btn-primary"{% if send_blockers %} disabled{% endif %}>Send {{ latest.label }}</button></div></form>
+  {% endif %}
+</div>
+
+{% if gates %}
+<div class="card">
+  <h2>Screen 04 gates</h2>
+  <table class="tbl stack"><tbody>{% for g in gates %}<tr><td data-label="Gate" class="mono">{{ g.code }}</td><td data-label="Check">{{ g.label }}</td>
+    <td data-label="Status">{% if g.ok %}<span class="chip chip-ok">OK</span>{% else %}<span class="chip chip-warn">{{ g.detail|default:"pending" }}</span>{% endif %}</td></tr>{% endfor %}</tbody></table>
+  {% if iw.status == 'PHYSICALLY_VERIFIED' and can_release %}
+    {% if release_blockers %}<p class="muted">Mail-Pending Release: {{ release_blockers|join:" " }}</p>
+    {% else %}<form method="post" action="{% url 'iw:mail_release' iw.pk %}" class="inline">{% csrf_token %}<label for="r-reason">Mail-Pending Release - reason *</label><input id="r-reason" name="reason" required class="input-inline"><button type="submit" class="btn">Release to ERP processing</button></form>{% endif %}
+  {% endif %}
+  {% for r in releases %}<p class="warn-text">Released by {{ r.released_by.full_name|default:r.released_by.username }} on {{ r.released_at|date:"d-M-Y H:i" }}: {{ r.reason }} - closure waits until the mail is SENT.</p>{% endfor %}
+</div>
+{% endif %}
+
+{% if approval %}
+<div class="card">
+  <h2>Depot Manager SED approval <span class="chip {% if approval.status == 'APPROVED' or approval.status == 'MANUAL_OK' %}chip-ok{% else %}chip-warn{% endif %}">{{ approval.get_status_display }}</span></h2>
+  <p>{{ approval.mra.label }} · requested {{ approval.created_at|date:"d-M-Y H:i" }} ({{ approval.created_at|timesince }} ago){% if approval.reminded_at %} · reminder sent {{ approval.reminded_at|date:"d-M-Y H:i" }}{% endif %}
+    {% if approval.decided_at %} · decided {{ approval.decided_at|date:"d-M-Y H:i" }}{% if approval.reply_from %} by {{ approval.reply_from }}{% endif %}{% endif %}</p>
+  {% if approval.decision_text %}<p>"{{ approval.decision_text }}"</p>{% endif %}
+  {% if approval.status == 'REJECTED' %}<div class="alert alert-error">Rejected: reopen physical verification, correct the SED and issue a new MRA revision; a fresh approval request goes with it.</div>{% endif %}
+  {% if approval.evidence %}<p><a href="{% url 'iw:approval_file' iw.pk approval.pk %}">Approval evidence file</a></p>{% endif %}
+  {% if approval.status == 'REQUESTED' or approval.status == 'REJECTED' %}
+    <form method="post" action="{% url 'iw:approval_evidence' iw.pk approval.pk %}" enctype="multipart/form-data" class="inline">{% csrf_token %}
+      <label for="ev-file">Approved from another address or channel? Upload the e-mail (.eml) or PDF</label><input id="ev-file" type="file" name="file" accept=".eml,.pdf" required><button type="submit" class="btn btn-sm">Upload evidence</button></form>
+  {% endif %}
+  {% if approval.status == 'MANUAL_PENDING' and can_accept %}
+    <form method="post" action="{% url 'iw:approval_decide' iw.pk approval.pk %}" class="inline">{% csrf_token %}
+      <button type="submit" name="decision" value="accept" class="btn btn-sm btn-primary">Accept evidence</button> <button type="submit" name="decision" value="reject" class="btn btn-sm">Reject evidence</button></form>
+  {% endif %}
+</div>
+{% endif %}
+
+{% if all_mails %}
+<div class="card">
+  <h2>E-mails</h2>
+  <table class="tbl stack"><thead><tr><th>Mail</th><th>Revision</th><th>To / Cc</th><th>Status</th><th>Sent</th><th></th></tr></thead>
+    <tbody>{% for m in all_mails %}<tr><td data-label="Mail">{{ m.get_purpose_display }}<div class="muted mono">{{ m.stamp }}</div></td><td data-label="Revision">{{ m.mra.label|default:"-" }}</td>
+      <td data-label="To / Cc">{{ m.to|join:", " }}{% if m.cc %}<div class="muted">cc {{ m.cc|join:", " }}</div>{% endif %}</td>
+      <td data-label="Status"><span class="chip {% if m.status == 'SENT' %}chip-ok{% else %}chip-warn{% endif %}">{{ m.get_status_display }}</span>{% if m.last_error %}<div class="warn-text">{{ m.last_error|truncatechars:160 }}</div>{% endif %}</td>
+      <td data-label="Sent">{{ m.sent_at|date:"d-M-Y H:i"|default:"-" }}</td>
+      <td data-label="">{% if m.eml_id %}<a class="btn btn-sm" href="{% url 'iw:mail_eml' iw.pk m.pk %}">.eml</a>{% endif %}
+        {% if m.status == 'FAILED' or m.status == 'FAILED_UNCONF' %}<form method="post" action="{% url 'iw:mail_retry' iw.pk m.pk %}" class="inline-form">{% csrf_token %}<button type="submit" class="btn btn-sm">Retry</button></form>{% endif %}</td></tr>{% endfor %}</tbody></table>
+</div>
+{% endif %}
+{% endif %}

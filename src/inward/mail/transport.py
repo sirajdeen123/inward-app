@@ -16,6 +16,7 @@ class OutgoingMessage:
     html_body: str
     cc: list[str] = field(default_factory=list)
     attachments: list[Path] = field(default_factory=list)
+    inline_images: dict[str, bytes] = field(default_factory=dict)  # content-id -> PNG (e.g. the logo)
 
     @property
     def stamped_subject(self) -> str:
@@ -52,3 +53,6 @@ class MailTransport(Protocol):
     def fetch_latest(self, subject_contains: str, save_dir: Path,
                      extensions: tuple[str, ...] = (".xls", ".xlsx")) -> FetchedMail | None:
         """Latest inbox message whose subject contains the text; matching attachments saved to save_dir."""
+
+    def fetch_raw(self, subject_contains: str, since_days: int = 30) -> list[bytes]:
+        """Complete inbox messages (read-only) whose subject contains the text, received in the last days."""

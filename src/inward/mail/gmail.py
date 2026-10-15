@@ -11,7 +11,7 @@ import imaplib
 import mimetypes
 import re
 import smtplib
-from datetime import datetime
+from datetime import datetime, timedelta
 from email.message import EmailMessage
 from email.utils import format_datetime, make_msgid, parsedate_to_datetime
 from pathlib import Path
@@ -67,6 +67,10 @@ class GmailTransport:
         msg[STAMP_HEADER] = message.stamp
         msg.set_content("This message is best viewed in an e-mail program that shows HTML.")
         msg.add_alternative(html, subtype="html")
+        if message.inline_images:
+            html_part = msg.get_payload()[-1]
+            for cid, data in message.inline_images.items():
+                html_part.add_related(data, maintype="image", subtype="png", cid=f"<{cid}>")
         for path in message.attachments:
             path = Path(path)
             ctype, _ = mimetypes.guess_type(path.name)
@@ -146,6 +150,21 @@ class GmailTransport:
                 saved.append(target)
         return FetchedMail(message_id=parsed.get("Message-ID", ""), subject=parsed.get("Subject", ""),
                            received_at=received, sender=parsed.get("From", ""), attachments=saved)
+
+    # ------------------------------------------------------------ inbox (SED approval replies)
+    def fetch_raw(self, subject_contains: str, since_days: int = 30) -> list[bytes]:
+        since = (datetime.now() - timedelta(days=since_days)).strftime("%d-%b-%Y")
+        imap = self._imap()
+        try:
+            imap.select("INBOX", readonly=True)
+            out = []
+            for uid in self._search(imap, "SINCE", since, "SUBJECT", _quote(subject_contains)):
+                typ, data = imap.uid("FETCH", uid, "(BODY.PEEK[])")
+                if typ == "OK" and data and data[0]:
+                    out.append(data[0][1])
+            return out
+        finally:
+            imap.logout()
 
 
 def from_settings() -> GmailTransport:

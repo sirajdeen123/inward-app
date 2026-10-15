@@ -1,0 +1,14 @@
+{% extends "web/base.html" %}
+{% block title %}Verify e-mails{% endblock %}
+{% block content %}
+<h1>E-mails entered by clerks</h1>
+<p class="muted">Addresses entered on the spot at MRA stage are used at once and marked Unverified. Confirm them (or correct them); later IWs use the confirmed address.</p>
+<div class="card">
+  {% if rows %}
+  <table class="tbl stack"><thead><tr><th>For</th><th>E-mail</th><th>Entered by</th><th>Confirm / correct</th></tr></thead>
+    <tbody>{% for r in rows %}<tr><td data-label="For">{{ r.owner }} <span class="muted">({{ r.kind|lower }})</span></td><td data-label="E-mail">{{ r.email }}</td><td data-label="Entered by">{{ r.by|default:"-" }}</td>
+      <td data-label="Confirm / correct"><form method="post" class="inline">{% csrf_token %}<input type="hidden" name="kind" value="{{ r.kind }}"><input type="hidden" name="pk" value="{{ r.pk }}">
+        <input name="corrected" type="email" placeholder="correct it (optional)" aria-label="Corrected e-mail for {{ r.owner }}" class="input-inline"><button type="submit" class="btn btn-sm btn-primary">Confirm</button></form></td></tr>{% endfor %}</tbody></table>
+  {% else %}<p class="muted">Nothing waiting.</p>{% endif %}
+</div>
+{% endblock %}

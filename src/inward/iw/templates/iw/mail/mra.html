@@ -1,0 +1,11 @@
+{% extends "iw/mail/_base.html" %}
+{% block body %}
+<p>Dear Sir / Madam,</p>
+<p>Please find attached the <b>Materials Receipt Acknowledgment {{ c.iw.no }} {{ mra.label }}</b> for the vehicle <b>{{ c.iw.vehicle }}</b> received at Depot {{ c.depot.code }} {{ c.depot.name }} on {{ c.iw.arrival }}.</p>
+<table cellpadding="4" cellspacing="0" style="border-collapse:collapse;font-size:13px">
+{% for r in c.references %}<tr><td style="border:1px solid #ccc">{{ r.kind }}</td><td style="border:1px solid #ccc"><b>{{ r.ref }}</b></td><td style="border:1px solid #ccc">{{ r.detail }}</td></tr>{% endfor %}
+</table>
+{% if c.sed %}<p><b>Short / Excess / Damage:</b> short {{ c.sed_totals.short }} pcs, excess {{ c.sed_totals.excess }} pcs, damage {{ c.sed_totals.damage }} pcs - details in the attached MRA.</p>
+{% else %}<p>The consignment was received in full as per documents.</p>{% endif %}
+<p>Regards,</p>
+{% endblock %}

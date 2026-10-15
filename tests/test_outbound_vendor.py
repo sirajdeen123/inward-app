@@ -12,7 +12,7 @@ from inward.iw import outbound, services, vendor
 from inward.iw.models import DespatchRow, Iw, TrackStatus
 from inward.iw.services import IwError
 from tests.conftest import sample
-from tests.helpers import verified_client
+from tests.helpers import sit_html, verified_client
 
 pytestmark = pytest.mark.django_db
 # first rows of the real Despatch sample (all TO ORG 094 Pondicherry):
@@ -97,9 +97,9 @@ def test_suggestion_finds_exact_combination(env):
 def test_identical_row_on_another_iw_needs_acknowledgement(env):
     clerk = env["clerk"]
     first, second = _iw(clerk), _iw(clerk, vehicle="KA01AB1234")
-    for iw in (first, second):
+    for iw, sid in ((first, "9"), (second, "10")):   # a Ship ID can be on only one live IW
         _report(env, iw)
-        outbound.add_ship(clerk, iw.pk, ship_id="9", destination="094", doc_ltr="12", doc_kg="0")
+        outbound.add_ship(clerk, iw.pk, ship_id=sid, destination="094", doc_ltr="12", doc_kg="0")
     s1, s2 = first.outbound_ships.get(), second.outbound_ships.get()
     outbound.save_selection(clerk, s1.pk, {_all_rows(first)[0].pk}, set())
     row2 = _all_rows(second)[0]
@@ -159,3 +159,98 @@ def test_screens(client, env):
     assert "tally with the document" in resp.content.decode()
     assert "Outbound ready" in c.get(reverse("iw:detail", args=[iw.pk])).content.decode()
     assert Iw.objects.get(pk=iw.pk).status == Iw.Status.MATERIAL_LINKED
+
+
+# ---------------------------------------------------------------- other row sources (decision 16-Oct-2026)
+DEST = ("'390:Hindupur - Mfg", "52611001", "20-SEP-2026")
+
+
+def _dest_sit(env, name="dest.xls", ship=DEST, to_org="094:Pondicherry"):
+    return sit_html(env["tmp"] / name, [
+        (*ship, "F000000160001000", "LUXOL PHIROZA 1 L", "RETAIL", "L", "1", "60"),
+        (*ship, "F000000134001000", "LUXOL SKY BLUE 1 L", "RETAIL", "L", "1", "12"),
+        (*ship, "F00B470633002001", "QD A/C PUTTY-GREY-2 K", "AUTOMOTIVE", "K", "2", "10"),
+        ("'390:Hindupur - Mfg", "52611999", "20-SEP-2026", "F000000134001000", "OTHER SHIP", "RETAIL", "L", "1", "5"),
+    ], to_org=to_org)
+
+
+def test_despatch_source_needs_the_report(env):
+    clerk, iw = env["clerk"], _iw(env["clerk"])
+    Organisation.objects.create(code="094", name="Pondicherry", org_type="DEPOT")
+    with pytest.raises(IwError, match="Despatch Detail Report first"):
+        outbound.add_ship(clerk, iw.pk, ship_id="52611001", destination="094", doc_ltr="72", doc_kg="20")
+    ship = outbound.add_ship(clerk, iw.pk, ship_id="52611001", destination="094", doc_ltr="72", doc_kg="20",
+                             source="DEST_SIT")
+    assert ship.source == "DEST_SIT"
+    with pytest.raises(IwError, match="already on"):
+        outbound.add_ship(clerk, _iw(clerk, vehicle="TN38AB1234").pk, ship_id="52611001", destination="094",
+                          doc_ltr="72", source="MANUAL")
+
+
+def test_destination_sit_rows_by_ship_id(env):
+    clerk, iw = env["clerk"], _iw(env["clerk"])
+    Organisation.objects.create(code="094", name="Pondicherry", org_type="DEPOT")
+    ship = outbound.add_ship(clerk, iw.pk, ship_id="52611001", destination="094", doc_ltr="72", doc_kg="99",
+                             source="DEST_SIT")
+    with pytest.raises(IwError, match="does not tally"):
+        outbound.load_destination_sit(clerk, ship.pk, _dest_sit(env), "dest.xls")
+    assert not ship.rows.exists()
+    with pytest.raises(IwError, match="goes to 035"):
+        outbound.load_destination_sit(clerk, ship.pk, _dest_sit(env, to_org="035:Coimbatore"), "x.xls")
+    with pytest.raises(IwError, match="not in this SIT"):
+        outbound.load_destination_sit(clerk, ship.pk, _dest_sit(env, ship=("'390:Hindupur - Mfg", "1", "20-SEP-2026")), "y.xls")
+    ship.doc_kg = Decimal(20)
+    ship.save()
+    outbound.load_destination_sit(clerk, ship.pk, _dest_sit(env), "dest.xls")
+    ship.refresh_from_db()
+    assert ship.status == TrackStatus.ROWS_ASSIGNED and ship.rows.count() == 3   # the other Ship's row is left out
+    assert outbound.state(iw).ready
+    outbound.load_destination_sit(clerk, ship.pk, _dest_sit(env), "dest.xls")   # loading again replaces
+    assert ship.rows.count() == 3
+    with pytest.raises(IwError, match="Only Despatch-report"):
+        outbound.reopen(clerk, ship.pk)
+    outbound.remove_ship(clerk, ship.pk)
+    assert not DespatchRow.objects.filter(report__iw=iw).exists()
+
+
+def test_manual_rows_must_tally(env):
+    clerk, iw = env["clerk"], _iw(env["clerk"])
+    Organisation.objects.create(code="094", name="Pondicherry", org_type="DEPOT")
+    ship = outbound.add_ship(clerk, iw.pk, ship_id="52611001", destination="094", doc_ltr="72", doc_kg="20",
+                             doc_nop="82", source="MANUAL")
+    lines = [("F000000160001000", "", "L", "60", "60"), ("f000000134001000", "Luxol sky blue", "L", "12", "12"),
+             ("", "", "", "", "")]
+    with pytest.raises(IwError, match="does not tally"):
+        outbound.save_manual(clerk, ship.pk, lines)
+    with pytest.raises(IwError, match="16-character"):
+        outbound.save_manual(clerk, ship.pk, [("F0001", "", "L", "1", "1")])
+    lines.append(("F00B470633002001", "QD PUTTY", "K", "10", "20"))
+    outbound.save_manual(clerk, ship.pk, lines)
+    rows = {r.sku: r for r in ship.rows.all()}
+    assert rows["F000000134001000"].floor_sku == "000 134" and rows["F00B470633002001"].kg == 20
+    assert outbound.state(iw).ready
+
+
+def test_other_sources_screens(client, env):
+    c = verified_client(client, env["clerk"])
+    iw = _iw(env["clerk"])
+    resp = c.post(reverse("iw:outbound_add_ship", args=[iw.pk]),
+                  {"ship_id": "52611001", "destination": "094 : Pondicherry", "doc_ltr": "72", "doc_kg": "20",
+                   "source": "DEST_SIT"}, follow=True)
+    assert "Upload the destination depot" in resp.content.decode()
+    ship = iw.outbound_ships.get()
+    with open(_dest_sit(env), "rb") as fh:
+        resp = c.post(reverse("iw:outbound_dest_sit", args=[ship.pk]), {"file": fh}, follow=True)
+    page = resp.content.decode()
+    assert "3 row(s) taken from the destination SIT" in page and "Destination depot SIT" in page
+    resp = c.post(reverse("iw:outbound_add_ship", args=[iw.pk]),
+                  {"ship_id": "52611002", "destination": "094", "doc_ltr": "5", "doc_kg": "0", "source": "MANUAL"},
+                  follow=True)
+    assert "Type the SKU rows" in resp.content.decode()
+    m = iw.outbound_ships.get(ship_id="52611002")
+    page = c.post(reverse("iw:outbound_manual", args=[m.pk]), {"count": "12", "more": "1", "sku_0": "F000000134001000"}).content.decode()
+    assert 'value="F000000134001000"' in page and 'name="sku_19"' in page
+    resp = c.post(reverse("iw:outbound_manual", args=[m.pk]),
+                  {"count": "12", "sku_0": "F000000134001000", "uom_0": "L", "nop_0": "5", "qty_0": "5"}, follow=True)
+    assert "1 row(s) saved" in resp.content.decode()
+    assert 'value="F000000134001000"' in c.get(reverse("iw:outbound_manual", args=[m.pk])).content.decode()

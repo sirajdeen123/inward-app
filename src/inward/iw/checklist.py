@@ -145,7 +145,7 @@ def build(iw: Iw) -> Build:
         if not st.ships:
             b.warnings.append("This load type carries outbound transhipment but no outbound Ship is entered.")
         elif not st.ready:
-            b.blockers.append("Tick and save the rows of every outbound Ship (they must tally) before the checklist.")
+            b.blockers.append("Save the rows of every outbound Ship (they must tally with its document) before the checklist.")
         for s in st.ships:
             lines = [Line(f"Outbound Ship {s.ship.ship_id}", r.sku, r.floor_sku, r.description, r.business_line,
                           r.pack_size, r.uom, r.nop, "KG" if r.kg and not r.ltr else "LTR", r.kg if r.kg and not r.ltr

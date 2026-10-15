@@ -3,10 +3,10 @@
 {% block content %}
 <p><a href="{% url 'iw:detail' iw.pk %}">&larr; {{ iw }}</a></p>
 <h1>Outbound transhipment on {{ iw }}</h1>
-<p class="muted">Upload the Despatch Detail Report, enter each outbound Ship with the LTR and KG on its document, then tick the Ship's rows until they tally.</p>
+<p class="muted">Enter each outbound Ship with the LTR and KG on its document and choose where its SKU rows come from: the Despatch Detail Report (tick rows until they tally), the destination depot's SIT report (rows taken by Ship ID) or manual entry from the Ship document. Every Ship must tally before the unloading checklist.</p>
 
 <div class="card">
-  <h2>1 · Berger Despatch Detail Report</h2>
+  <h2>1 · Berger Despatch Detail Report <span class="muted">(only for option A below)</span></h2>
   <form method="post" action="{% url 'iw:outbound_upload' iw.pk %}" enctype="multipart/form-data" class="inline">{% csrf_token %}
     <label for="dr-file">Upload report (.xls / .xlsx)</label><input id="dr-file" type="file" name="file" required>
     <button type="submit" class="btn">Upload</button>
@@ -17,31 +17,35 @@
 
 <div class="card">
   <h2>2 · Outbound Ship (from the Ship document)</h2>
-  {% if reports %}
   <form method="post" action="{% url 'iw:outbound_add_ship' iw.pk %}" class="form-grid">{% csrf_token %}
     <div class="field"><label for="ob-id">Outbound Ship ID *</label><input id="ob-id" name="ship_id" inputmode="numeric"></div>
     <div class="field"><label for="ob-dest">Destination *</label><input id="ob-dest" name="destination" list="dest-list" value="{{ default_destination }}" placeholder="094 : Pondicherry"></div>
     <div class="field"><label for="ob-ltr">LTR on document *</label><input id="ob-ltr" name="doc_ltr" inputmode="decimal"></div>
     <div class="field"><label for="ob-kg">KG on document *</label><input id="ob-kg" name="doc_kg" inputmode="decimal" placeholder="0 if none"></div>
     <div class="field"><label for="ob-nop">Packages on document (optional)</label><input id="ob-nop" name="doc_nop" inputmode="decimal"></div>
-    <div class="field"><label>&nbsp;</label><button type="submit" class="btn btn-primary">Add Ship and tick rows</button></div>
+    <div class="field span-all"><label>Rows of this Ship come from *</label>
+      <label class="check"><input type="radio" name="source" value="DESPATCH"{% if reports %} checked{% else %} disabled{% endif %}> A · Despatch Detail Report{% if not reports %} (upload it above first){% endif %}</label>
+      <label class="check"><input type="radio" name="source" value="DEST_SIT"{% if not reports %} checked{% endif %}> B · Destination depot's SIT report (when the Despatch report is not available)</label>
+      <label class="check"><input type="radio" name="source" value="MANUAL"> C · Manual entry from the Ship document</label></div>
+    <div class="field"><label>&nbsp;</label><button type="submit" class="btn btn-primary">Add Ship</button></div>
     <datalist id="dest-list">{% for code, name, n in destinations %}<option value="{{ code }} : {{ name }}"></option>{% endfor %}</datalist>
   </form>
-  {% else %}<p class="muted">Upload the Despatch Detail Report first.</p>{% endif %}
 </div>
 
 <div class="card">
   <h2>3 · Outbound Ships on this vehicle</h2>
   {% if state.ships %}
   <table class="tbl">
-    <thead><tr><th>Ship ID</th><th>Destination</th><th class="num">LTR doc / ticked</th><th class="num">KG doc / ticked</th><th class="num">Packages doc / ticked</th><th>Status</th><th></th></tr></thead>
+    <thead><tr><th>Ship ID</th><th>Destination</th><th>Rows from</th><th class="num">LTR doc / ticked</th><th class="num">KG doc / ticked</th><th class="num">Packages doc / ticked</th><th>Status</th><th></th></tr></thead>
     <tbody>{% for s in state.ships %}
-      <tr><td class="mono">{{ s.ship.ship_id }}</td><td>{{ s.ship.destination }}</td>
+      <tr><td class="mono">{{ s.ship.ship_id }}</td><td>{{ s.ship.destination }}</td><td>{{ s.ship.get_source_display }}</td>
       <td class="num">{{ s.ship.doc_ltr|floatformat:"-3" }} / {{ s.ticked.ltr|floatformat:"-3" }}</td>
       <td class="num">{{ s.ship.doc_kg|floatformat:"-3" }} / {{ s.ticked.kg|floatformat:"-3" }}</td>
       <td class="num">{{ s.ship.doc_nop|floatformat:"-3"|default:"-" }} / {{ s.ticked.nop|floatformat:"-3" }}</td>
       <td>{% if s.tallied %}<span class="chip chip-ok">Tallied and saved</span>{% else %}<span class="chip chip-warn">Rows not saved</span>{% endif %}</td>
-      <td class="nowrap">{% if s.tallied %}<form method="post" action="{% url 'iw:outbound_reopen' s.ship.pk %}" class="inline-form">{% csrf_token %}<button type="submit" class="btn btn-sm">Edit rows</button></form>
+      <td class="nowrap">{% if s.ship.source == "DEST_SIT" %}<a href="{% url 'iw:outbound_dest_sit' s.ship.pk %}" class="btn btn-sm{% if not s.tallied %} btn-primary{% endif %}">{% if s.tallied %}View / load again{% else %}Upload destination SIT{% endif %}</a>
+          {% elif s.ship.source == "MANUAL" %}<a href="{% url 'iw:outbound_manual' s.ship.pk %}" class="btn btn-sm{% if not s.tallied %} btn-primary{% endif %}">{% if s.tallied %}Edit rows{% else %}Enter rows{% endif %}</a>
+          {% elif s.tallied %}<form method="post" action="{% url 'iw:outbound_reopen' s.ship.pk %}" class="inline-form">{% csrf_token %}<button type="submit" class="btn btn-sm">Edit rows</button></form>
           {% else %}<a href="{% url 'iw:outbound_rows' s.ship.pk %}" class="btn btn-sm btn-primary">Tick rows</a>{% endif %}
           <form method="post" action="{% url 'iw:outbound_remove_ship' s.ship.pk %}" class="inline-form">{% csrf_token %}<button type="submit" class="btn btn-sm">Remove</button></form></td></tr>
     {% endfor %}</tbody>

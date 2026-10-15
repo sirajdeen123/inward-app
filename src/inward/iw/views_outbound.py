@@ -12,11 +12,16 @@ from inward.accounts.services import PermissionDenied
 from inward.core.models import Organisation, Vendor
 from inward.importers.common import ImportFailed
 from inward.iw import outbound, vendor
-from inward.iw.models import Iw, OutboundShip, VendorConsignment
+from inward.iw.models import Iw, OutboundShip, OutboundSource, VendorConsignment
 from inward.iw.services import IwError
 from inward.web.views import PreviewForm, needs
 
 VENDOR_ROWS = 8
+MANUAL_ROWS = 12
+NEXT_STEP = {OutboundSource.DESPATCH: "tick its rows", OutboundSource.DEST_SIT: "upload the destination SIT",
+             OutboundSource.MANUAL: "enter its rows"}
+ROWS_PAGE = {OutboundSource.DESPATCH: "iw:outbound_rows", OutboundSource.DEST_SIT: "iw:outbound_dest_sit",
+             OutboundSource.MANUAL: "iw:outbound_manual"}
 
 
 def _save_upload(upload) -> Path:
@@ -41,7 +46,8 @@ def outbound_page(request, pk):
         "iw": iw, "state": outbound.state(iw), "destinations": dests,
         "default_destination": f"{dests[0][0]} : {dests[0][1]}" if len(dests) == 1 else "",
         "orgs": Organisation.objects.filter(active=True).order_by("code"),
-        "reports": iw.despatch_reports.order_by("uploaded_at")})
+        "reports": iw.despatch_reports.filter(kind=OutboundSource.DESPATCH).order_by("uploaded_at"),
+        "sources": OutboundSource.choices})
 
 
 @require_POST
@@ -66,9 +72,10 @@ def outbound_add_ship(request, pk):
     try:
         s = outbound.add_ship(request.user, pk, ship_id=request.POST.get("ship_id", ""),
                               destination=request.POST.get("destination", ""), doc_ltr=request.POST.get("doc_ltr", ""),
-                              doc_kg=request.POST.get("doc_kg", ""), doc_nop=request.POST.get("doc_nop", ""))
-        messages.success(request, f"Outbound Ship {s.ship_id} added - now tick its rows.")
-        return redirect("iw:outbound_rows", ship_pk=s.pk)
+                              doc_kg=request.POST.get("doc_kg", ""), doc_nop=request.POST.get("doc_nop", ""),
+                              source=request.POST.get("source", OutboundSource.DESPATCH))
+        messages.success(request, f"Outbound Ship {s.ship_id} added - now {NEXT_STEP[s.source]}.")
+        return redirect(ROWS_PAGE[s.source], ship_pk=s.pk)
     except (IwError, PermissionDenied) as exc:
         messages.error(request, str(exc))
     return redirect("iw:outbound", pk=pk)
@@ -77,6 +84,8 @@ def outbound_add_ship(request, pk):
 @needs("MATERIAL_LINK")
 def outbound_rows(request, ship_pk):
     ship = get_object_or_404(OutboundShip.objects.select_related("destination", "iw", "iw__load_type"), pk=ship_pk)
+    if ship.source != OutboundSource.DESPATCH:
+        return redirect(ROWS_PAGE[ship.source], ship_pk=ship.pk)
     rows = outbound.available_rows(ship)
     offered = outbound.Totals.of(rows)
     error = None
@@ -108,6 +117,54 @@ def outbound_rows(request, ship_pk):
         "ship": ship, "iw": ship.iw, "rows": rows, "offered": offered, "error": error,
         "exact": outbound.matches(ship, offered), "enough": outbound.covers(ship, offered),
         "ticked_totals": outbound.Totals.of([r for r in rows if r.ticked])})
+
+
+@needs("MATERIAL_LINK")
+def outbound_dest_sit(request, ship_pk):
+    ship = get_object_or_404(OutboundShip.objects.select_related("destination", "iw", "iw__load_type"), pk=ship_pk)
+    error = None
+    if request.method == "POST":
+        try:
+            upload = _checked_upload(request)
+            path = _save_upload(upload)
+            try:
+                rep = outbound.load_destination_sit(request.user, ship.pk, path, upload.name)
+            finally:
+                path.unlink(missing_ok=True)
+            messages.success(request, f"Outbound Ship {ship.ship_id}: {rep.rows.count()} row(s) taken from the "
+                                      f"destination SIT - they tally with the Ship document.")
+            return redirect("iw:outbound", pk=ship.iw_id)
+        except (IwError, ImportFailed, PermissionDenied) as exc:
+            error = str(exc)
+    return render(request, "iw/outbound_dest_sit.html", {"ship": ship, "iw": ship.iw, "error": error,
+                                                         "rows": ship.rows.all() if ship.tallied_at else []})
+
+
+@needs("MATERIAL_LINK")
+def outbound_manual(request, ship_pk):
+    ship = get_object_or_404(OutboundShip.objects.select_related("destination", "iw", "iw__load_type"), pk=ship_pk)
+    error = None
+    if request.method == "POST":
+        count = request.POST.get("count", "")
+        n = min(200, max(MANUAL_ROWS, int(count) if count.isdigit() else MANUAL_ROWS))
+        lines = [(request.POST.get(f"sku_{i}", ""), request.POST.get(f"desc_{i}", ""), request.POST.get(f"uom_{i}", ""),
+                  request.POST.get(f"nop_{i}", ""), request.POST.get(f"qty_{i}", "")) for i in range(n)]
+        if request.POST.get("more"):
+            lines += [("", "", "", "", "")] * 8
+        else:
+            try:
+                rep = outbound.save_manual(request.user, ship.pk, lines)
+                messages.success(request, f"Outbound Ship {ship.ship_id}: {rep.rows.count()} row(s) saved - they "
+                                          "tally with the Ship document.")
+                return redirect("iw:outbound", pk=ship.iw_id)
+            except (IwError, PermissionDenied) as exc:
+                error = str(exc)
+    else:
+        lines = [(r.sku, r.description, r.uom, f"{r.nop.normalize():f}", f"{(r.ltr or r.kg).normalize():f}")
+                 for r in ship.rows.all()] if ship.source == OutboundSource.MANUAL else []
+    rows = list(lines) + [("", "", "", "", "")] * max(0, MANUAL_ROWS - len(lines))
+    return render(request, "iw/outbound_manual.html", {"ship": ship, "iw": ship.iw, "error": error,
+                                                       "rows": [(i, *r) for i, r in enumerate(rows)], "count": len(rows)})
 
 
 @require_POST

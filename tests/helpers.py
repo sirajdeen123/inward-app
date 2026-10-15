@@ -7,13 +7,14 @@ HEADER = ["From Org", "To Org", "Delivery Id", "Shipment Period", "Shipment Date
           "Item Desc", "Item BL", "Uom", "Volume", "Quantity Issued", "Receipt Num", "Receipt Date", "Quantity Received"]
 
 
-def sit_html(path: Path, rows: list[tuple], window=("03-AUG-25", "25-JUN-26"), system_date="26-JUN-2026") -> Path:
+def sit_html(path: Path, rows: list[tuple], window=("03-AUG-25", "25-JUN-26"), system_date="26-JUN-2026",
+             to_org="035:Coimbatore") -> Path:
     """rows: (from_org, ship_id, shipment_date, sku, desc, bl, uom, volume, qty)."""
     def tr(cells):
         return "<tr>" + "".join(f"<td>{c}</td>" for c in cells) + "</tr>"
     body = [tr(HEADER)]
     for from_org, ship, sdate, sku, desc, bl, uom, vol, qty in rows:
-        body.append(tr([from_org, "035:Coimbatore", ship, "JUN-2026", sdate, "FG", sku, desc, bl, uom, vol, qty, "", "", ""]))
+        body.append(tr([from_org, to_org, ship, "JUN-2026", sdate, "FG", sku, desc, bl, uom, vol, qty, "", "", ""]))
     path.write_text(
         "<html><head><title>RTF Template</title></head><body>"
         "<p>BPIL Depot Stock In Transit Report</p>"

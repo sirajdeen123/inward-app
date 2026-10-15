@@ -63,6 +63,15 @@ class Iw(models.Model):
 
 # ---------------------------------------------------------------- Screen 03: linked references (tracks)
 
+class OutboundSource(models.TextChoices):
+    """Where an outbound Ship's SKU rows come from (decision 16-Oct-2026). The Despatch Detail Report has no
+    Ship ID yet (requested from the ERP team), so the clerk may also use the destination depot's SIT report
+    (rows picked by Ship ID) or type the rows from the Ship document."""
+    DESPATCH = "DESPATCH", "Despatch Detail Report"
+    DEST_SIT = "DEST_SIT", "Destination depot SIT"
+    MANUAL = "MANUAL", "Manual entry"
+
+
 class TrackStatus(models.TextChoices):
     LINKED = "LINKED", "Linked"
     ROWS_ASSIGNED = "ROWS_ASSIGNED", "Rows assigned"
@@ -161,6 +170,7 @@ class OutboundShip(models.Model):
     doc_nop = models.DecimalField(max_digits=14, decimal_places=3, null=True, blank=True)  # optional extra check
     doc_ltr = models.DecimalField(max_digits=18, decimal_places=3, default=0)
     doc_kg = models.DecimalField(max_digits=18, decimal_places=3, default=0)
+    source = models.CharField(max_length=10, choices=OutboundSource.choices, default=OutboundSource.DESPATCH)
     status = models.CharField(max_length=14, choices=TrackStatus.choices, default=TrackStatus.LINKED)
     tallied_at = models.DateTimeField(null=True, blank=True)  # rows saved and totals matched
     linked_by = models.ForeignKey(USER, on_delete=models.PROTECT, related_name="+")
@@ -172,8 +182,12 @@ class OutboundShip(models.Model):
 
 
 class DespatchReport(models.Model):
+    """Outbound rows source. DESPATCH reports are shared by the IW's Ships (rows are ticked); a DEST_SIT or
+    MANUAL report belongs to one Ship and its rows are assigned to that Ship directly."""
     iw = models.ForeignKey(Iw, on_delete=models.CASCADE, related_name="despatch_reports")
-    document = models.ForeignKey("core.Document", on_delete=models.PROTECT, related_name="+")
+    kind = models.CharField(max_length=10, choices=OutboundSource.choices, default=OutboundSource.DESPATCH)
+    ship = models.ForeignKey(OutboundShip, null=True, blank=True, on_delete=models.CASCADE, related_name="own_reports")
+    document = models.ForeignKey("core.Document", null=True, blank=True, on_delete=models.PROTECT, related_name="+")
     filename = models.CharField(max_length=260)
     window_from = models.DateField(null=True, blank=True)
     window_to = models.DateField(null=True, blank=True)

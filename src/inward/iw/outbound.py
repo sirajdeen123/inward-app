@@ -7,6 +7,11 @@
    if more, the clerk ticks the Ship's rows; if less, the Ship cannot be completed.
 4. Save is accepted only when the ticked rows tally exactly with the entered LTR and KG (and NOP if given).
 Unticked rows are simply not on this vehicle. Rows ticked for one Ship are not offered to another.
+
+Other row sources (decision 16-Oct-2026, until the ERP adds the Ship ID to the Despatch report):
+- DEST_SIT: the destination depot shares its SIT report; the Ship's rows are taken by Ship ID.
+- MANUAL: the clerk types the SKU rows from the Ship document.
+Both must tally with the entered LTR and KG (and packages, if given) before they are saved.
 """
 from __future__ import annotations
 
@@ -21,11 +26,13 @@ from django.utils import timezone
 from inward.accounts.models import User
 from inward.accounts.services import require
 from inward.core import audit, documents
-from inward.core.models import FeatureFlag, Organisation
-from inward.domain.normalize import clean_text, floor_sku, parse_org, round_measure
+from inward.core.models import FeatureFlag, Organisation, SkuPackaging
+from inward.domain.normalize import clean_code, clean_text, floor_sku, is_valid_sku, parse_org, round_measure
+from inward.domain.units import MeasureFamily
 from inward.importers.despatch import parse_despatch
+from inward.importers.sit import parse_sit
 from inward.iw.linking import LIVE, _refresh_status, _require_open
-from inward.iw.models import DespatchReport, DespatchRow, Iw, OutboundShip, TrackStatus
+from inward.iw.models import DespatchReport, DespatchRow, Iw, OutboundShip, OutboundSource, TrackStatus
 from inward.iw.services import IwError
 
 SUGGEST_STATE_LIMIT = 200_000
@@ -91,15 +98,16 @@ def upload_report(user: User, iw_pk: int, path: Path, filename: str) -> Despatch
 def report_destinations(iw: Iw) -> list[tuple[str, str, int]]:
     """(code, name, row count) of destinations in the IW's uploaded reports."""
     seen: dict[str, list] = {}
-    for code, name in DespatchRow.objects.filter(report__iw=iw).values_list("to_org_code", "to_org_name"):
+    for code, name in (DespatchRow.objects.filter(report__iw=iw, report__kind=OutboundSource.DESPATCH)
+                       .values_list("to_org_code", "to_org_name")):
         entry = seen.setdefault(code, [name, 0])
         entry[1] += 1
     return [(c, n, k) for c, (n, k) in sorted(seen.items())]
 
 
 @transaction.atomic
-def add_ship(user: User, iw_pk: int, *, ship_id: str, destination: str, doc_ltr="", doc_kg="", doc_nop=""
-             ) -> OutboundShip:
+def add_ship(user: User, iw_pk: int, *, ship_id: str, destination: str, doc_ltr="", doc_kg="", doc_nop="",
+             source: str = OutboundSource.DESPATCH) -> OutboundShip:
     require(user, "MATERIAL_LINK")
     iw = Iw.objects.select_for_update().select_related("load_type").get(pk=iw_pk)
     _require_outbound(iw)
@@ -108,14 +116,23 @@ def add_ship(user: User, iw_pk: int, *, ship_id: str, destination: str, doc_ltr=
         raise IwError("Outbound Ship ID must be the number on the Ship document.")
     if iw.outbound_ships.filter(ship_id=sid).exists():
         raise IwError(f"Outbound Ship {sid} is already on this IW.")
+    clash = OutboundShip.objects.filter(ship_id=sid, iw__status__in=LIVE).exclude(iw=iw).select_related("iw").first()
+    if clash:
+        raise IwError(f"Outbound Ship {sid} is already on {clash.iw}.")
+    if source not in OutboundSource.values:
+        raise IwError("Choose where the Ship's rows come from: Despatch report, destination SIT or manual entry.")
+    if source == OutboundSource.DESPATCH and not iw.despatch_reports.filter(kind=OutboundSource.DESPATCH).exists():
+        raise IwError("Upload the Despatch Detail Report first, or choose the destination SIT / manual entry.")
     ltr, kg = _dec(doc_ltr, "LTR") or Decimal(0), _dec(doc_kg, "KG") or Decimal(0)
     if ltr == 0 and kg == 0:
         raise IwError("Enter the LTR and / or KG shown on the outbound Ship document.")
     ship = OutboundShip.objects.create(iw=iw, ship_id=sid, destination=_org(destination), doc_ltr=ltr, doc_kg=kg,
-                                       doc_nop=_dec(doc_nop, "Packages"), linked_by=user)
+                                       doc_nop=_dec(doc_nop, "Packages"), source=source,
+                                       linked_by=user)
     _refresh_status(iw)
     audit.record("OUTBOUND_SHIP_ADDED", "iw", iw.pk, user=user, iw_id=iw.pk,
-                 after={"ship": sid, "destination": ship.destination_id, "ltr": ltr, "kg": kg, "nop": ship.doc_nop})
+                 after={"ship": sid, "destination": ship.destination_id, "ltr": ltr, "kg": kg, "nop": ship.doc_nop,
+                        "source": source})
     return ship
 
 
@@ -141,7 +158,8 @@ def _reuse_window_days() -> int:
 def available_rows(ship: OutboundShip) -> list[DespatchRow]:
     """Rows of the Ship's destination that are free or already ticked for this Ship; each row is marked with
     `.reused_on` when an identical row is already saved on another live IW recently."""
-    rows = list(DespatchRow.objects.filter(report__iw_id=ship.iw_id, to_org_code=ship.destination_id)
+    rows = list(DespatchRow.objects.filter(report__iw_id=ship.iw_id, report__kind=OutboundSource.DESPATCH,
+                                           to_org_code=ship.destination_id)
                 .exclude(outbound_ship__isnull=False, outbound_ship__in=OutboundShip.objects.exclude(pk=ship.pk))
                 .order_by("report_id", "row_no"))
     since = timezone.now() - timedelta(days=_reuse_window_days())
@@ -221,10 +239,119 @@ def reopen(user: User, ship_pk: int) -> None:
     require(user, "MATERIAL_LINK")
     ship = OutboundShip.objects.select_for_update().get(pk=ship_pk)
     _require_open(Iw.objects.get(pk=ship.iw_id))
+    if ship.source != OutboundSource.DESPATCH:
+        raise IwError("Only Despatch-report Ships are re-ticked; load the destination SIT again or edit the manual rows.")
     ship.status = TrackStatus.LINKED
     ship.tallied_at = None
     ship.save(update_fields=["status", "tallied_at"])
     audit.record("OUTBOUND_SHIP_REOPENED", "iw", ship.iw_id, user=user, iw_id=ship.iw_id, after={"ship": ship.ship_id})
+
+
+# ---------------------------------------------------------------- destination SIT and manual entry
+
+
+def _lock_own(user: User, ship_pk: int) -> tuple[OutboundShip, Iw]:
+    require(user, "MATERIAL_LINK")
+    ship = OutboundShip.objects.select_for_update().select_related("destination").get(pk=ship_pk)
+    iw = Iw.objects.select_for_update().select_related("load_type").get(pk=ship.iw_id)
+    _require_outbound(iw)
+    return ship, iw
+
+
+def _tally_or_fail(ship: OutboundShip, rows: list[DespatchRow], what: str) -> Totals:
+    t = Totals.of(rows)
+    if not matches(ship, t):
+        nop = f", packages {t.nop} vs {ship.doc_nop}" if ship.doc_nop is not None else ""
+        raise IwError(f"{what} does not tally with Ship {ship.ship_id}: LTR {t.ltr} vs {ship.doc_ltr}, "
+                      f"KG {t.kg} vs {ship.doc_kg}{nop}. Nothing was saved.")
+    return t
+
+
+def _save_own(user: User, ship: OutboundShip, iw: Iw, kind: str, rows: list[DespatchRow], t: Totals, *,
+              document=None, filename: str = "", window=(None, None)) -> DespatchReport:
+    ship.own_reports.all().delete()  # a re-load or re-entry replaces the earlier rows of this Ship
+    report = DespatchReport.objects.create(iw=iw, kind=kind, ship=ship, document=document, filename=filename,
+                                           window_from=window[0], window_to=window[1], uploaded_by=user)
+    for i, r in enumerate(rows, 1):
+        r.report, r.row_no, r.outbound_ship = report, i, ship
+        r.fingerprint = f"{r.to_org_code}|{r.sku}|{r.nop}|{r.ltr}|{r.kg}"
+    DespatchRow.objects.bulk_create(rows)
+    ship.source = kind
+    ship.status = TrackStatus.ROWS_ASSIGNED
+    ship.tallied_at = timezone.now()
+    ship.save(update_fields=["source", "status", "tallied_at"])
+    audit.record("OUTBOUND_SHIP_TALLIED", "iw", iw.pk, user=user, iw_id=iw.pk,
+                 after={"ship": ship.ship_id, "source": kind, "file": filename, "rows": len(rows), "ltr": t.ltr,
+                        "kg": t.kg, "nop": t.nop})
+    return report
+
+
+@transaction.atomic
+def load_destination_sit(user: User, ship_pk: int, path: Path, filename: str) -> DespatchReport:
+    """Take the Ship's rows from the SIT report shared by the destination depot (rows picked by Ship ID)."""
+    ship, iw = _lock_own(user, ship_pk)
+    sit = parse_sit(path)
+    if ship.ship_id not in sit.ship_ids:
+        others = sorted(sit.ship_ids)
+        raise IwError(f"Ship {ship.ship_id} is not in this SIT report. Ships in the file: "
+                      f"{', '.join(others[:15]) or 'none'}{' ...' if len(others) > 15 else ''}.")
+    wrong = {r.to_org_code for r in sit.rows if r.ship_id == ship.ship_id} - {ship.destination_id}
+    if wrong:
+        raise IwError(f"In this SIT report Ship {ship.ship_id} goes to {', '.join(sorted(wrong))}, "
+                      f"not to {ship.destination}. Check the Ship ID and destination.")
+    if ship.ship_id in sit.blocked_ships:
+        raise IwError(f"Ship {ship.ship_id} has row errors in this SIT report: "
+                      + "; ".join(i.message for i in sit.issues if i.ref == ship.ship_id))
+    rows = [DespatchRow(
+        to_org_code=ship.destination_id, to_org_name=ship.destination.name, sku=ln.sku, floor_sku=floor_sku(ln.sku),
+        description=ln.description, business_line=ln.business_line, uom=ln.uom, nop=ln.quantity,
+        pack_size=ln.pack_size, ltr=ln.measure if ln.family == MeasureFamily.VOLUME else 0,
+        kg=ln.measure if ln.family == MeasureFamily.WEIGHT else 0)
+        for (sid, _), ln in sit.lines.items() if sid == ship.ship_id]
+    t = _tally_or_fail(ship, rows, "The destination SIT")
+    doc = documents.store(Path(path).read_bytes(), filename=filename, content_type="application/vnd.ms-excel",
+                          doc_type="DESTINATION_SIT_REPORT", user=user, links=[("iw", iw.pk, "destination_sit")])
+    report = _save_own(user, ship, iw, OutboundSource.DEST_SIT, rows, t, document=doc, filename=filename,
+                       window=(sit.window_from, sit.window_to))
+    _refresh_status(iw)
+    return report
+
+
+UOM_FAMILY = {"L": "LTR", "ML": "LTR", "K": "KG", "KG": "KG", "G": "KG"}
+
+
+@transaction.atomic
+def save_manual(user: User, ship_pk: int, lines: list[tuple[str, str, str, str, str]]) -> DespatchReport:
+    """lines: (sku, description, uom L/K, pieces, quantity in LTR or KG) typed from the Ship document."""
+    ship, iw = _lock_own(user, ship_pk)
+    entered = []
+    for sku, desc, uom, nop, qty in lines:
+        sku = clean_code(sku)
+        if not sku and not clean_text(desc) and not str(nop or "").strip():
+            continue
+        if not is_valid_sku(sku):
+            raise IwError(f"'{sku or desc}' - enter the 16-character SKU.")
+        uom = clean_code(uom) or "L"
+        if uom not in UOM_FAMILY:
+            raise IwError(f"SKU {sku}: UOM '{uom}' must be L, ML, K or G.")
+        n, q = _dec(nop, f"SKU {sku} pieces", True), _dec(qty, f"SKU {sku} quantity", True)
+        if n <= 0:
+            raise IwError(f"SKU {sku}: pieces must be greater than zero.")
+        entered.append((sku, clean_text(desc), uom, n, q))
+    if not entered:
+        raise IwError("Enter at least one SKU row from the Ship document.")
+    names = dict(SkuPackaging.objects.filter(sku__in=[e[0] for e in entered]).values_list("sku", "description"))
+    rows = []
+    for sku, desc, uom, n, q in entered:
+        fam = UOM_FAMILY[uom]
+        rows.append(DespatchRow(
+            to_org_code=ship.destination_id, to_org_name=ship.destination.name, sku=sku, floor_sku=floor_sku(sku),
+            description=(desc or names.get(sku, "")).upper()[:200], uom=uom, nop=n, pack_size=(q / n) if q else None,
+            ltr=q if fam == "LTR" else 0, kg=q if fam == "KG" else 0))
+    t = _tally_or_fail(ship, rows, "The entered rows")
+    report = _save_own(user, ship, iw, OutboundSource.MANUAL, rows, t, filename="Manual entry")
+    _refresh_status(iw)
+    return report
 
 
 def suggest(ship: OutboundShip, rows: list[DespatchRow]) -> list[int] | None:

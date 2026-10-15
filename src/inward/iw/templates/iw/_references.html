@@ -52,12 +52,12 @@
   <div class="bar"><h2>Outbound transhipment</h2><div class="grow"></div>
     {% if can_link %}<a href="{% url 'iw:outbound' iw.pk %}" class="btn btn-sm">Open outbound</a>{% endif %}</div>
   {% if outbound_state.ships %}
-  <table class="tbl"><thead><tr><th>Ship ID</th><th>Destination</th><th class="num">LTR doc / ticked</th><th class="num">KG doc / ticked</th><th class="num">Packages doc / ticked</th><th>Status</th></tr></thead>
-  <tbody>{% for s in outbound_state.ships %}<tr><td class="mono">{{ s.ship.ship_id }}</td><td>{{ s.ship.destination }}</td>
+  <table class="tbl"><thead><tr><th>Ship ID</th><th>Destination</th><th>Rows from</th><th class="num">LTR doc / ticked</th><th class="num">KG doc / ticked</th><th class="num">Packages doc / ticked</th><th>Status</th></tr></thead>
+  <tbody>{% for s in outbound_state.ships %}<tr><td class="mono">{{ s.ship.ship_id }}</td><td>{{ s.ship.destination }}</td><td>{{ s.ship.get_source_display }}</td>
     <td class="num">{{ s.ship.doc_ltr|floatformat:"-3" }} / {{ s.ticked.ltr|floatformat:"-3" }}</td><td class="num">{{ s.ship.doc_kg|floatformat:"-3" }} / {{ s.ticked.kg|floatformat:"-3" }}</td>
     <td class="num">{{ s.ship.doc_nop|floatformat:"-3"|default:"-" }} / {{ s.ticked.nop|floatformat:"-3" }}</td>
     <td>{% if s.tallied %}<span class="chip chip-ok">Tallied and saved</span>{% else %}<span class="chip chip-warn">Rows not saved</span>{% endif %}</td></tr>{% endfor %}</tbody></table>
-  {% if outbound_state.ready %}<p><span class="chip chip-ok">Outbound ready for the unloading checklist</span></p>{% else %}<p><span class="chip chip-warn">Outbound not ready: tick and save the rows of every outbound Ship</span></p>{% endif %}
+  {% if outbound_state.ready %}<p><span class="chip chip-ok">Outbound ready for the unloading checklist</span></p>{% else %}<p><span class="chip chip-warn">Outbound not ready: every outbound Ship must be saved and tally</span></p>{% endif %}
   {% else %}<p class="muted">No outbound Ship yet.</p>{% endif %}
 </div>
 {% endif %}

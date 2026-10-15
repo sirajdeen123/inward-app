@@ -1,0 +1,21 @@
+{% extends "web/base.html" %}
+{% block title %}Ship {{ ship.ship_id }} · manual rows · {{ iw }}{% endblock %}
+{% block content %}
+<p><a href="{% url 'iw:outbound' iw.pk %}">&larr; Outbound on {{ iw }}</a></p>
+<h1>Outbound Ship {{ ship.ship_id }} · {{ ship.destination }}</h1>
+<p class="muted">Type the SKU rows from the Ship document. Save is accepted only when they tally: LTR {{ ship.doc_ltr|floatformat:"-3" }} · KG {{ ship.doc_kg|floatformat:"-3" }}{% if ship.doc_nop is not None %} · packages {{ ship.doc_nop|floatformat:"-3" }}{% endif %}. A blank description is taken from the SKU packaging master.</p>
+{% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
+<form method="post" class="card">{% csrf_token %}
+  <input type="hidden" name="count" value="{{ count }}">
+  <table class="tbl">
+    <thead><tr><th class="num">Sl.</th><th>SKU (16 characters) *</th><th>Description</th><th>UOM (L / K)</th><th class="num">Pieces *</th><th class="num">Quantity (LTR or KG) *</th></tr></thead>
+    <tbody>{% for i, sku, desc, uom, nop, qty in rows %}<tr><td class="num">{{ forloop.counter }}</td>
+      <td><input name="sku_{{ i }}" value="{{ sku }}" maxlength="16" aria-label="SKU {{ forloop.counter }}"></td>
+      <td><input name="desc_{{ i }}" value="{{ desc }}" aria-label="Description {{ forloop.counter }}"></td>
+      <td><input name="uom_{{ i }}" value="{{ uom }}" class="qty" aria-label="UOM {{ forloop.counter }}"></td>
+      <td class="num"><input name="nop_{{ i }}" value="{{ nop }}" class="qty" inputmode="decimal" aria-label="Pieces {{ forloop.counter }}"></td>
+      <td class="num"><input name="qty_{{ i }}" value="{{ qty }}" class="qty" inputmode="decimal" aria-label="Quantity {{ forloop.counter }}"></td></tr>{% endfor %}</tbody>
+  </table>
+  <p><button type="submit" class="btn btn-primary">Save rows</button> <button type="submit" name="more" value="1" class="btn">More rows</button></p>
+</form>
+{% endblock %}

@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     "inward.core",
     "inward.sit",
     "inward.iw",
+    "inward.irr",
     "inward.web",
 ]
 

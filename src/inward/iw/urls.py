@@ -1,6 +1,6 @@
 from django.urls import path
 
-from inward.iw import views, views_checklist, views_link, views_outbound, views_mra, views_sed, views_unloading
+from inward.iw import views, views_checklist, views_erp, views_link, views_outbound, views_mra, views_sed, views_unloading
 
 app_name = "iw"
 urlpatterns = [
@@ -45,6 +45,13 @@ urlpatterns = [
     path("<int:pk>/sed-approval/<int:approval_pk>/decide/", views_mra.approval_decide, name="approval_decide"),
     path("<int:pk>/sed-approval/<int:approval_pk>/file/", views_mra.approval_file, name="approval_file"),
     path("emails/verify/", views_mra.email_verify, name="email_verify"),
+    path("<int:pk>/erp/", views_erp.erp_page, name="erp"),
+    path("<int:pk>/erp/receipts/add/", views_erp.receipt_add, name="receipt_add"),
+    path("<int:pk>/erp/receipts/<int:receipt_pk>/remove/", views_erp.receipt_remove, name="receipt_remove"),
+    path("<int:pk>/erp/ships/<int:link_pk>/lscrr/", views_erp.lscrr_set, name="lscrr_set"),
+    path("<int:pk>/erp/trx/add/", views_erp.trx_add, name="trx_add"),
+    path("<int:pk>/erp/trx/<int:trx_pk>/remove/", views_erp.trx_remove, name="trx_remove"),
+    path("<int:pk>/erp/reconcile/", views_erp.recon_run, name="recon_run"),
     path("ledger/", views_unloading.ledger_list, name="ledger"),
     path("ledger/<int:transporter_pk>/", views_unloading.ledger_detail, name="ledger_detail"),
     path("<int:pk>/unloading/confirm/", views_sed.verification_confirm, name="verification_confirm"),

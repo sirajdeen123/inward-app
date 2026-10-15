@@ -15,6 +15,7 @@ from inward.iw import services
 from inward.iw.forms import IwForm, VoidForm
 from inward.iw.linking import LIVE
 from inward.iw.outbound import state as outbound_state
+from inward.iw.erp import ERP_STAGES
 from inward.iw.models import Iw, ShipLink
 from inward.sit.models import SitShip
 from inward.web.views import needs
@@ -118,6 +119,7 @@ def iw_detail(request, pk):
     void_modes = modes_for(request.user, "IW_VOID")
     return render(request, "iw/detail.html", {
         "iw": iw, "pending_void": pending_void, "history": history, "void_form": VoidForm(),
+        "erp_stages": [s.value for s in ERP_STAGES],
         "ship_links": links, "all_totals": link_totals(all_lines), "linkable_ships": linkable,
         "colour_bank": iw.colour_bank_items.all(), "non_stock": iw.non_stock_refs.select_related("sender"),
         "outbound_state": outbound_state(iw) if iw.load_type.has_outbound else None,

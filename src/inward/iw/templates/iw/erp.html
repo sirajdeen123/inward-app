@@ -1,0 +1,65 @@
+{% extends "web/base.html" %}
+{% block title %}ERP &amp; IRR · {{ iw }}{% endblock %}
+{% block content %}
+<p><a href="{% url 'iw:detail' iw.pk %}">&larr; {{ iw }}</a></p>
+<h1>ERP receipts &amp; IRR reconciliation · {{ iw }}</h1>
+<p class="muted">{{ iw.vehicle_no }} · {{ iw.load_type }} · <span class="chip">{{ iw.get_status_display }}</span>. Entering a number only records it; the IRR proves it. Import the latest IRR, then run the reconciliation.</p>
+{% if not open %}<div class="alert alert-info">ERP entries start after the MRA is issued (Screen 04 complete or released).</div>{% endif %}
+
+{% for link in ships %}
+<div class="card">
+  <h2>Ship {{ link.ship_id }} <span class="muted">{{ link.ship.from_org_code }} {{ link.ship.from_org_name }}</span></h2>
+  {% if iw.load_type.is_direct_factory %}
+  <form method="post" action="{% url 'iw:lscrr_set' iw.pk link.pk %}" class="form-grid">{% csrf_token %}
+    <div class="field"><label>LSCRR applied in Oracle? *</label>
+      <label class="check"><input type="radio" name="applied" value="yes"{% if link.lscrr_applied %} checked{% endif %}> Yes</label>
+      <label class="check"><input type="radio" name="applied" value="no"{% if link.lscrr_applied is False %} checked{% endif %}> No / not updated</label></div>
+    <div class="field"><label for="ls-{{ link.pk }}">LSCRR No</label><input id="ls-{{ link.pk }}" name="lscrr_no" value="{{ link.lscrr_no }}"></div>
+    {% if link.receipts.all %}<div class="field"><label for="lr-{{ link.pk }}">Reason (change after receipt - System Supervisor)</label><input id="lr-{{ link.pk }}" name="reason"></div>{% endif %}
+    <div class="span-all">{% if link.lscrr_applied is None %}<span class="chip chip-warn">LSCRR status needed before the receipt</span>{% endif %} <button type="submit" class="btn btn-sm">Save LSCRR</button></div>
+  </form>
+  {% endif %}
+  <table class="tbl"><tbody>{% for r in link.receipts.all %}<tr><td>{{ r.get_kind_display }}</td><td class="mono"><b>{{ r.receipt_no }}</b></td><td class="muted">{{ r.entered_at|date:"d-M-Y H:i" }}</td>
+    <td>{% if open %}<form method="post" action="{% url 'iw:receipt_remove' iw.pk r.pk %}" class="inline-form">{% csrf_token %}<button type="submit" class="btn btn-sm">Remove</button></form>{% endif %}</td></tr>{% empty %}<tr><td class="muted">No receipt entered.</td></tr>{% endfor %}</tbody></table>
+  {% if open %}<form method="post" action="{% url 'iw:receipt_add' iw.pk %}" class="inline">{% csrf_token %}<input type="hidden" name="ref" value="SHIP:{{ link.pk }}">
+    <select name="kind" aria-label="Receipt kind"><option value="NORMAL">Stock Receipt</option>{% if iw.load_type.is_direct_factory and link.lscrr_applied %}<option value="EXCESS">Excess Receipt</option>{% endif %}</select>
+    <input name="receipt_no" placeholder="e.g. 42637" aria-label="Receipt No for Ship {{ link.ship_id }}" class="input-inline" required><button type="submit" class="btn btn-sm btn-primary">Add receipt</button></form>{% endif %}
+</div>
+{% endfor %}
+
+{% for c in vendors %}
+<div class="card">
+  <h2>Vendor {{ c.vendor_id }} · PO {{ c.po_no }} · challan {{ c.challan_no }}</h2>
+  <table class="tbl"><tbody>{% for r in c.receipts.all %}<tr><td>{{ r.get_kind_display }}</td><td class="mono"><b>{{ r.receipt_no }}</b></td><td class="muted">{{ r.entered_at|date:"d-M-Y H:i" }}</td>
+    <td>{% if open %}<form method="post" action="{% url 'iw:receipt_remove' iw.pk r.pk %}" class="inline-form">{% csrf_token %}<button type="submit" class="btn btn-sm">Remove</button></form>{% endif %}</td></tr>{% empty %}<tr><td class="muted">No PO receipt entered.</td></tr>{% endfor %}</tbody></table>
+  {% if open %}<form method="post" action="{% url 'iw:receipt_add' iw.pk %}" class="inline">{% csrf_token %}<input type="hidden" name="ref" value="VENDOR:{{ c.pk }}"><input type="hidden" name="kind" value="PO">
+    <input name="receipt_no" placeholder="PO Receipt No" aria-label="PO Receipt No for challan {{ c.challan_no }}" class="input-inline" required><button type="submit" class="btn btn-sm btn-primary">Add PO receipt</button></form>{% endif %}
+</div>
+{% endfor %}
+
+{% if memos %}
+<div class="card">
+  <h2>SED memos - Oracle TRX numbers</h2>
+  <table class="tbl stack"><thead><tr><th>Memo</th><th>SKUs / pcs</th><th>TRX No(s)</th><th></th></tr></thead>
+    <tbody>{% for m in memos %}<tr><td data-label="Memo">{{ m.source_label }} · <b>{{ m.kind|title }}</b></td>
+      <td data-label="SKUs / pcs">{% for ln, q in m.lines %}<div>{{ ln.floor_sku }} · {{ q|floatformat:"-3" }}</div>{% endfor %}</td>
+      <td data-label="TRX No(s)">{% if m.lscrr_covered %}<span class="chip chip-ok">LSCRR-covered</span>{% else %}{% for t in m.trx %}<span class="mono">{{ t.trx_no }}</span>{% if open %}<form method="post" action="{% url 'iw:trx_remove' iw.pk t.pk %}" class="inline-form">{% csrf_token %}<button type="submit" class="btn btn-sm" aria-label="Remove TRX {{ t.trx_no }}">&times;</button></form>{% endif %}<br>{% empty %}<span class="warn-text">not entered</span>{% endfor %}{% endif %}</td>
+      <td data-label="">{% if open and not m.lscrr_covered %}<form method="post" action="{% url 'iw:trx_add' iw.pk %}" class="inline">{% csrf_token %}<input type="hidden" name="memo" value="{{ m.key }}"><input name="trx_no" placeholder="TRX No" aria-label="TRX No for {{ m.source_label }} {{ m.kind }}" class="input-inline" required><button type="submit" class="btn btn-sm">Add</button></form>{% endif %}</td></tr>{% endfor %}</tbody></table>
+</div>
+{% endif %}
+
+<div class="card">
+  <div class="bar"><h2>Reconciliation with the IRR</h2><div class="grow"></div>
+    {% if open %}<form method="post" action="{% url 'iw:recon_run' iw.pk %}" class="inline-form">{% csrf_token %}<button type="submit" class="btn btn-primary">Run reconciliation</button></form>{% endif %}
+    <a class="btn" href="{% url 'irr:home' %}">IRR import</a></div>
+  {% if run %}<p class="muted">Last saved run {{ run.run_at|date:"d-M-Y H:i" }} by {{ run.run_by.username }} · {% if run.all_ok %}<span class="chip chip-ok">all reconciled</span>{% else %}<span class="chip chip-warn">not complete</span>{% endif %}. Live view below.</p>{% endif %}
+  {% if live %}
+  <table class="tbl stack"><thead><tr><th>Item</th><th>Numbers</th><th>Result</th><th>Details</th></tr></thead>
+    <tbody>{% for r in live %}<tr><td data-label="Item">{{ r.track }}</td><td data-label="Numbers" class="mono">{{ r.numbers|join:", "|default:"-" }}</td>
+      <td data-label="Result"><span class="chip {% if r.ok %}chip-ok{% else %}chip-warn{% endif %}">{{ r.status }}</span></td>
+      <td data-label="Details">{% for n in r.notes %}<div>{{ n }}</div>{% endfor %}
+        {% if r.lines %}<details><summary>{{ r.lines|length }} SKU(s)</summary><table class="tbl"><thead><tr><th>SKU</th><th class="num">Expected</th><th class="num">IRR</th><th class="num">Measure exp / IRR</th></tr></thead>
+          <tbody>{% for ln in r.lines %}<tr><td class="mono">{{ ln.sku }}</td><td class="num">{{ ln.expected|floatformat:"-3" }}</td><td class="num">{{ ln.actual|floatformat:"-3" }}</td><td class="num">{% if ln.family %}{{ ln.exp_measure|floatformat:"-3" }} / {{ ln.act_measure|floatformat:"-3" }} {{ ln.family }}{% endif %}</td></tr>{% endfor %}</tbody></table></details>{% endif %}</td></tr>{% endfor %}</tbody></table>
+  {% else %}<p class="muted">Nothing to reconcile on this IW (outbound, Colour Bank and Non-Stock end at the MRA).</p>{% endif %}
+</div>
+{% endblock %}

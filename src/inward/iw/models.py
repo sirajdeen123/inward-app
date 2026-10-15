@@ -564,3 +564,66 @@ class MailRelease(models.Model):
 
     class Meta:
         db_table = "mail_release"
+
+
+# ---------------------------------------------------------------- Screen 05: ERP receipts and SED TRX (SoT 8.1)
+
+
+class ErpReceipt(models.Model):
+    """Stock Receipt No (one Ship -> many receipts), Excess Receipt No (LSCRR Ships) or PO Receipt No (vendor).
+    Entering a receipt only means 'ERP receipt recorded - IRR verification pending'."""
+
+    class Kind(models.TextChoices):
+        NORMAL = "NORMAL", "Stock Receipt"
+        EXCESS = "EXCESS", "Excess Receipt"
+        PO = "PO", "PO Receipt"
+
+    iw = models.ForeignKey(Iw, on_delete=models.PROTECT, related_name="receipts")
+    kind = models.CharField(max_length=6, choices=Kind.choices)
+    ship_link = models.ForeignKey(ShipLink, null=True, blank=True, on_delete=models.PROTECT, related_name="receipts")
+    vendor_consignment = models.ForeignKey(VendorConsignment, null=True, blank=True, on_delete=models.PROTECT,
+                                           related_name="receipts")
+    receipt_no = models.CharField(max_length=40, db_index=True)
+    entered_by = models.ForeignKey(USER, on_delete=models.PROTECT, related_name="+")
+    entered_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "erp_receipt"
+        ordering = ["entered_at", "id"]
+        constraints = [models.UniqueConstraint(fields=["kind", "receipt_no"], name="uq_erp_receipt_no")]
+
+
+class SedTrx(models.Model):
+    """Oracle TRX No(s) entered for an SED memo: one memo (reference + Short / Excess / Damage) -> many TRX."""
+
+    class Kind(models.TextChoices):
+        SHORT = "SHORT", "Short"
+        EXCESS = "EXCESS", "Excess"
+        DAMAGE = "DAMAGE", "Damage"
+
+    iw = models.ForeignKey(Iw, on_delete=models.PROTECT, related_name="sed_trx")
+    source_key = models.CharField(max_length=30)   # as on SedLine: SHIP:<pk> / VENDOR:<pk>
+    source_label = models.CharField(max_length=120)
+    kind = models.CharField(max_length=6, choices=Kind.choices)
+    trx_no = models.CharField(max_length=40, db_index=True)
+    entered_by = models.ForeignKey(USER, on_delete=models.PROTECT, related_name="+")
+    entered_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "sed_trx"
+        ordering = ["source_key", "kind", "id"]
+        constraints = [models.UniqueConstraint(fields=["trx_no"], name="uq_sed_trx_no")]
+
+
+class ReconRun(models.Model):
+    """One clerk-started reconciliation of an IW against the accumulated IRR (SoT 8.2 - 8.6)."""
+    iw = models.ForeignKey(Iw, on_delete=models.PROTECT, related_name="recon_runs")
+    run_by = models.ForeignKey(USER, on_delete=models.PROTECT, related_name="+")
+    run_at = models.DateTimeField(auto_now_add=True)
+    all_ok = models.BooleanField()
+    results = models.JSONField(default=list)
+    irr_batch_id = models.IntegerField(null=True, blank=True)  # latest IRR import included
+
+    class Meta:
+        db_table = "recon_run"
+        ordering = ["-run_at", "-id"]

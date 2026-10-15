@@ -10,6 +10,7 @@ urlpatterns = [
     path("accounts/", include("inward.accounts.urls")),
     path("sit/", include("inward.sit.urls")),
     path("iw/", include("inward.iw.urls")),
+    path("irr/", include("inward.irr.urls")),
     path("masters/", include("inward.core.urls")),
     path("", include("inward.web.urls")),
 ]

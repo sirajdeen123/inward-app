@@ -40,8 +40,9 @@ class IwData:
 
 
 def ship_link_state() -> tuple[set[str], set[str]]:
-    """(Ships linked to a live IW, Ships with a Stock Receipt No). Filled by Screen 03 / 05."""
-    return set(), set()
+    """(Ships linked to a live IW, Ships with a Stock Receipt No) - used by SIT change detection."""
+    from inward.iw.linking import ship_link_state as state
+    return state()
 
 
 def normalise_mobile(value: str) -> str:

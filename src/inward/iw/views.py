@@ -13,7 +13,9 @@ from inward.core.versioning import StaleEdit
 from inward.domain.normalize import search_key
 from inward.iw import services
 from inward.iw.forms import IwForm, VoidForm
-from inward.iw.models import Iw
+from inward.iw.linking import LIVE
+from inward.iw.models import Iw, ShipLink
+from inward.sit.models import SitShip
 from inward.web.views import needs
 
 
@@ -101,9 +103,24 @@ def iw_detail(request, pk):
     pending_void = ApprovalRequest.objects.filter(permission_id="IW_VOID", entity_type="iw", entity_id=str(iw.pk),
                                                   status=ApprovalRequest.Status.PENDING).first()
     history = AuditEvent.objects.filter(iw_id=iw.pk).select_related("user").order_by("-occurred_at")[:50]
+    from inward.iw.views_link import link_totals
+    links = list(iw.ship_links.select_related("ship").prefetch_related("lines"))
+    all_lines = []
+    for lk in links:
+        lk.sorted_lines = sorted(lk.lines.all(), key=lambda ln: (ln.is_empty_packing, ln.business_line,
+                                                                  ln.pack_size or 0, ln.sku))
+        lk.totals = link_totals(lk.sorted_lines)
+        all_lines += lk.sorted_lines
+    linked_ids = set(ShipLink.objects.filter(iw__status__in=LIVE).values_list("ship_id", flat=True))
+    linkable = (SitShip.objects.filter(status__in=[SitShip.Status.IN_SIT, SitShip.Status.PARTIAL], pre_go_live=False,
+                                       has_issues=False).exclude(ship_id__in=linked_ids).order_by("ship_id"))
     void_modes = modes_for(request.user, "IW_VOID")
     return render(request, "iw/detail.html", {
         "iw": iw, "pending_void": pending_void, "history": history, "void_form": VoidForm(),
+        "ship_links": links, "all_totals": link_totals(all_lines), "linkable_ships": linkable,
+        "colour_bank": iw.colour_bank_items.all(), "non_stock": iw.non_stock_refs.select_related("sender"),
+        "can_link": iw.is_editable and iw.status != Iw.Status.DRAFT and "GRANT" in modes_for(request.user, "MATERIAL_LINK"),
+        "can_lscrr": "GRANT" in modes_for(request.user, "SED_TRX_LSCRR"),
         "can_edit": iw.is_editable and "GRANT" in modes_for(request.user, "IW_EDIT"),
         "can_request_void": iw.is_editable and iw.status != Iw.Status.DRAFT and not pending_void
                             and bool(void_modes & {"REQUEST", "APPROVE"}),

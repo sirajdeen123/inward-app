@@ -1,0 +1,85 @@
+<div class="card">
+  <div class="bar"><h2>Inbound SIT Ships</h2><div class="grow"></div>
+    {% if can_link and iw.load_type.has_inbound_sit %}
+    <form method="get" action="{% url 'iw:link_ship' iw.pk %}" class="inline">
+      <label for="ship-in">Ship ID</label><input id="ship-in" name="ship" list="ship-list" class="input-inline" inputmode="numeric">
+      <button type="submit" class="btn btn-primary btn-sm">Link Ship</button>
+    </form>
+    <datalist id="ship-list">{% for s in linkable_ships %}<option value="{{ s.ship_id }}">{{ s.from_org_code }} {{ s.from_org_name }}</option>{% endfor %}</datalist>
+    {% endif %}
+  </div>
+  {% if not iw.load_type.has_inbound_sit %}<p class="muted">This load type carries no inbound SIT Ships.</p>{% endif %}
+  {% for lk in ship_links %}
+  <details class="sub" open>
+    <summary><b>Ship {{ lk.ship_id }}</b> · {{ lk.ship.from_org_code }} : {{ lk.ship.from_org_name }}
+      · {{ lk.totals.skus }} SKU(s) · {{ lk.totals.pcs|floatformat:"-3" }} pcs
+      {% if lk.totals.ltr %}· {{ lk.totals.ltr|floatformat:"-3" }} LTR{% endif %}{% if lk.totals.kg %} · {{ lk.totals.kg|floatformat:"-3" }} KG{% endif %}
+      {% if lk.totals.empty %}· + {{ lk.totals.empty }} empty packing{% endif %}
+      {% if lk.is_split %}<span class="chip chip-warn">Split vehicle</span>{% endif %}
+      {% if iw.load_type.is_direct_factory %}{% if lk.lscrr_no and lk.lscrr_applied is not None %}<span class="chip">LSCRR {{ lk.lscrr_no }} · {% if lk.lscrr_applied %}applied{% else %}not applied{% endif %}</span>{% else %}<span class="chip chip-warn">LSCRR details pending</span>{% endif %}{% endif %}
+    </summary>
+    {% if lk.is_split %}<p class="muted">Split reason: {{ lk.split_reason }}</p>{% endif %}
+    <div class="scroll"><table class="tbl">
+      <thead><tr><th class="num">Sl.</th><th>Floor SKU</th><th>Full SKU</th><th>Description</th><th>BL</th><th class="num">Pack</th><th class="num">Expected pcs</th><th class="num">LTR / KG</th></tr></thead>
+      <tbody>{% for ln in lk.sorted_lines %}
+        <tr><td class="num">{{ forloop.counter }}</td><td class="mono nowrap"><b>{{ ln.floor_sku }}</b></td><td class="mono">{{ ln.sku }}</td><td>{{ ln.description }}{% if ln.is_empty_packing %} <span class="chip">empty packing</span>{% endif %}</td>
+        <td>{{ ln.business_line }}</td><td class="num">{{ ln.pack_size|floatformat:"-3" }}</td><td class="num">{{ ln.quantity|floatformat:"-3" }}{% if lk.is_split %} <span class="muted">of {{ ln.sit_quantity|floatformat:"-3" }}</span>{% endif %}</td>
+        <td class="num">{% if ln.measure_family != 'PCS' %}{{ ln.measure|floatformat:"-3" }} {{ ln.measure_family }}{% endif %}</td></tr>
+      {% endfor %}</tbody>
+    </table></div>
+    {% if can_link %}
+    <div class="bar">
+      {% if iw.load_type.is_direct_factory and can_lscrr %}
+      <form method="post" action="{% url 'iw:lscrr' lk.pk %}" class="inline">{% csrf_token %}
+        <label for="lscrr-{{ lk.pk }}">LSCRR no</label><input id="lscrr-{{ lk.pk }}" name="lscrr_no" value="{{ lk.lscrr_no }}" class="input-inline">
+        <label for="lscrra-{{ lk.pk }}">Applied in Oracle?</label>
+        <select id="lscrra-{{ lk.pk }}" name="lscrr_applied" class="input-inline">
+          <option value=""{% if lk.lscrr_applied is None %} selected{% endif %}>Not known yet</option>
+          <option value="no"{% if lk.lscrr_applied is False %} selected{% endif %}>No</option>
+          <option value="yes"{% if lk.lscrr_applied %} selected{% endif %}>Yes</option></select>
+        <button type="submit" class="btn btn-sm">Save LSCRR</button>
+      </form>{% endif %}
+      <div class="grow"></div>
+      <form method="post" action="{% url 'iw:unlink_ship' lk.pk %}">{% csrf_token %}<button type="submit" class="btn btn-sm">Remove Ship</button></form>
+    </div>{% endif %}
+  </details>
+  {% empty %}{% if iw.load_type.has_inbound_sit %}<p class="muted">No Ship linked yet.</p>{% endif %}{% endfor %}
+  {% if ship_links|length > 1 %}<p><b>All inbound Ships: {{ all_totals.skus }} SKU line(s) · {{ all_totals.pcs|floatformat:"-3" }} pcs · {{ all_totals.ltr|floatformat:"-3" }} LTR · {{ all_totals.kg|floatformat:"-3" }} KG</b></p>{% endif %}
+</div>
+
+{% if iw.load_type.has_outbound or iw.load_type.is_vendor %}
+<div class="card"><h2>{% if iw.load_type.is_vendor %}Vendor challans{% else %}Outbound transhipment{% endif %}</h2>
+  <p class="muted">Coming in the next update (Screen 03 part B).</p></div>
+{% endif %}
+
+<div class="card">
+  <h2>Colour Bank machines</h2>
+  {% if colour_bank %}<table class="tbl">
+    <thead><tr><th>Direction</th><th>Challan</th><th>Description</th><th>Serial</th><th>Asset</th><th class="num">Qty</th><th></th></tr></thead>
+    <tbody>{% for c in colour_bank %}<tr><td>{{ c.get_direction_display }}</td><td class="mono">{{ c.challan_no }}</td><td>{{ c.description }}</td>
+      <td>{{ c.serial_no|default:"-" }}</td><td>{{ c.asset_no|default:"-" }}</td><td class="num">{{ c.quantity }}</td>
+      <td>{% if can_link %}<form method="post" action="{% url 'iw:remove_colour_bank' c.pk %}">{% csrf_token %}<button type="submit" class="btn btn-sm">Remove</button></form>{% endif %}</td></tr>{% endfor %}</tbody>
+  </table>{% else %}<p class="muted">None.</p>{% endif %}
+  {% if can_link %}
+  <details class="sub"><summary>Add Colour Bank machine</summary>
+    <form method="post" action="{% url 'iw:add_colour_bank' iw.pk %}" class="form-grid">{% csrf_token %}
+      <div class="field"><label for="cb-dir">Direction</label><select id="cb-dir" name="direction"><option value="IN">Inbound</option><option value="OUT">Outbound</option></select></div>
+      <div class="field"><label for="cb-ch">Challan no *</label><input id="cb-ch" name="challan_no" required></div>
+      <div class="field"><label for="cb-desc">Description</label><input id="cb-desc" name="description"></div>
+      <div class="field"><label for="cb-sn">Serial no (optional)</label><input id="cb-sn" name="serial_no"></div>
+      <div class="field"><label for="cb-an">Asset no (optional)</label><input id="cb-an" name="asset_no"></div>
+      <div class="field"><label for="cb-q">Quantity</label><input id="cb-q" name="quantity" value="1" inputmode="numeric"></div>
+      <div class="span-all"><button type="submit" class="btn">Add machine</button></div>
+    </form></details>
+  {% endif %}
+</div>
+
+<div class="card">
+  <div class="bar"><h2>Non-Stock items (gifts etc.)</h2><div class="grow"></div>
+    {% if can_link %}<a href="{% url 'iw:add_non_stock' iw.pk %}" class="btn btn-sm">Add Non-Stock items</a>{% endif %}</div>
+  {% for ref in non_stock %}
+    <p><b>{{ ref.sender.name }}</b> · document {{ ref.document_no }}{% if ref.sender.email %} · {{ ref.sender.email }}{% if ref.sender.status == 'UNVERIFIED' %} <span class="chip chip-warn">e-mail unverified</span>{% endif %}{% else %} <span class="chip chip-bad">no e-mail - needed for MRA</span>{% endif %}</p>
+    <table class="tbl"><tbody>{% for ln in ref.lines.all %}<tr><td class="num">{{ forloop.counter }}</td><td>{{ ln.description }}</td><td class="num">{{ ln.quantity|floatformat:"-3" }} {{ ln.unit }}</td></tr>{% endfor %}</tbody></table>
+    {% if can_link %}<form method="post" action="{% url 'iw:remove_non_stock' ref.pk %}" class="bar">{% csrf_token %}<button type="submit" class="btn btn-sm">Remove</button></form>{% endif %}
+  {% empty %}<p class="muted">None.</p>{% endfor %}
+</div>

@@ -59,3 +59,94 @@ class Iw(models.Model):
     @property
     def is_editable(self) -> bool:
         return self.status in self.EDITABLE
+
+
+# ---------------------------------------------------------------- Screen 03: linked references (tracks)
+
+class TrackStatus(models.TextChoices):
+    LINKED = "LINKED", "Linked"
+    ROWS_ASSIGNED = "ROWS_ASSIGNED", "Rows assigned"
+    VERIFIED = "VERIFIED", "Verified"
+    MRA_DONE = "MRA_DONE", "MRA done"
+
+
+class ShipLink(models.Model):
+    """An inbound SIT Ship on this IW. Baseline quantities are frozen at link time (SoT 5.1, R-12)."""
+    iw = models.ForeignKey(Iw, on_delete=models.CASCADE, related_name="ship_links")
+    ship = models.ForeignKey("sit.SitShip", on_delete=models.PROTECT, related_name="links")
+    baseline_import = models.ForeignKey("sit.SitImport", on_delete=models.PROTECT, related_name="+")
+    is_split = models.BooleanField(default=False)
+    split_reason = models.TextField(blank=True)
+    lscrr_no = models.CharField(max_length=40, blank=True)
+    lscrr_applied = models.BooleanField(null=True, blank=True)  # Direct Factory: required before Stock Receipt No
+    status = models.CharField(max_length=14, choices=TrackStatus.choices, default=TrackStatus.LINKED)
+    linked_by = models.ForeignKey(USER, on_delete=models.PROTECT, related_name="+")
+    linked_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "iw_ship_link"
+        constraints = [models.UniqueConstraint(fields=["iw", "ship"], name="uq_iw_ship_link")]
+
+
+class ShipLinkLine(models.Model):
+    """Expected quantity per SKU for this IW (whole SIT pending, or this vehicle's allocation when split)."""
+    link = models.ForeignKey(ShipLink, on_delete=models.CASCADE, related_name="lines")
+    sku = models.CharField(max_length=16)
+    floor_sku = models.CharField(max_length=8)
+    description = models.CharField(max_length=200)
+    business_line = models.CharField(max_length=40, blank=True)
+    uom = models.CharField(max_length=4, blank=True)
+    measure_family = models.CharField(max_length=3, blank=True)
+    is_empty_packing = models.BooleanField(default=False)
+    pack_size = models.DecimalField(max_digits=18, decimal_places=6, null=True, blank=True)
+    sit_quantity = models.DecimalField(max_digits=18, decimal_places=3)  # pending in SIT at link time
+    quantity = models.DecimalField(max_digits=18, decimal_places=3)      # expected on this vehicle
+    measure = models.DecimalField(max_digits=18, decimal_places=6)
+
+    class Meta:
+        db_table = "iw_ship_link_line"
+        constraints = [models.UniqueConstraint(fields=["link", "sku"], name="uq_ship_link_sku")]
+
+
+class ColourBankItem(models.Model):
+    """Colour Bank machine: non-SIT asset, ends at MRA while the ERP-tracked flag is OFF (SoT 5.5)."""
+    class Direction(models.TextChoices):
+        INBOUND = "IN", "Inbound"
+        OUTBOUND = "OUT", "Outbound"
+
+    iw = models.ForeignKey(Iw, on_delete=models.CASCADE, related_name="colour_bank_items")
+    direction = models.CharField(max_length=3, choices=Direction.choices, default=Direction.INBOUND)
+    challan_no = models.CharField(max_length=40)
+    description = models.CharField(max_length=160, blank=True)
+    serial_no = models.CharField(max_length=60, blank=True)
+    asset_no = models.CharField(max_length=60, blank=True)
+    quantity = models.PositiveIntegerField(default=1)
+    status = models.CharField(max_length=14, choices=TrackStatus.choices, default=TrackStatus.LINKED)
+    linked_by = models.ForeignKey(USER, on_delete=models.PROTECT, related_name="+")
+    linked_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "iw_colour_bank_item"
+
+
+class NonStockRef(models.Model):
+    """Gift / promotional items that do not affect system stock (SoT 5.6)."""
+    iw = models.ForeignKey(Iw, on_delete=models.CASCADE, related_name="non_stock_refs")
+    sender = models.ForeignKey("core.Sender", on_delete=models.PROTECT, related_name="+")
+    document_no = models.CharField(max_length=40)
+    status = models.CharField(max_length=14, choices=TrackStatus.choices, default=TrackStatus.LINKED)
+    linked_by = models.ForeignKey(USER, on_delete=models.PROTECT, related_name="+")
+    linked_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "iw_non_stock_ref"
+
+
+class NonStockLine(models.Model):
+    ref = models.ForeignKey(NonStockRef, on_delete=models.CASCADE, related_name="lines")
+    description = models.CharField(max_length=160)
+    unit = models.CharField(max_length=20, default="Nos")
+    quantity = models.DecimalField(max_digits=12, decimal_places=3)
+
+    class Meta:
+        db_table = "iw_non_stock_line"

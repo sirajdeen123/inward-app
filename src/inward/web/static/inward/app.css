@@ -64,6 +64,11 @@ hr{border:0;border-top:1px solid var(--line);margin:14px 0}
 details.card summary{cursor:pointer;font-weight:600}
 details.card[open] summary{margin-bottom:10px}
 .badge{display:inline-block;min-width:20px;padding:0 6px;border-radius:999px;background:var(--red);color:#fff;font-size:12px;text-align:center}
+details.sub{border-top:1px solid var(--line);padding:10px 0}
+details.sub summary{cursor:pointer;line-height:1.8}
+.form-wide{display:flex;flex-direction:column;gap:12px}
+input.qty{font:inherit;width:90px;min-height:36px;padding:4px 8px;border:1px solid #c9ccd6;border-radius:8px;background:var(--side);text-align:right}
+.tbl td input:not(.qty){font:inherit;width:100%;min-height:36px;padding:4px 8px;border:1px solid #c9ccd6;border-radius:8px;background:var(--side)}
 @media (max-width:900px){.form-grid{grid-template-columns:1fr}}
 @media (max-width:900px){.grid2{grid-template-columns:1fr}}
 @media (max-width:760px){.shell{flex-direction:column}.sidebar{width:auto}.main{padding:18px 16px}}

@@ -1,0 +1,49 @@
+{% extends "web/base.html" %}
+{% block title %}Link Ship · {{ iw }}{% endblock %}
+{% block content %}
+<p><a href="{% url 'iw:detail' iw.pk %}">&larr; {{ iw }}</a></p>
+<h1>Link inbound Ship to {{ iw }}</h1>
+<p class="muted">{{ iw.load_type }} · source {{ iw.source_org|default:"-" }} · vehicle {{ iw.vehicle_no }}</p>
+<form method="get" class="filters">
+  <label for="ship">Ship ID (from the driver's documents)</label>
+  <input id="ship" name="ship" value="{{ ship_id }}" inputmode="numeric" autofocus>
+  <button type="submit" class="btn btn-sm">Show Ship</button>
+</form>
+{% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
+{% if cand %}
+<div class="card">
+  <h2>Ship {{ cand.ship.ship_id }}</h2>
+  <p>{{ cand.ship.from_org_code }} : {{ cand.ship.from_org_name }} · shipped {{ cand.ship.shipment_date|date:"d-M-Y" }} · <span class="chip">{{ cand.ship.get_status_display }}</span></p>
+  {% for b in cand.blockers %}<div class="alert alert-error">{{ b }}</div>{% endfor %}
+  {% for w in cand.warnings %}<div class="alert alert-warning">{{ w }}</div>{% endfor %}
+  {% if cand.needs_split %}<div class="alert alert-warning">Already linked to {{ cand.other_iws|join:", " }}. Link again only if this Ship really came on more than one vehicle (split vehicle).</div>{% endif %}
+  {% if not cand.blockers %}
+  <form method="post" class="form-wide">{% csrf_token %}
+    <input type="hidden" name="ship_id" value="{{ cand.ship.ship_id }}">
+    <input type="hidden" name="confirm" value="1">
+    <label class="check"><input type="checkbox" name="split" value="1"{% if cand.needs_split or split_requested %} checked{% endif %}> Split vehicle - this Ship is carried on more than one vehicle; I enter the quantity on this vehicle</label>
+    <div><label for="split_reason">Reason for split (mandatory when split)</label><input id="split_reason" name="split_reason" class="input-inline" value="{{ post.split_reason|default:'' }}"></div>
+    {% if iw.load_type.is_direct_factory %}
+    <div class="inline">
+      <label for="lscrr_no">LSCRR number</label><input id="lscrr_no" name="lscrr_no" class="input-inline" value="{{ post.lscrr_no|default:'' }}">
+      <label for="lscrr_applied">LSCRR applied in Oracle?</label>
+      <select id="lscrr_applied" name="lscrr_applied" class="input-inline"><option value="">Not known yet</option><option value="no">No - receipt shows full quantity</option><option value="yes">Yes - receipt net of short and damage</option></select>
+    </div>
+    <p class="muted">Both are required before the Stock Receipt No is entered (Screen 05); you can fill them later.</p>
+    {% endif %}
+    <div class="scroll"><table class="tbl">
+      <thead><tr><th class="num">Sl.</th><th>Floor SKU</th><th>Description</th><th>BL</th><th class="num">Pack</th><th class="num">Pending in SIT</th><th class="num">On other IWs</th><th class="num">Available</th><th class="num">On this vehicle (split)</th></tr></thead>
+      <tbody>{% for ln in cand.lines %}
+        <tr><td class="num">{{ forloop.counter }}</td><td class="mono nowrap"><b>{{ ln.floor_sku }}</b></td><td>{{ ln.description }}</td><td>{{ ln.business_line }}</td>
+        <td class="num">{{ ln.pack_size|floatformat:"-3" }}</td><td class="num">{{ ln.quantity|floatformat:"-3" }}</td>
+        <td class="num">{{ ln.allocated_elsewhere|floatformat:"-3" }}</td><td class="num"><b>{{ ln.available|floatformat:"-3" }}</b></td>
+        <td class="num"><input name="alloc_{{ ln.sku }}" class="qty" inputmode="decimal" aria-label="Quantity on this vehicle for {{ ln.floor_sku }}"></td></tr>
+      {% endfor %}</tbody>
+    </table></div>
+    <p class="muted">Without split, the whole available quantity becomes the expected quantity for this IW. With split, only the quantities you enter.</p>
+    <button type="submit" class="btn btn-primary">Link Ship {{ cand.ship.ship_id }}</button>
+  </form>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}

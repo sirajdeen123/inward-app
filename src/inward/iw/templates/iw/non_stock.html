@@ -1,0 +1,25 @@
+{% extends "web/base.html" %}
+{% block title %}Non-Stock · {{ iw }}{% endblock %}
+{% block content %}
+<p><a href="{% url 'iw:detail' iw.pk %}">&larr; {{ iw }}</a></p>
+<h1>Non-Stock items (gifts etc.) on {{ iw }}</h1>
+<p class="muted">No SIT, no Oracle, no IRR. The MRA still goes to the sender by e-mail.</p>
+{% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
+<form method="post" class="card form-grid">{% csrf_token %}
+  <div class="field"><label for="sender_name">Sender *</label><input id="sender_name" name="sender_name" list="sender-list" value="{{ post.sender_name|default:'' }}"></div>
+  <div class="field"><label for="sender_email">Sender e-mail (needed for the MRA)</label><input id="sender_email" name="sender_email" type="email" value="{{ post.sender_email|default:'' }}"></div>
+  <div class="field"><label for="document_no">Challan / document no *</label><input id="document_no" name="document_no" value="{{ post.document_no|default:'' }}"></div>
+  <datalist id="sender-list">{% for s in senders %}<option value="{{ s.name }}"></option>{% endfor %}</datalist>
+  <datalist id="item-list">{% for i in items %}<option value="{{ i.description }}"></option>{% endfor %}</datalist>
+  <div class="span-all"><table class="tbl">
+    <thead><tr><th class="num">Sl.</th><th>Item</th><th>Unit</th><th class="num">Quantity</th></tr></thead>
+    <tbody>{% for i in rows %}
+      <tr><td class="num">{{ forloop.counter }}</td>
+      <td><input name="desc_{{ i }}" list="item-list" aria-label="Item {{ forloop.counter }}"></td>
+      <td><input name="unit_{{ i }}" value="Nos" class="qty" aria-label="Unit {{ forloop.counter }}"></td>
+      <td class="num"><input name="qty_{{ i }}" class="qty" inputmode="decimal" aria-label="Quantity {{ forloop.counter }}"></td></tr>
+    {% endfor %}</tbody>
+  </table></div>
+  <div class="span-all"><button type="submit" class="btn btn-primary">Add Non-Stock items</button></div>
+</form>
+{% endblock %}

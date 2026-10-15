@@ -13,15 +13,38 @@
   </dl>
 </div>
 <div class="card">
+  <h2>Ship total</h2>
+  <div class="kpis">
+    <div class="kpi"><div class="kpi-label">SKUs</div><div class="kpi-value">{{ totals.total.skus }}</div></div>
+    <div class="kpi"><div class="kpi-label">Pieces</div><div class="kpi-value">{{ totals.total.pcs|floatformat:"-3" }}</div></div>
+    <div class="kpi"><div class="kpi-label">Litres</div><div class="kpi-value">{{ totals.total.ltr|floatformat:"-3" }} <small>LTR</small></div></div>
+    <div class="kpi"><div class="kpi-label">Kilograms</div><div class="kpi-value">{{ totals.total.kg|floatformat:"-3" }} <small>KG</small></div></div>
+  </div>
+  <table class="tbl tbl-compact">
+    <thead><tr><th>Warehouse</th><th class="num">SKUs</th><th class="num">Pieces</th><th class="num">LTR</th><th class="num">KG</th></tr></thead>
+    <tbody>{% for wh, t in totals.warehouses %}
+      <tr><td><span class="chip{% if wh == 'UNMAPPED' %} chip-bad{% endif %}">{{ wh }}</span></td><td class="num">{{ t.skus }}</td>
+      <td class="num">{{ t.pcs|floatformat:"-3" }}</td><td class="num">{{ t.ltr|floatformat:"-3" }}</td><td class="num">{{ t.kg|floatformat:"-3" }}</td></tr>
+    {% endfor %}
+    {% if totals.empty.skus %}<tr><td><span class="chip">EMPTY PACKING</span></td><td class="num">{{ totals.empty.skus }}</td>
+      <td class="num">{{ totals.empty.pcs|floatformat:"-3" }}</td><td class="num">-</td><td class="num">-</td></tr>{% endif %}
+    </tbody>
+  </table>
+  <p class="muted">Litres and kilograms are totalled separately. Fresh empty packing (BULKPC) is counted in pieces only and is not part of the Ship total.</p>
+</div>
+<div class="card">
   <h2>{% if still_in_sit %}Pending in SIT now{% else %}Last pending quantities (import #{{ ship.last_seen_id }}){% endif %}</h2>
   <div class="scroll"><table class="tbl">
-    <thead><tr><th>Full SKU</th><th>Floor SKU</th><th>Description</th><th>Business line</th><th>Warehouse</th><th>UOM</th><th class="num">Pack</th><th class="num">Pcs</th><th class="num">LTR / KG</th></tr></thead>
+    <thead><tr><th class="num">Sl.</th><th>Full SKU</th><th>Floor SKU</th><th>Description</th><th>Business line</th><th>Warehouse</th><th>UOM</th><th class="num">Pack</th><th class="num">Pcs</th><th class="num">LTR / KG</th></tr></thead>
     <tbody>{% for ln in lines %}
-      <tr><td class="mono">{{ ln.sku }}</td><td class="mono"><b>{{ ln.floor_sku }}</b></td><td>{{ ln.description }}</td>
+      <tr><td class="num">{{ forloop.counter }}</td><td class="mono">{{ ln.sku }}</td><td class="mono nowrap"><b>{{ ln.floor_sku }}</b></td><td>{{ ln.description }}</td>
       <td>{{ ln.business_line }}</td><td><span class="chip{% if ln.warehouse == 'UNMAPPED' %} chip-bad{% endif %}">{{ ln.warehouse }}</span></td>
-      <td>{{ ln.uom|default:"-" }}</td><td class="num">{{ ln.pack_size|default_if_none:"" }}</td>
+      <td>{{ ln.uom|default:"-" }}</td><td class="num">{{ ln.pack_size|floatformat:"-3" }}</td>
       <td class="num">{{ ln.quantity|floatformat:"-3" }}</td><td class="num">{% if ln.measure_family != 'PCS' %}{{ ln.measure|floatformat:"-3" }} {{ ln.measure_family }}{% endif %}</td></tr>
     {% endfor %}</tbody>
+    <tfoot><tr><td></td><td colspan="7"><b>Total: {{ totals.total.skus }} SKU(s){% if totals.empty.skus %} + {{ totals.empty.skus }} empty packing{% endif %}</b></td>
+      <td class="num"><b>{{ totals.total.pcs|floatformat:"-3" }}</b></td>
+      <td class="num nowrap"><b>{{ totals.total.ltr|floatformat:"-3" }} LTR{% if totals.total.kg %}<br>{{ totals.total.kg|floatformat:"-3" }} KG{% endif %}</b></td></tr></tfoot>
   </table></div>
 </div>
 <div class="card">

@@ -15,17 +15,19 @@
 <form method="post" action="{% url 'sit:mark_pre_go_live' %}">{% csrf_token %}
   <input type="hidden" name="back" value="{{ request.get_full_path }}">
   <div class="scroll"><table class="tbl">
-    <thead><tr><th><span class="sr-only">Select</span></th><th>Ship ID</th><th>From Org</th><th>Shipment date</th><th>Status</th><th>Flags</th></tr></thead>
+    <thead><tr><th><span class="sr-only">Select</span></th><th>Ship ID</th><th>From Org</th><th>Shipment date</th><th class="num">SKUs</th><th class="num">Pcs</th><th class="num">LTR</th><th class="num">KG</th><th>Status</th><th>Flags</th></tr></thead>
     <tbody>{% for s in page %}
       <tr>
         <td>{% if not s.pre_go_live %}<input type="checkbox" name="ship_id" value="{{ s.ship_id }}" aria-label="Select {{ s.ship_id }}">{% endif %}</td>
         <td><a href="{% url 'sit:ship' s.ship_id %}">{{ s.ship_id }}</a></td>
         <td>{{ s.from_org_code }} : {{ s.from_org_name }}</td>
         <td>{{ s.shipment_date|date:"d-M-Y" }}</td>
+        <td class="num">{{ s.size.skus|default:"-" }}</td><td class="num">{{ s.size.pcs|floatformat:"-3"|default:"-" }}</td>
+        <td class="num">{{ s.size.ltr|floatformat:"-3"|default:"-" }}</td><td class="num">{{ s.size.kg|floatformat:"-3"|default:"-" }}</td>
         <td><span class="chip {% if s.status == 'REMOVED_NEVER_LINKED' %}chip-bad{% elif s.status == 'PARTIAL' %}chip-warn{% endif %}">{{ s.get_status_display }}</span></td>
         <td>{% if s.pre_go_live %}<span class="chip">Pre-go-live</span>{% endif %}{% if s.has_issues %} <span class="chip chip-bad">Row issues - not linkable</span>{% endif %}</td>
       </tr>
-    {% empty %}<tr><td colspan="6" class="muted">No Ships match.</td></tr>{% endfor %}</tbody>
+    {% empty %}<tr><td colspan="10" class="muted">No Ships match.</td></tr>{% endfor %}</tbody>
   </table></div>
   <div class="bar">
     <button type="submit" class="btn">Mark selected as Pre-go-live</button>

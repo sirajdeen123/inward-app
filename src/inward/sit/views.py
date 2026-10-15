@@ -5,14 +5,16 @@ from pathlib import Path
 
 from django.contrib import messages
 from django.core.paginator import Paginator
-from django.db.models import Count, Q
+from decimal import Decimal
+
+from django.db.models import Count, Q, Sum
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from inward.core.models import BusinessLineWarehouse
 from inward.importers.common import ImportFailed
 from inward.sit import services
-from inward.sit.models import SitChangeEvent, SitImport, SitShip
+from inward.sit.models import SitChangeEvent, SitImport, SitLine, SitShip
 from inward.web.views import PreviewForm, needs
 
 EVENT_LABELS = {
@@ -97,6 +99,23 @@ def sit_upload(request):
     return redirect("sit:home")
 
 
+def ship_totals(lines) -> dict:
+    """SKU count, pieces, LTR and KG of a Ship; LTR and KG are never added together."""
+    def blank():
+        return {"skus": 0, "pcs": Decimal(0), "ltr": Decimal(0), "kg": Decimal(0)}
+    total, by_wh, empty = blank(), {}, blank()
+    for ln in lines:
+        buckets = [empty] if ln.is_empty_packing else [total, by_wh.setdefault(ln.warehouse, blank())]
+        for b in buckets:
+            b["skus"] += 1
+            b["pcs"] += ln.quantity
+            if ln.measure_family == "LTR":
+                b["ltr"] += ln.measure
+            elif ln.measure_family == "KG":
+                b["kg"] += ln.measure
+    return {"total": total, "warehouses": sorted(by_wh.items()), "empty": empty}
+
+
 @needs("SEARCH_REPORTS")
 def ship_list(request):
     qs = SitShip.objects.all()
@@ -109,6 +128,15 @@ def ship_list(request):
     if request.GET.get("pre_go_live") == "1":
         qs = qs.filter(pre_go_live=True)
     page = Paginator(qs, 50).get_page(request.GET.get("page"))
+    rows = (SitLine.objects.filter(ship_id__in=[s.ship_id for s in page],
+                                   sit_import_id__in={s.last_seen_id for s in page}, is_empty_packing=False)
+            .values("ship_id", "sit_import_id")
+            .annotate(skus=Count("id"), pcs=Sum("quantity"),
+                      ltr=Sum("measure", filter=Q(measure_family="LTR")),
+                      kg=Sum("measure", filter=Q(measure_family="KG"))))
+    sizes = {(r["ship_id"], r["sit_import_id"]): r for r in rows}
+    for s in page:
+        s.size = sizes.get((s.ship_id, s.last_seen_id), {})
     return render(request, "sit/ships.html", {"page": page, "q": q, "status": status,
                                               "statuses": SitShip.Status.choices,
                                               "pre_go_live_filter": request.GET.get("pre_go_live") == "1"})
@@ -130,11 +158,12 @@ def ship_detail(request, ship_id):
     lines = list(ship.last_seen.lines.filter(ship_id=ship_id).order_by("business_line", "pack_size", "sku"))
     for ln in lines:
         ln.warehouse = warehouse.get(ln.business_line, "UNMAPPED") if not ln.is_empty_packing else "EMPTY PACKING"
+    lines.sort(key=lambda ln: (ln.is_empty_packing, ln.warehouse, ln.pack_size or 0, ln.sku))
     still_in_sit = ship.status in (SitShip.Status.IN_SIT, SitShip.Status.PARTIAL)
     events = _decorate(list(SitChangeEvent.objects.filter(ship_id=ship_id).select_related("sit_import")
                             .order_by("-sit_import_id", "sku")))
     return render(request, "sit/ship_detail.html", {"ship": ship, "lines": lines, "events": events,
-                                                    "still_in_sit": still_in_sit})
+                                                    "still_in_sit": still_in_sit, "totals": ship_totals(lines)})
 
 
 @needs("SEARCH_REPORTS")

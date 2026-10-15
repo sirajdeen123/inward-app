@@ -1,4 +1,5 @@
 """Screen 01 - SIT import and monitoring (SoT 3)."""
+from decimal import Decimal
 import pytest
 from django.urls import reverse
 
@@ -102,3 +103,19 @@ def test_viewer_cannot_import(client, tmp_path, seeded, make_user):
     assert viewer.get(reverse("sit:home")).status_code == 200
     with open(sit_html(tmp_path / "v.xls", _rows()), "rb") as fh:
         assert viewer.post(reverse("sit:upload"), {"file": fh}).status_code == 403
+
+
+def test_ship_totals_and_serial_numbers(client, tmp_path, seeded, make_user):
+    rows = _rows() + [(*A, "F00B470633002001", "QD A/C PUTTY-GREY-2 K", "AUTOMOTIVE", "K", "2", "70")]
+    services.import_sit_file(sit_html(tmp_path / "t.xls", rows), source="MANUAL")
+    clerk = verified_client(client, make_user("clerk_tot", "DEPOT_CLERK"))
+    resp = clerk.get(reverse("sit:ship", args=["52497520"]))
+    totals = resp.context["totals"]
+    assert totals["total"]["skus"] == 3 and totals["total"]["pcs"] == 215
+    assert totals["total"]["ltr"] == Decimal("1325.6") and totals["total"]["kg"] == 140
+    by_wh = dict(totals["warehouses"])
+    assert by_wh["RETAIL"]["ltr"] == Decimal("1325.6") and by_wh["INDUSTRIAL"]["kg"] == 140
+    html = resp.content.decode()
+    assert "Total: 3 SKU(s)" in html and '<td class="num">3</td>' in html  # serial numbers 1..3
+    listing = clerk.get(reverse("sit:ships")).content.decode()
+    assert "1325.6" in listing and "140" in listing

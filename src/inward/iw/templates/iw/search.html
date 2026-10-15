@@ -1,0 +1,31 @@
+{% extends "web/base.html" %}
+{% block title %}Search{% endblock %}
+{% block content %}
+<h1>Search</h1>
+<form method="get" class="card form-grid">
+  <div class="field span-all"><label for="s-q">IW, vehicle, LR, driver, transporter, organisation, Ship ID, vendor / PO / challan, receipt, TRX, LSCRR, SKU or Floor SKU</label>
+    <input id="s-q" name="q" value="{{ q }}" autofocus></div>
+  <div class="field"><label for="s-from">Arrival from</label><input id="s-from" name="from" type="date" value="{{ f.from }}"></div>
+  <div class="field"><label for="s-to">Arrival to</label><input id="s-to" name="to" type="date" value="{{ f.to }}"></div>
+  <div class="field"><label for="s-status">Status</label><select id="s-status" name="status"><option value="">Any</option>{% for v, l in statuses %}<option value="{{ v }}"{% if f.status == v %} selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
+  <div class="field"><label for="s-lt">Load type</label><select id="s-lt" name="load_type"><option value="">Any</option>{% for lt in load_types %}<option value="{{ lt.code }}"{% if f.load_type == lt.code %} selected{% endif %}>{{ lt.name }}</option>{% endfor %}</select></div>
+  <div class="field"><label>&nbsp;</label><button type="submit" class="btn btn-primary">Search</button></div>
+</form>
+{% if q %}
+<div class="card">
+  <h2>{{ hits|length }} IW(s){% if kind %} <span class="muted">· looks like: {{ kind }}</span>{% endif %}</h2>
+  {% if hits %}
+  <table class="tbl stack"><thead><tr><th>IW</th><th>Arrival</th><th>Vehicle</th><th>Load / source</th><th>Status</th><th>Matched on</th></tr></thead>
+    <tbody>{% for h in hits %}<tr><td data-label="IW"><a href="{% url 'iw:detail' h.iw.pk %}"><b>{{ h.iw }}</b></a></td><td data-label="Arrival">{{ h.iw.arrival_at|date:"d-M-Y H:i" }}</td>
+      <td data-label="Vehicle">{{ h.iw.vehicle_no }}{% if h.iw.lr_no %}<div class="muted">LR {{ h.iw.lr_no }}</div>{% endif %}</td>
+      <td data-label="Load / source">{{ h.iw.load_type }}<div class="muted">{{ h.iw.source_org|default:"" }}</div></td>
+      <td data-label="Status"><span class="chip">{{ h.iw.get_status_display }}</span></td><td data-label="Matched on">{{ h.matched|join:", " }}</td></tr>{% endfor %}</tbody></table>
+  {% else %}<p class="muted">No IW found.</p>{% endif %}
+</div>
+{% if irr %}
+<div class="card"><h2>In the IRR</h2>
+  <table class="tbl stack"><thead><tr><th>Date</th><th>Type</th><th>TRX</th><th>SKU</th><th class="num">Packs</th><th>Reason</th></tr></thead>
+    <tbody>{% for r in irr %}<tr><td data-label="Date">{{ r.trx_date|date:"d-M-Y" }}</td><td data-label="Type">{{ r.type }}</td><td data-label="TRX" class="mono">{{ r.trx_number }}</td><td data-label="SKU" class="mono">{{ r.sku }}</td><td class="num" data-label="Packs">{{ r.no_of_pack|floatformat:"-3" }}</td><td data-label="Reason">{{ r.reason_description }}</td></tr>{% endfor %}</tbody></table></div>
+{% endif %}
+{% endif %}
+{% endblock %}

@@ -40,6 +40,11 @@ def healthz(request):
 
 @login_required
 def home(request):
+    """Operations Control Centre for everyone who may see reports; otherwise a role notice."""
+    from inward.accounts.services import modes_for
+    if "GRANT" in modes_for(request.user, "SEARCH_REPORTS"):
+        from inward.iw.views_ops import control_centre
+        return control_centre(request)
     return render(request, "web/home.html", {"roles": role_codes(request.user)})
 
 

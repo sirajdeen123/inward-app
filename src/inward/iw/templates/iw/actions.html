@@ -1,0 +1,15 @@
+{% extends "web/base.html" %}
+{% block title %}My pending actions{% endblock %}
+{% block content %}
+<p><a href="{% url 'web:home' %}">&larr; Operations</a></p>
+<h1>My pending actions</h1>
+<p class="muted">Every open IW with the exact step that is missing, oldest first. Click an action to go to the screen that resolves it.</p>
+<div class="card">
+  {% if rows %}
+  <table class="tbl stack"><thead><tr><th>IW</th><th>Track / gate</th><th>Action</th></tr></thead>
+    <tbody>{% for iw, a in rows %}<tr><td data-label="IW">{% if iw %}<a href="{% url 'iw:detail' iw.pk %}">{{ iw }}</a> <span class="muted">{{ iw.vehicle_no }}</span>{% else %}-{% endif %}</td>
+      <td data-label="Track / gate">{% if a.track %}<span class="chip">{{ a.track }}</span>{% endif %}</td>
+      <td data-label="Action"><a href="{{ a.url }}">{{ a.text }}</a></td></tr>{% endfor %}</tbody></table>
+  {% else %}<p class="muted">Nothing pending.</p>{% endif %}
+</div>
+{% endblock %}

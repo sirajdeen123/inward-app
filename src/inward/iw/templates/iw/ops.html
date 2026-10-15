@@ -1,0 +1,56 @@
+{% extends "web/base.html" %}
+{% block title %}Operations{% endblock %}
+{% block content %}
+<div class="bar"><h1>Operations Control Centre</h1><div class="grow"></div>
+  <form method="get" action="{% url 'iw:search' %}" class="inline"><input name="q" placeholder="Search IW, vehicle, Ship, receipt, TRX, SKU..." aria-label="Search" class="input-inline"><button type="submit" class="btn">Search</button></form></div>
+{% if mail.show %}<div class="alert alert-error">Mail engine: {{ mail.failed }} failed and {{ mail.late }} waiting more than 30 minutes - see <a href="{% url 'web:health' %}">System health</a>.</div>{% endif %}
+
+<div class="kpis">
+  <div class="card kpi"><div class="kpi-label">Today: arrivals / IWs</div><div class="kpi-value">{{ today.arrivals }} / {{ today.created }}</div></div>
+  <div class="card kpi"><div class="kpi-label">Today: MRAs / closures</div><div class="kpi-value">{{ today.mras }} / {{ today.closed }}</div></div>
+  <div class="card kpi"><div class="kpi-label">Open IWs</div><div class="kpi-value">{{ counts.open }}</div><div class="muted">{{ counts.unloading }} unloading · {{ counts.to_close }} ready to close</div></div>
+  <div class="card kpi"><div class="kpi-label">ERP / IRR pending</div><div class="kpi-value">{{ counts.erp_pending }}</div></div>
+</div>
+
+<div class="card">
+  <div class="bar"><h2>Open IWs (oldest first)</h2><div class="grow"></div><a class="btn btn-sm" href="{% url 'iw:actions' %}">My pending actions</a></div>
+  {% if open %}
+  <table class="tbl stack"><thead><tr><th>IW</th><th>Vehicle / source</th><th>Age</th><th>Progress</th><th>Next action</th></tr></thead>
+    <tbody>{% for r in open %}<tr><td data-label="IW"><a href="{% url 'iw:detail' r.iw.pk %}"><b>{{ r.iw }}</b></a><div class="muted">{{ r.iw.get_status_display }}</div></td>
+      <td data-label="Vehicle / source">{{ r.iw.vehicle_no }}<div class="muted">{{ r.iw.source_org|default:r.iw.load_type }}</div></td>
+      <td data-label="Age"><span class="{% if r.age_hours > 72 %}warn-text{% endif %}">{{ r.age_text }}</span></td>
+      <td data-label="Progress"><div class="strip">{% for label, st in r.progress %}<span class="step step-{{ st }}" title="{{ label }}">{{ label }}</span>{% endfor %}</div></td>
+      <td data-label="Next action">{% for a in r.actions|slice:":2" %}<div><a href="{{ a.url }}">{{ a.text }}</a></div>{% empty %}-{% endfor %}{% if r.actions|length > 2 %}<div class="muted">+{{ r.actions|length|add:"-2" }} more</div>{% endif %}</td></tr>{% endfor %}</tbody></table>
+  {% else %}<p class="muted">No open IW.</p>{% endif %}
+  {% if stale_checklists %}<p class="warn-text">{{ stale_checklists }} IW(s) have a checklist that is out of date.</p>{% endif %}
+</div>
+
+<div class="grid2">
+  <div class="card"><h2>SIT monitoring</h2>
+    <table class="tbl"><tbody>
+      <tr><td>Ships in SIT (not yet linked)</td><td class="num">{{ sit.in_sit }}</td></tr>
+      <tr><td>Partially processed</td><td class="num">{{ sit.partial }}</td></tr>
+      <tr><td>Removed - receipt not entered</td><td class="num {% if sit.removed_no_receipt %}warn-text{% endif %}">{{ sit.removed_no_receipt }}</td></tr>
+      <tr><td>Removed - never linked (critical)</td><td class="num {% if sit.never_linked %}warn-text{% endif %}">{{ sit.never_linked }}</td></tr>
+    </tbody></table><p><a href="{% url 'sit:home' %}">SIT screen</a></p></div>
+  <div class="card"><h2>Unloading</h2>
+    <table class="tbl"><tbody>
+      <tr><td>Charged today</td><td class="num">Rs {{ unl.today_charge|floatformat:2 }}</td></tr>
+      <tr><td>Collected today</td><td class="num">Rs {{ unl.today_paid|floatformat:2 }}</td></tr>
+      <tr><td>Transporter ledger outstanding</td><td class="num">Rs {{ unl.ledger_outstanding|floatformat:2 }}</td></tr>
+      <tr><td>Exempt / Nil awaiting CFA Manager</td><td class="num">{{ unl.exempt_pending }}</td></tr>
+    </tbody></table><p><a href="{% url 'iw:ledger' %}">Transporter ledger</a></p></div>
+</div>
+
+<div class="grid2">
+  <div class="card"><h2>SED this month</h2>
+    <p>{{ sed.iws }} IW(s) · {{ sed.lines }} line(s) · short {{ sed.short|floatformat:"-3" }} · excess {{ sed.excess|floatformat:"-3" }} · damage {{ sed.damage|floatformat:"-3" }} pcs · claimable <b>Rs {{ sed.claimable|floatformat:2 }}</b></p>
+    {% if sed.by_source %}<table class="tbl"><thead><tr><th>Source</th><th class="num">Lines</th><th class="num">Claimable Rs</th></tr></thead>
+      <tbody>{% for s in sed.by_source %}<tr><td>{{ s.iw__source_org__code|default:"-" }} {{ s.iw__source_org__name|default:"" }}</td><td class="num">{{ s.n }}</td><td class="num">{{ s.v|floatformat:2 }}</td></tr>{% endfor %}</tbody></table>{% endif %}</div>
+  <div class="card"><h2>SED approval board</h2>
+    {% if board %}<table class="tbl"><tbody>{% for a in board %}<tr><td><a href="{% url 'iw:mra' a.iw_id %}">{{ a.iw }}</a> {{ a.mra.label }}</td>
+      <td><span class="chip {% if a.status == 'APPROVED' or a.status == 'MANUAL_OK' %}chip-ok{% else %}chip-warn{% endif %}">{{ a.get_status_display }}</span></td>
+      <td class="muted">{{ a.created_at|timesince }}</td></tr>{% endfor %}</tbody></table>
+    {% else %}<p class="muted">No SED approval requested yet.</p>{% endif %}</div>
+</div>
+{% endblock %}

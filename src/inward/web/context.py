@@ -35,6 +35,9 @@ def depot(request) -> dict:
             if "GRANT" in modes_for(user, "PACKAGING_REVIEW"):
                 from inward.core.models import PackagingChange
                 ctx["packaging_review_pending"] = PackagingChange.objects.filter(review="PENDING").count()
+            if "GRANT" in modes_for(user, "SEARCH_REPORTS"):
+                from inward.iw.ops import mail_banner
+                ctx["mail_banner"] = mail_banner()
             if "GRANT" in modes_for(user, "EMAIL_VERIFY"):
                 from inward.iw.comms import unverified_emails
                 ctx["emails_unverified"] = len(unverified_emails())

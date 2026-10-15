@@ -74,3 +74,16 @@ def test_screens(client, at_erp):
     assert "record the LSCRR status" in c.get(reverse("iw:actions")).content.decode()
     page = c.get(reverse("iw:search"), {"q": "TN60E8139"}).content.decode()
     assert w["iw"].iw_no in page and "looks like: Vehicle" in page
+
+
+def test_dossier_zip(client, at_erp):
+    import io
+    import zipfile
+    w = at_erp
+    c = verified_client(client, w["clerk"])
+    resp = c.get(reverse("iw:dossier", args=[w["iw"].pk]))
+    z = zipfile.ZipFile(io.BytesIO(b"".join(resp.streaming_content)))
+    names = z.namelist()
+    assert "index.html" in names and "audit_trail.csv" in names
+    assert any(n.startswith("2 Damage photos/") for n in names)
+    assert w["iw"].iw_no in z.read("index.html").decode()

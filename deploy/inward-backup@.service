@@ -1,0 +1,10 @@
+# Nightly encrypted backup of an Inward environment (SoT 14.3). Installed by deploy/deploy.sh.
+[Unit]
+Description=Inward backup (%i)
+After=postgresql.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/inward-backup %i
+Nice=10
+IOSchedulingClass=idle

@@ -71,10 +71,15 @@ install -m 644 "$ROOT/app/deploy/inward@.service" /etc/systemd/system/inward@.se
 install -m 644 "$ROOT/app/deploy/inward-worker@.service" /etc/systemd/system/inward-worker@.service
 install -m 644 "$ROOT/app/deploy/inward_proxy.conf" /etc/nginx/inward_proxy.conf
 install -m 755 "$ROOT/app/deploy/inward-manage" /usr/local/bin/inward-manage
+install -m 755 "$ROOT/app/deploy/inward-backup.sh" /usr/local/bin/inward-backup
+install -m 755 "$ROOT/app/deploy/inward-restore-test.sh" /usr/local/bin/inward-restore-test
+install -m 644 "$ROOT/app/deploy/inward-backup@.service" /etc/systemd/system/inward-backup@.service
+install -m 644 "$ROOT/app/deploy/inward-backup@.timer" /etc/systemd/system/inward-backup@.timer
 systemctl daemon-reload
 systemctl enable --quiet "inward@$ENVNAME"
 systemctl restart "inward@$ENVNAME"
 systemctl enable --quiet "inward-worker@$ENVNAME"
+systemctl enable --quiet --now "inward-backup@$ENVNAME.timer"
 systemctl restart "inward-worker@$ENVNAME"
 sleep 3
 curl -fsS -H "Host: $HOST" "http://127.0.0.1:$PORT/healthz" >/dev/null && echo "service inward@$ENVNAME healthy on :$PORT"

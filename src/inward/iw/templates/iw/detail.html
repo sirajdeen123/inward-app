@@ -27,6 +27,7 @@
   {% if iw.status == 'UNLOADING_IN_PROGRESS' or iw.status == 'PHYSICALLY_VERIFIED' %}<a class="btn btn-primary" href="{% url 'iw:unloading' iw.pk %}">Unloading &amp; SED</a>{% endif %}
   {% if iw.status == 'UNLOADING_IN_PROGRESS' or iw.status == 'PHYSICALLY_VERIFIED' or iw.unloading %}<a class="btn" href="{% url 'iw:charges' iw.pk %}">Packages &amp; unloading charge</a>{% endif %}
   {% if iw.status == 'PHYSICALLY_VERIFIED' or iw.mras.exists %}<a class="btn{% if iw.status == 'PHYSICALLY_VERIFIED' %} btn-primary{% endif %}" href="{% url 'iw:mra' iw.pk %}">MRA &amp; memos</a>{% endif %}
+  {% if iw.iw_no %}<a class="btn" href="{% url 'iw:dossier' iw.pk %}">Dossier (ZIP)</a>{% endif %}
   {% if iw.status in erp_stages or iw.status == 'CLOSED' %}<a class="btn btn-primary" href="{% url 'iw:erp' iw.pk %}">ERP, IRR &amp; closure</a>{% endif %}</div>
 {% include "iw/_references.html" %}{% endif %}
 {% if iw.status == 'DRAFT' and can_edit %}

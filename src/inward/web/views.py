@@ -150,9 +150,22 @@ def health(request):
     gmail = settings.INWARD["GMAIL_ADDRESS"]
     checks.append(("Gmail account", bool(gmail and settings.INWARD["GMAIL_APP_PASSWORD"]),
                    gmail or "not configured (INWARD_GMAIL_ADDRESS / INWARD_GMAIL_APP_PASSWORD)"))
+    import json
+    from datetime import datetime as _dt
+
     from django.utils import timezone
 
     from inward.iw.models import MailMessage
+    status_file = Path(settings.DOCUMENT_ROOT).parent / "backup_status.json"
+    try:
+        b = json.loads(status_file.read_text())
+        at = _dt.fromisoformat(b["at"])
+        fresh = timezone.now() - at < timezone.timedelta(hours=26)
+        checks.append(("Nightly backup", b.get("ok") and fresh,
+                       (f"{timezone.localtime(at):%d-%b %H:%M} · {b.get('file', '')} {b.get('size', '')} · "
+                        f"OneDrive copy: {b.get('offsite', '-')}") if b.get("ok") else f"FAILED {b.get('error', '')}"))
+    except (OSError, ValueError, KeyError):
+        checks.append(("Nightly backup", False, "no backup has run yet"))
     stuck = MailMessage.objects.exclude(status=MailMessage.Status.SENT)
     failed = stuck.filter(status__in=[MailMessage.Status.FAILED, MailMessage.Status.FAILED_UNCONFIRMED]).count()
     oldest = stuck.order_by("created_at").first()

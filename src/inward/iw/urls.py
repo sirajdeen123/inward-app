@@ -8,6 +8,7 @@ urlpatterns = [
     path("actions/", views_ops.pending_actions, name="actions"),
     path("search/", views_ops.universal_search, name="search"),
     path("reports/", views_reports.report_page, name="reports"),
+    path("<int:pk>/dossier.zip", views_ops.dossier, name="dossier"),
     path("reports/send/", views_reports.report_send, name="report_send"),
     path("new/", views.iw_new, name="new"),
     path("<int:pk>/", views.iw_detail, name="detail"),

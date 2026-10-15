@@ -87,7 +87,7 @@ class RateMasterAdmin(admin.ModelAdmin):
 
 for model, fields in [
     (m.Transporter, ("name", "verified", "active")),
-    (m.Vendor, ("code", "name", "oracle_vendor_id", "active")),
+    (m.Vendor, ("code", "name", "email", "email_status", "oracle_vendor_id", "active")),
     (m.PackageType, ("code", "name", "sort_priority")),
     (m.NonStockItem, ("description", "unit", "active")),
     (m.LoadType, ("code", "name", "sort_order", "active")),

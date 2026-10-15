@@ -34,6 +34,10 @@ MEMO_TYPE = {"SHORT": MISC_ISSUE, "EXCESS": MISC_RECEIPT, "DAMAGE": SUBINV}
 ZERO = Decimal(0)
 
 
+def _f(v: Decimal) -> str:
+    return format(Decimal(v).normalize(), "f")
+
+
 def _tolerance() -> Decimal:
     f = FeatureFlag.objects.filter(key="measure_tolerance").first()
     return Decimal(str((f.value or {}).get("value") or "0.001")) if f else Decimal("0.001")
@@ -50,10 +54,10 @@ class SkuLine:
     description: str = ""
 
     def as_dict(self) -> dict:
-        return {"sku": self.sku, "description": self.description, "expected": str(self.expected),
-                "actual": str(self.actual), "family": self.family,
-                "exp_measure": None if self.exp_measure is None else str(self.exp_measure.normalize()),
-                "act_measure": str(self.act_measure.normalize())}
+        return {"sku": self.sku, "description": self.description, "expected": _f(self.expected),
+                "actual": _f(self.actual), "family": self.family,
+                "exp_measure": None if self.exp_measure is None else _f(self.exp_measure.quantize(Decimal("0.001"))),
+                "act_measure": _f(self.act_measure.quantize(Decimal("0.001")))}
 
 
 @dataclass
@@ -93,11 +97,11 @@ def _classify(res: Result, expected: dict[str, SkuLine], rows, tol: Decimal) -> 
                    and abs(ln.act_measure - ln.exp_measure) > tol]
     if over:
         res.status = REVIEW
-        res.notes += [f"{ln.sku}: IRR {ln.actual} vs expected {ln.expected}" + (" (SKU not expected)" if not ln.expected else "")
+        res.notes += [f"{ln.sku}: IRR {_f(ln.actual)} vs expected {_f(ln.expected)}" + (" (SKU not expected)" if not ln.expected else "")
                       for ln in over]
     if measure_off:
         res.status = REVIEW
-        res.notes += [f"{ln.sku}: {ln.family} {ln.act_measure.normalize()} vs {ln.exp_measure.normalize()}" for ln in measure_off]
+        res.notes += [f"{ln.sku}: {ln.family} {_f(ln.act_measure)} vs {_f(ln.exp_measure)}" for ln in measure_off]
     if res.status != REVIEW:
         res.status = PARTIAL if under else FULL
     return res

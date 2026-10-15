@@ -1,0 +1,51 @@
+{% load static %}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IRR Reconciliation {{ iw.iw_no }} C{{ number }}</title>
+<link rel="stylesheet" href="{% static 'inward/mra.css' %}">
+</head>
+<body>
+<section class="page">
+  <header class="head">
+    <div class="brandrow">{% if logo %}<img src="{{ logo }}" alt="logo" class="logo">{% endif %}<div>
+      {% if c.depot.company %}<div class="company">{{ c.depot.company }}</div>{% endif %}
+      <div class="depot">Depot {{ c.depot.code }} · {{ c.depot.name }}</div>
+      <div class="cfa">Operated by: {{ c.depot.cfa }} (CFA)</div>
+      <div class="title">IRR RECONCILIATION REPORT</div>
+    </div></div>
+    <div class="right"><div><b>{{ iw.iw_no }} · closure C{{ number }}</b></div><div>{{ iw.vehicle_no }} · {{ c.iw.arrival }}</div><div>Closed {{ closed_at }} by {{ closed_by }}</div></div>
+  </header>
+
+  <table class="kv">
+    <tr><th>Load type</th><td>{{ c.iw.load_type }}</td><th>Source</th><td>{{ c.iw.source_org|default:"-" }}</td></tr>
+    <tr><th>MRA</th><td>{{ iw.mras.first.label }}</td><th>Transporter / LR</th><td>{{ c.iw.transporter|default:"-" }}{% if c.iw.lr %} · LR {{ c.iw.lr }}{% endif %}</td></tr>
+  </table>
+
+  <h2>ERP numbers</h2>
+  <table class="grid"><thead><tr><th>Kind</th><th>Number</th><th>Reference</th></tr></thead>
+    <tbody>{% for r in receipts %}<tr><td>{{ r.get_kind_display }}</td><td class="mono">{{ r.receipt_no }}</td><td>{% if r.ship_link %}Ship {{ r.ship_link.ship_id }}{% else %}Vendor {{ r.vendor_consignment.vendor_id }} challan {{ r.vendor_consignment.challan_no }}{% endif %}</td></tr>{% endfor %}
+    {% for t in trx %}<tr><td>SED {{ t.get_kind_display }} TRX</td><td class="mono">{{ t.trx_no }}</td><td>{{ t.source_label }}</td></tr>{% endfor %}
+    {% if not receipts and not trx %}<tr><td colspan="3">None (outbound / Colour Bank / Non-Stock only)</td></tr>{% endif %}</tbody></table>
+
+  <h2>Reconciliation with the IRR</h2>
+  {% for r in results %}
+  <table class="grid fixed" style="margin-bottom:6px"><colgroup><col><col class="c-val"><col class="c-val"><col class="c-dq"></colgroup>
+    <thead><tr><th colspan="3">{{ r.track }}{% if r.numbers %} · {{ r.numbers|join:", " }}{% endif %}</th><th>{{ r.status }}</th></tr>
+      {% if r.lines %}<tr><th>SKU</th><th class="num">Expected</th><th class="num">IRR</th><th class="num">Measure</th></tr>{% endif %}</thead>
+    <tbody>{% for ln in r.lines %}<tr><td class="mono">{{ ln.sku }} <span class="small">{{ ln.description }}</span></td><td class="num">{{ ln.expected }}</td><td class="num">{{ ln.actual }}</td><td class="num">{% if ln.family %}{{ ln.act_measure }} {{ ln.family }}{% endif %}</td></tr>{% endfor %}
+      {% for n in r.notes %}<tr><td colspan="4" class="small">{{ n }}</td></tr>{% endfor %}</tbody></table>
+  {% empty %}<p>Nothing to reconcile - this IW ends at the MRA.</p>{% endfor %}
+
+  <h2>Closure checks</h2>
+  <table class="grid"><tbody>{% for g in gates %}<tr><td>{{ g.label }}</td><td>{% if g.ok %}OK{% else %}NOT OK {{ g.detail }}{% endif %}</td></tr>{% endfor %}</tbody></table>
+
+  <div class="sign">
+    <div class="box"><div class="sealfor">&nbsp;</div><div class="line"></div>Prepared by (clerk)</div>
+    <div class="box">{% if c.depot.seal.for %}<div class="sealfor">{{ c.depot.seal.for }}</div>{% endif %}<div class="line"></div>Authorised signatory{% if c.depot.seal.operated %}<div class="small">{{ c.depot.seal.operated }}</div>{% endif %}</div>
+  </div>
+  <footer class="foot">IRR Reconciliation Report · {{ iw.iw_no }} · closure C{{ number }}</footer>
+</section>
+</body>
+</html>

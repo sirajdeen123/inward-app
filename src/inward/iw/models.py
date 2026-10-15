@@ -627,3 +627,25 @@ class ReconRun(models.Model):
     class Meta:
         db_table = "recon_run"
         ordering = ["-run_at", "-id"]
+
+
+# ---------------------------------------------------------------- Screen 05: closure (SoT 8.7)
+
+
+class IwClosure(models.Model):
+    """A closure snapshot: the gates as they stood and the Final IRR Reconciliation Report. A reopened IW gets a
+    new snapshot when it is closed again; earlier ones are never overwritten."""
+    iw = models.ForeignKey(Iw, on_delete=models.PROTECT, related_name="closures")
+    number = models.PositiveIntegerField()
+    gates = models.JSONField()
+    recon = models.JSONField()
+    report = models.ForeignKey("core.Document", null=True, blank=True, on_delete=models.PROTECT, related_name="+")
+    closed_by = models.ForeignKey(USER, on_delete=models.PROTECT, related_name="+")
+    closed_at = models.DateTimeField(auto_now_add=True)
+    reopened_at = models.DateTimeField(null=True, blank=True)
+    reopen_reason = models.TextField(blank=True)
+
+    class Meta:
+        db_table = "iw_closure"
+        ordering = ["-number"]
+        constraints = [models.UniqueConstraint(fields=["iw", "number"], name="uq_iw_closure_number")]

@@ -1,0 +1,20 @@
+<div class="card">
+  <h2>Final documents &amp; closure</h2>
+  <div class="grid2">{% for role, label, docs in scan_rows %}
+    <div><h3>{{ label }}{% if role == 'lr_scan' and not lr_required %} <span class="muted">(not required)</span>{% endif %}</h3>
+      {% for d in docs %}<div><a href="{% url 'iw:scan_file' iw.pk d.pk %}" target="_blank" rel="noopener">{{ d.original_filename }}</a> <span class="muted">{{ d.created_at|date:"d-M-Y H:i" }}</span></div>{% empty %}<p class="warn-text">not uploaded</p>{% endfor %}
+      {% if iw.status != 'CLOSED' and open %}<form method="post" action="{% url 'iw:scan_add' iw.pk %}" enctype="multipart/form-data" class="photo-form">{% csrf_token %}<input type="hidden" name="role" value="{{ role }}">
+        <label class="btn btn-sm">Scan / photo / PDF<input type="file" name="file" accept="application/pdf,image/*" capture="environment" multiple class="visually-hidden"></label>
+        <button type="submit" class="btn btn-sm btn-primary">Upload</button></form>{% endif %}</div>
+  {% endfor %}</div>
+  <h3>Closure checks</h3>
+  <table class="tbl stack"><tbody>{% for g in close_gates %}<tr><td data-label="Check">{{ g.label }}</td><td data-label="Status">{% if g.ok %}<span class="chip chip-ok">OK</span>{% else %}<span class="chip chip-warn">{{ g.detail|default:"missing" }}</span>{% endif %}</td></tr>{% endfor %}</tbody></table>
+  {% if iw.status == 'CLOSED' %}
+    <p><span class="chip chip-ok">Closed</span> {% with c=closures.0 %}C{{ c.number }} · {{ c.closed_at|date:"d-M-Y H:i" }} by {{ c.closed_by.username }}{% if c.report %} · <a href="{% url 'iw:closure_report' iw.pk c.number %}" target="_blank" rel="noopener">IRR Reconciliation Report</a>{% endif %}{% endwith %}</p>
+    {% if can_reopen %}<form method="post" action="{% url 'iw:reopen_request' iw.pk %}" class="inline">{% csrf_token %}<label for="ro">Reopen - reason *</label><input id="ro" name="reason" required class="input-inline"><button type="submit" class="btn">Request reopen</button></form>{% endif %}
+  {% elif open %}
+    <form method="post" action="{% url 'iw:close' iw.pk %}">{% csrf_token %}<button type="submit" class="btn btn-primary"{% if not ready %} disabled{% endif %}>Close IW</button>
+      <span class="muted">Closing re-checks everything, generates the IRR Reconciliation Report and makes the IW read-only.</span></form>
+  {% endif %}
+  {% for c in closures %}{% if c.reopened_at %}<p class="muted">C{{ c.number }} reopened {{ c.reopened_at|date:"d-M-Y H:i" }}: {{ c.reopen_reason }}</p>{% endif %}{% endfor %}
+</div>

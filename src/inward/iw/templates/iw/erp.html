@@ -62,4 +62,5 @@
           <tbody>{% for ln in r.lines %}<tr><td class="mono">{{ ln.sku }}</td><td class="num">{{ ln.expected|floatformat:"-3" }}</td><td class="num">{{ ln.actual|floatformat:"-3" }}</td><td class="num">{% if ln.family %}{{ ln.exp_measure|floatformat:"-3" }} / {{ ln.act_measure|floatformat:"-3" }} {{ ln.family }}{% endif %}</td></tr>{% endfor %}</tbody></table></details>{% endif %}</td></tr>{% endfor %}</tbody></table>
   {% else %}<p class="muted">Nothing to reconcile on this IW (outbound, Colour Bank and Non-Stock end at the MRA).</p>{% endif %}
 </div>
+{% include "iw/_closure.html" %}
 {% endblock %}

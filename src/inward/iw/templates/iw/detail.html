@@ -25,7 +25,8 @@
   {% with cl=iw.checklists.first %}{% if cl %}<span class="chip chip-ok">Revision {{ cl.revision }} · {{ cl.generated_at|date:"d-M-Y H:i" }}</span>{% else %}<span class="chip chip-warn">Not generated</span>{% endif %}{% endwith %}
   <div class="grow"></div><a class="btn" href="{% url 'iw:checklist' iw.pk %}">Open checklist</a>
   {% if iw.status == 'UNLOADING_IN_PROGRESS' or iw.status == 'PHYSICALLY_VERIFIED' %}<a class="btn btn-primary" href="{% url 'iw:unloading' iw.pk %}">Unloading &amp; SED</a>{% endif %}
-  {% if iw.status == 'UNLOADING_IN_PROGRESS' or iw.status == 'PHYSICALLY_VERIFIED' or iw.unloading %}<a class="btn" href="{% url 'iw:charges' iw.pk %}">Packages &amp; unloading charge</a>{% endif %}</div>
+  {% if iw.status == 'UNLOADING_IN_PROGRESS' or iw.status == 'PHYSICALLY_VERIFIED' or iw.unloading %}<a class="btn" href="{% url 'iw:charges' iw.pk %}">Packages &amp; unloading charge</a>{% endif %}
+  {% if iw.status == 'PHYSICALLY_VERIFIED' or iw.mras.exists %}<a class="btn btn-primary" href="{% url 'iw:mra' iw.pk %}">MRA &amp; memos</a>{% endif %}</div>
 {% include "iw/_references.html" %}{% endif %}
 {% if iw.status == 'DRAFT' and can_edit %}
 <form method="post" action="{% url 'iw:discard' iw.pk %}" class="bar">{% csrf_token %}<button type="submit" class="btn btn-sm">Discard draft</button></form>

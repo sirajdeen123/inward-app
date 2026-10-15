@@ -439,3 +439,28 @@ class TransporterLedgerEntry(models.Model):
     class Meta:
         db_table = "transporter_ledger"
         ordering = ["entry_date", "id"]
+
+
+# ---------------------------------------------------------------- Screen 04: MRA (SoT 7.3, 7.4)
+
+
+class MraRevision(models.Model):
+    """Materials Receipt Acknowledgment, versioned R01, R02 ...: the frozen content, the PDF (MRA driver and
+    depot copies plus SED memos) and who issued it. A new revision is made only when the content changes."""
+    iw = models.ForeignKey(Iw, on_delete=models.CASCADE, related_name="mras")
+    revision = models.PositiveIntegerField()
+    content = models.JSONField()
+    content_hash = models.CharField(max_length=64)
+    pdf = models.ForeignKey("core.Document", null=True, blank=True, on_delete=models.PROTECT, related_name="+")
+    reason = models.TextField(blank=True)  # why R02+ was issued
+    issued_by = models.ForeignKey(USER, on_delete=models.PROTECT, related_name="+")
+    issued_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "iw_mra"
+        ordering = ["-revision"]
+        constraints = [models.UniqueConstraint(fields=["iw", "revision"], name="uq_iw_mra_revision")]
+
+    @property
+    def label(self) -> str:
+        return f"R{self.revision:02d}"

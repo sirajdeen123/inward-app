@@ -1,0 +1,83 @@
+{% load static %}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MRA {{ c.iw.no }} {{ rev }}</title>
+<link rel="stylesheet" href="{% static 'inward/mra.css' %}">
+</head>
+<body>
+{% for copy in copies %}
+<section class="page">
+  <header class="head">
+    <div>
+      <div class="title">MATERIALS RECEIPT ACKNOWLEDGMENT</div>
+      <div class="depot">Depot {{ c.depot.code }} · {{ c.depot.name }}</div>
+      <div class="cfa">Operated by: {{ c.depot.cfa }} (CFA)</div>
+      {% if c.depot.address %}<div class="addr">{{ c.depot.address }}</div>{% endif %}
+    </div>
+    <div class="right">
+      <div class="copy">{{ copy }}</div>
+      <div><b>MRA {{ c.iw.no }} {{ rev }}</b></div>
+      <div>Issued {{ issued_at }}</div>
+      {% if reason %}<div class="rev">Revised: {{ reason }}</div>{% endif %}
+    </div>
+  </header>
+
+  <table class="kv">
+    <tr><th>IW No</th><td>{{ c.iw.no }}</td><th>Arrival</th><td>{{ c.iw.arrival }}</td></tr>
+    <tr><th>Load type</th><td>{{ c.iw.load_type }}</td><th>Source</th><td>{{ c.iw.source_org|default:"-" }}</td></tr>
+    <tr><th>Vehicle</th><td>{{ c.iw.vehicle }}</td><th>Transporter / LR</th><td>{{ c.iw.transporter|default:"-" }}{% if c.iw.lr %} · LR {{ c.iw.lr }}{% endif %}</td></tr>
+    <tr><th>Driver</th><td>{{ c.iw.driver|default:"-" }}{% if c.iw.driver_mobile %} · {{ c.iw.driver_mobile }}{% endif %}</td><th>Verified</th><td>{{ c.iw.verified }}</td></tr>
+  </table>
+
+  <h2>References</h2>
+  <table class="grid"><thead><tr><th>Type</th><th>Reference</th><th>Origin / detail</th></tr></thead>
+    <tbody>{% for r in c.references %}<tr><td>{{ r.kind }}</td><td class="mono">{{ r.ref }}</td><td>{{ r.detail }}</td></tr>{% endfor %}</tbody></table>
+
+  <h2>Packages received (as per documents)</h2>
+  <div class="cols">{% for wh, rows in c.package_counts.items %}
+    <table class="grid pk"><thead><tr><th colspan="2">{{ wh }}</th></tr></thead>
+      <tbody>{% for r in rows %}<tr><td>{{ r.label }}</td><td class="num">{{ r.count }} {% if r.unit != 'packages' %}{{ r.unit }}{% endif %}</td></tr>{% endfor %}</tbody></table>
+  {% endfor %}</div>
+
+  <h2>Short / Excess / Damage</h2>
+  {% if c.sed %}
+  <table class="grid"><thead><tr><th>Reference</th><th>SKU</th><th>Description</th><th class="num">Short</th><th class="num">Excess</th><th class="num">Damage</th><th class="num">Value Rs</th><th>Remarks</th></tr></thead>
+    <tbody>{% for s in c.sed %}<tr><td>{{ s.source }}</td><td class="mono">{{ s.floor_sku }}<div class="small">{{ s.sku }}</div></td><td>{{ s.description }}{% if s.extra %} (not on document){% endif %}</td>
+      <td class="num">{{ s.short }}</td><td class="num">{{ s.excess }}</td><td class="num">{{ s.damage }}{% if s.damage_kind %}<div class="small">{{ s.damage_kind }}</div>{% endif %}</td>
+      <td class="num">{% if s.short_value %}S {{ s.short_value }}{% endif %}{% if s.damage_value %}<div>D {{ s.damage_value }}</div>{% endif %}</td><td>{{ s.remarks }}{% if s.photos %} · {{ s.photos }} photo(s){% endif %}</td></tr>{% endfor %}</tbody>
+    <tfoot><tr><th colspan="3">Total ({{ c.sed_totals.lines }} line(s))</th><th class="num">{{ c.sed_totals.short }}</th><th class="num">{{ c.sed_totals.excess }}</th><th class="num">{{ c.sed_totals.damage }}</th>
+      <th class="num" colspan="2">Claimable Rs {{ c.sed_totals.claimable }} <span class="small">(short {{ c.sed_totals.short_value }} + damage {{ c.sed_totals.damage_value }})</span></th></tr></tfoot></table>
+  {% else %}<p>Received in full as per documents - no Short, Excess or Damage.</p>{% endif %}
+
+  <h2>Unloading</h2>
+  {% if c.unloading %}<p>Unloading amount Rs {{ c.unloading.charge }} · {{ c.unloading.status }}{% if c.unloading.mode %} · {{ c.unloading.mode }}{% endif %}{% if c.unloading.ref %} ({{ c.unloading.ref }}){% endif %}{% if c.unloading.outstanding != '0.00' %} · outstanding Rs {{ c.unloading.outstanding }}{% endif %}</p>{% endif %}
+
+  <div class="sign">
+    <div class="box"><div class="line"></div>Driver signature · {{ c.iw.driver|default:"name" }}<div class="small">Received this acknowledgment and agree with the above.</div></div>
+    <div class="box"><div class="line"></div>{{ c.depot.seal }}<div class="small">Authorised signatory and depot seal</div></div>
+  </div>
+  <footer class="foot">MRA {{ c.iw.no }} {{ rev }} · issued by {{ issued_by }} · {{ copy|lower }}</footer>
+</section>
+{% endfor %}
+
+{% for m in c.memos %}
+<section class="page">
+  <header class="head">
+    <div><div class="title">{{ m.title }}</div><div class="depot">Depot {{ c.depot.code }} · {{ c.depot.name }}</div><div class="cfa">Operated by: {{ c.depot.cfa }} (CFA)</div></div>
+    <div class="right"><div><b>{{ c.iw.no }} · MRA {{ rev }}</b></div><div>{{ c.iw.vehicle }} · {{ c.iw.arrival }}</div><div>For: System Supervisor (Oracle entry)</div></div>
+  </header>
+  {% if m.all_lscrr %}<p class="note">All lines are LSCRR-covered - no separate TRX expected.</p>{% endif %}
+  <table class="grid"><thead><tr><th>Reference</th><th>Full SKU</th><th>Description</th><th class="num">Qty (pcs)</th>{% if m.kind != 'EXCESS' %}<th class="num">Value Rs</th>{% endif %}<th>Oracle action</th><th>Remarks</th><th class="trx">TRX No</th></tr></thead>
+    <tbody>{% for r in m.rows %}<tr><td>{{ r.source }}</td><td class="mono">{{ r.sku }}<div class="small">{{ r.floor_sku }}</div></td><td>{{ r.description }}</td><td class="num">{{ r.qty }}</td>
+      {% if m.kind != 'EXCESS' %}<td class="num">{{ r.value }}</td>{% endif %}<td><b>{{ r.action }}</b>{% if r.note %}<div class="small">{{ r.note }}</div>{% endif %}</td><td>{{ r.remarks }}</td><td class="trx">{% if r.action == 'LSCRR-covered' %}n/a{% endif %}</td></tr>{% endfor %}</tbody></table>
+  <div class="sign">
+    <div class="box"><div class="line"></div>Prepared by (clerk)</div>
+    <div class="box"><div class="line"></div>System Supervisor · TRX entered on (date)</div>
+  </div>
+  <footer class="foot">{{ m.title|title }} · {{ c.iw.no }} · MRA {{ rev }}</footer>
+</section>
+{% endfor %}
+</body>
+</html>

@@ -54,6 +54,9 @@ ENV
 fi
 
 # 3. Python environment and release steps
+# system libraries for MRA PDFs (WeasyPrint: Pango + HarfBuzz); shared libraries only, other apps unaffected
+PDF_PKGS="libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0 fonts-dejavu-core"
+dpkg -s $PDF_PKGS >/dev/null 2>&1 || DEBIAN_FRONTEND=noninteractive apt-get install -y -qq $PDF_PKGS >/dev/null
 [ -x "$ROOT/venv/bin/python" ] || as_inward python3 -m venv "$ROOT/venv"
 as_inward "$ROOT/venv/bin/pip" install --quiet --upgrade pip
 as_inward "$ROOT/venv/bin/pip" install --quiet -e "$ROOT/app"

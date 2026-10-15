@@ -137,7 +137,7 @@ def sed_photo(request, photo_pk, size):
 def verification_confirm(request, pk):
     try:
         sed.confirm_verification(request.user, pk)
-        messages.success(request, "Physical verification confirmed. Next: package counts, unloading charge and MRA.")
+        messages.success(request, "Physical verification confirmed. Next: package counts, unloading charge, then the MRA.")
     except IwError as exc:
         messages.error(request, str(exc))
     return redirect("iw:unloading", pk=pk)

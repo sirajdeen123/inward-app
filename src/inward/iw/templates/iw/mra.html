@@ -1,0 +1,36 @@
+{% extends "web/base.html" %}
+{% block title %}MRA · {{ iw }}{% endblock %}
+{% block content %}
+<p><a href="{% url 'iw:detail' iw.pk %}">&larr; {{ iw }}</a></p>
+<h1>MRA &amp; SED memos · {{ iw }}</h1>
+<p class="muted">The PDF holds the MRA twice (driver copy and depot copy) followed by the SED memos for the System Supervisor. The driver signs both copies; the depot signs and seals both; one copy goes with the driver.</p>
+
+{% if blockers %}
+<div class="card"><h2>Before the MRA can be issued</h2>{% for b in blockers %}<div class="alert alert-error">{{ b }}</div>{% endfor %}
+  <p><a class="btn" href="{% url 'iw:unloading' iw.pk %}">Unloading &amp; SED</a> <a class="btn" href="{% url 'iw:charges' iw.pk %}">Packages &amp; unloading charge</a></p></div>
+{% elif not latest %}
+<form method="post" action="{% url 'iw:mra_issue' iw.pk %}" class="card">{% csrf_token %}
+  <h2>Issue MRA R01</h2>
+  <button type="submit" class="btn btn-primary">Issue MRA</button></form>
+{% elif not current %}
+<form method="post" action="{% url 'iw:mra_issue' iw.pk %}" class="card form-grid">{% csrf_token %}
+  <h2 class="span-all">The details changed after {{ latest.label }} <span class="chip chip-warn">New revision needed</span></h2>
+  <div class="field span-all"><label for="m-reason">What changed (printed on the new revision) *</label><input id="m-reason" name="reason" required></div>
+  <div class="span-all"><button type="submit" class="btn btn-primary">Issue new revision</button></div></form>
+{% else %}
+<div class="card bar"><span class="chip chip-ok">{{ latest.label }} is up to date</span></div>
+{% endif %}
+
+<div class="card">
+  <h2>Revisions</h2>
+  {% if revisions %}
+  <table class="tbl stack"><thead><tr><th>Revision</th><th>Issued</th><th>By</th><th>Reason</th><th>Claimable</th><th>Memos</th><th></th></tr></thead>
+    <tbody>{% for r in revisions %}<tr><td data-label="Revision"><b>{{ r.label }}</b></td><td data-label="Issued">{{ r.issued_at|date:"d-M-Y H:i" }}</td>
+      <td data-label="By">{{ r.issued_by.full_name|default:r.issued_by.username }}</td><td data-label="Reason">{{ r.reason|default:"-" }}</td>
+      <td data-label="Claimable">Rs {{ r.content.sed_totals.claimable }}</td><td data-label="Memos">{% for m in r.content.memos %}{{ m.title|title }}{% if not forloop.last %}, {% endif %}{% empty %}-{% endfor %}</td>
+      <td class="nowrap" data-label="">{% if r.pdf %}<a class="btn btn-sm btn-primary" href="{% url 'iw:mra_pdf' iw.pk r.revision %}" target="_blank" rel="noopener">PDF</a>{% endif %}
+        <a class="btn btn-sm" href="{% url 'iw:mra_view' iw.pk r.revision %}" target="_blank" rel="noopener">View / print</a></td></tr>{% endfor %}</tbody></table>
+  {% else %}<p class="muted">No MRA issued yet.</p>{% endif %}
+  {% if not pdf_available %}<p class="muted">PDF creation is not installed on this computer; PDFs are made on the server.</p>{% endif %}
+</div>
+{% endblock %}

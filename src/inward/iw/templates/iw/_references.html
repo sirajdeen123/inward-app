@@ -50,14 +50,14 @@
 {% if iw.load_type.has_outbound %}
 <div class="card">
   <div class="bar"><h2>Outbound transhipment</h2><div class="grow"></div>
-    {% if can_link %}<a href="{% url 'iw:outbound' iw.pk %}" class="btn btn-sm">Open outbound assignment</a>{% endif %}</div>
-  {% if outbound_state.balances %}
-  <table class="tbl"><thead><tr><th>Ship ID</th><th>Destination</th><th class="num">NOP doc / assigned</th><th class="num">LTR doc / assigned</th><th class="num">KG doc / assigned</th><th>Status</th></tr></thead>
-  <tbody>{% for b in outbound_state.balances %}<tr><td class="mono">{{ b.ship.ship_id }}</td><td>{{ b.ship.destination }}</td>
-    <td class="num">{{ b.ship.doc_nop|floatformat:"-3" }} / {{ b.nop|floatformat:"-3" }}</td><td class="num">{{ b.ship.doc_ltr|floatformat:"-3" }} / {{ b.ltr|floatformat:"-3" }}</td>
-    <td class="num">{{ b.ship.doc_kg|floatformat:"-3" }} / {{ b.kg|floatformat:"-3" }}</td>
-    <td>{% if b.balanced %}<span class="chip chip-ok">Balanced</span>{% else %}<span class="chip chip-warn">Not balanced</span>{% endif %}</td></tr>{% endfor %}</tbody></table>
-  {% if outbound_state.ready %}<p><span class="chip chip-ok">Outbound ready: all rows decided, all Ships balanced</span></p>{% else %}<p><span class="chip chip-warn">Outbound not ready: {{ outbound_state.undecided }} row(s) undecided or a Ship not balanced</span></p>{% endif %}
+    {% if can_link %}<a href="{% url 'iw:outbound' iw.pk %}" class="btn btn-sm">Open outbound</a>{% endif %}</div>
+  {% if outbound_state.ships %}
+  <table class="tbl"><thead><tr><th>Ship ID</th><th>Destination</th><th class="num">LTR doc / ticked</th><th class="num">KG doc / ticked</th><th class="num">Packages doc / ticked</th><th>Status</th></tr></thead>
+  <tbody>{% for s in outbound_state.ships %}<tr><td class="mono">{{ s.ship.ship_id }}</td><td>{{ s.ship.destination }}</td>
+    <td class="num">{{ s.ship.doc_ltr|floatformat:"-3" }} / {{ s.ticked.ltr|floatformat:"-3" }}</td><td class="num">{{ s.ship.doc_kg|floatformat:"-3" }} / {{ s.ticked.kg|floatformat:"-3" }}</td>
+    <td class="num">{{ s.ship.doc_nop|floatformat:"-3"|default:"-" }} / {{ s.ticked.nop|floatformat:"-3" }}</td>
+    <td>{% if s.tallied %}<span class="chip chip-ok">Tallied and saved</span>{% else %}<span class="chip chip-warn">Rows not saved</span>{% endif %}</td></tr>{% endfor %}</tbody></table>
+  {% if outbound_state.ready %}<p><span class="chip chip-ok">Outbound ready for the unloading checklist</span></p>{% else %}<p><span class="chip chip-warn">Outbound not ready: tick and save the rows of every outbound Ship</span></p>{% endif %}
   {% else %}<p class="muted">No outbound Ship yet.</p>{% endif %}
 </div>
 {% endif %}
@@ -67,7 +67,7 @@
   <div class="bar"><h2>Vendor challans</h2><div class="grow"></div>
     {% if can_link %}<a href="{% url 'iw:vendor' iw.pk %}" class="btn btn-sm btn-primary">Add vendor challan</a>{% endif %}</div>
   {% for c in vendor_consignments %}
-  <details class="sub" open><summary><b>{{ c.vendor_id }}</b> {{ c.vendor.name }} · PO {{ c.po_no }} · challan {{ c.challan_no }} · <span class="chip">{{ c.get_source_display }}</span></summary>
+  <details class="sub" open><summary><b>{{ c.vendor_id }}</b> {{ c.vendor.name }} · PO {{ c.po_no }} · challan {{ c.challan_no }} · <span class="chip">{{ c.get_source_display }}</span> <span class="chip">{{ c.get_warehouse_display }}</span></summary>
     <table class="tbl"><thead><tr><th class="num">Sl.</th><th>Floor SKU</th><th>Full SKU</th><th>Description</th><th>UOM</th><th class="num">Packages</th><th class="num">LTR / KG</th></tr></thead>
     <tbody>{% for ln in c.lines.all %}<tr><td class="num">{{ forloop.counter }}</td><td class="mono nowrap"><b>{{ ln.floor_sku }}</b></td><td class="mono">{{ ln.sku }}</td><td>{{ ln.description }}</td><td>{{ ln.uom }}</td>
       <td class="num">{{ ln.nop|floatformat:"-3" }}</td><td class="num">{% if ln.measure_family == 'KG' %}{{ ln.kg|floatformat:"-3" }} KG{% else %}{{ ln.ltr|floatformat:"-3" }} LTR{% endif %}</td></tr>{% endfor %}</tbody></table>

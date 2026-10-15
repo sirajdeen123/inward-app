@@ -12,6 +12,7 @@
   <label for="vp-file">Portal report ("Challan wise Source Despatches")</label><input id="vp-file" type="file" name="file" required>
   <label for="vp-code">Vendor code *</label><input id="vp-code" name="vendor_code" placeholder="e.g. V54" value="{% if post.mode == 'portal' %}{{ post.vendor_code }}{% endif %}">
   <label for="vp-ch">Vendor challan no *</label><input id="vp-ch" name="challan_no" value="{% if post.mode == 'portal' %}{{ post.challan_no }}{% endif %}">
+  <label for="vp-wh">Unloading warehouse *</label><select id="vp-wh" name="warehouse" required><option value="">Select...</option><option value="RETAIL">Retail warehouse</option><option value="INDUSTRIAL">Industrial warehouse</option></select>
   <button type="submit" class="btn btn-primary">Add from portal report</button>
   <p class="muted">PO number, vendor name and SKU lines are taken from the report.</p>
 </form>
@@ -23,6 +24,7 @@
   <div class="field"><label for="vm-name">Vendor name (if new)</label><input id="vm-name" name="vendor_name" value="{% if post.mode == 'manual' %}{{ post.vendor_name }}{% endif %}"></div>
   <div class="field"><label for="vm-po">PO number *</label><input id="vm-po" name="po_no" value="{% if post.mode == 'manual' %}{{ post.po_no }}{% endif %}"></div>
   <div class="field"><label for="vm-ch">Vendor challan no *</label><input id="vm-ch" name="challan_no" value="{% if post.mode == 'manual' %}{{ post.challan_no }}{% endif %}"></div>
+  <div class="field"><label for="vm-wh">Unloading warehouse *</label><select id="vm-wh" name="warehouse" required><option value="">Select...</option><option value="RETAIL">Retail warehouse</option><option value="INDUSTRIAL">Industrial warehouse</option></select></div>
   <datalist id="vendor-list">{% for v in vendors %}<option value="{{ v.code }}">{{ v.name }}</option>{% endfor %}</datalist>
   <div class="span-all"><table class="tbl">
     <thead><tr><th class="num">Sl.</th><th>SKU (16 characters)</th><th>Description</th><th>UOM (L / K)</th><th class="num">Packages</th><th class="num">Quantity (LTR or KG)</th></tr></thead>

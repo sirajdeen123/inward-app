@@ -71,6 +71,10 @@ input.qty{font:inherit;width:90px;min-height:36px;padding:4px 8px;border:1px sol
 .tbl td input:not(.qty){font:inherit;width:100%;min-height:36px;padding:4px 8px;border:1px solid #c9ccd6;border-radius:8px;background:var(--side)}
 .row-warn td{background:#fffaf0}
 .warn-text{color:var(--warn);font-size:13px;margin-top:4px}
+.tally{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;position:sticky;top:0;z-index:2}
+.tally-cell .kpi-value{font-size:20px}
+.inline-form{display:inline}
+@media (max-width:700px){.tally{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:900px){.form-grid{grid-template-columns:1fr}}
 @media (max-width:900px){.grid2{grid-template-columns:1fr}}
 @media (max-width:760px){.shell{flex-direction:column}.sidebar{width:auto}.main{padding:18px 16px}}

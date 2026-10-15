@@ -21,6 +21,16 @@ from inward.iw.services import IwError
 FAMILY = {"L": "LTR", "ML": "LTR", "K": "KG", "KG": "KG", "G": "KG"}
 
 
+WAREHOUSES = {"RETAIL", "INDUSTRIAL"}
+
+
+def _warehouse(value: str) -> str:
+    wh = (value or "").strip().upper()
+    if wh not in WAREHOUSES:
+        raise IwError("Select the warehouse (Retail or Industrial) where this vendor material is unloaded.")
+    return wh
+
+
 def _require_vendor(iw: Iw) -> None:
     _require_open(iw)
     if not iw.load_type.is_vendor:
@@ -54,11 +64,12 @@ def read_portal(path: Path) -> VendorImport:
 
 
 @transaction.atomic
-def add_from_portal(user: User, iw_pk: int, path: Path, filename: str, vendor_code: str, challan_no: str
-                    ) -> VendorConsignment:
+def add_from_portal(user: User, iw_pk: int, path: Path, filename: str, vendor_code: str, challan_no: str,
+                    warehouse: str = "") -> VendorConsignment:
     require(user, "MATERIAL_LINK")
     iw = Iw.objects.select_for_update().select_related("load_type").get(pk=iw_pk)
     _require_vendor(iw)
+    wh = _warehouse(warehouse)
     report = read_portal(path)
     vendor_code = clean_code(vendor_code)  # clerks may type v54
     lines = report.for_challan(vendor_code, challan_no)
@@ -72,14 +83,14 @@ def add_from_portal(user: User, iw_pk: int, path: Path, filename: str, vendor_co
     doc = documents.store(Path(path).read_bytes(), filename=filename, content_type="application/vnd.ms-excel",
                           doc_type="VENDOR_PORTAL_REPORT", user=user, links=[("iw", iw.pk, "vendor_portal")])
     cons = VendorConsignment.objects.create(iw=iw, vendor=vendor, po_no=first.po_number, challan_no=first.challan_no,
-                                            challan_key=key, source=VendorConsignment.Source.PORTAL,
+                                            challan_key=key, source=VendorConsignment.Source.PORTAL, warehouse=wh,
                                             portal_document=doc, linked_by=user)
     VendorLine.objects.bulk_create([
         VendorLine(consignment=cons, sku=ln.sku, floor_sku=floor_sku(ln.sku), description=ln.description, uom=ln.uom,
                    measure_family=FAMILY.get(ln.uom, ""), nop=ln.nop, ltr=ln.ltr, kg=ln.kg) for ln in lines])
     _refresh_status(iw)
     audit.record("VENDOR_CHALLAN_ADDED", "iw", iw.pk, user=user, iw_id=iw.pk,
-                 after={"vendor": vendor.code, "po": cons.po_no, "challan": cons.challan_no, "source": "PORTAL",
+                 after={"vendor": vendor.code, "po": cons.po_no, "challan": cons.challan_no, "source": "PORTAL", "warehouse": wh,
                         "lines": len(lines)})
     return cons
 
@@ -96,12 +107,13 @@ def _dec(value, what: str) -> Decimal:
 
 @transaction.atomic
 def add_manual(user: User, iw_pk: int, *, vendor_code: str, vendor_name: str, po_no: str, challan_no: str,
-               lines: list[tuple[str, str, str, str, str]]) -> VendorConsignment:
+               lines: list[tuple[str, str, str, str, str]], warehouse: str = "") -> VendorConsignment:
     """lines: (sku, description, uom L/K, packages, quantity in LTR or KG). Used when the vendor has not
     uploaded the portal data yet."""
     require(user, "MATERIAL_LINK")
     iw = Iw.objects.select_for_update().select_related("load_type").get(pk=iw_pk)
     _require_vendor(iw)
+    wh = _warehouse(warehouse)
     po, challan = clean_text(po_no), clean_text(challan_no)
     if not po or not challan:
         raise IwError("PO number and vendor challan number are mandatory.")
@@ -127,13 +139,13 @@ def add_manual(user: User, iw_pk: int, *, vendor_code: str, vendor_name: str, po
     if not items:
         raise IwError("Enter at least one SKU line.")
     cons = VendorConsignment.objects.create(iw=iw, vendor=vendor, po_no=po, challan_no=challan, challan_key=key,
-                                            source=VendorConsignment.Source.MANUAL, linked_by=user)
+                                            source=VendorConsignment.Source.MANUAL, warehouse=wh, linked_by=user)
     for it in items:
         it.consignment = cons
     VendorLine.objects.bulk_create(items)
     _refresh_status(iw)
     audit.record("VENDOR_CHALLAN_ADDED", "iw", iw.pk, user=user, iw_id=iw.pk,
-                 after={"vendor": vendor.code, "po": po, "challan": challan, "source": "MANUAL", "lines": len(items)})
+                 after={"vendor": vendor.code, "po": po, "challan": challan, "source": "MANUAL", "warehouse": wh, "lines": len(items)})
     return cons
 
 

@@ -153,15 +153,16 @@ class NonStockLine(models.Model):
 
 
 class OutboundShip(models.Model):
-    """Outbound transhipment Ship (not in SIT). Rows of the Despatch Detail Report are assigned to it and must
-    balance with the totals on its document (SoT 5.3)."""
+    """Outbound transhipment Ship (not in SIT). The clerk ticks Despatch Detail Report rows until they tally
+    with the LTR and KG (and packages, if entered) on the Ship document (SoT 5.3, revised 15-Oct-2026)."""
     iw = models.ForeignKey(Iw, on_delete=models.CASCADE, related_name="outbound_ships")
     ship_id = models.CharField(max_length=20)
     destination = models.ForeignKey(Organisation, on_delete=models.PROTECT, related_name="+")
-    doc_nop = models.DecimalField(max_digits=14, decimal_places=3)
+    doc_nop = models.DecimalField(max_digits=14, decimal_places=3, null=True, blank=True)  # optional extra check
     doc_ltr = models.DecimalField(max_digits=18, decimal_places=3, default=0)
     doc_kg = models.DecimalField(max_digits=18, decimal_places=3, default=0)
     status = models.CharField(max_length=14, choices=TrackStatus.choices, default=TrackStatus.LINKED)
+    tallied_at = models.DateTimeField(null=True, blank=True)  # rows saved and totals matched
     linked_by = models.ForeignKey(USER, on_delete=models.PROTECT, related_name="+")
     linked_at = models.DateTimeField(auto_now_add=True)
 
@@ -200,7 +201,6 @@ class DespatchRow(models.Model):
     fingerprint = models.CharField(max_length=120, db_index=True)
     outbound_ship = models.ForeignKey(OutboundShip, null=True, blank=True, on_delete=models.SET_NULL,
                                       related_name="rows")
-    excluded = models.BooleanField(default=False)  # "Not on this vehicle"
     reuse_acknowledged = models.BooleanField(default=False)
 
     class Meta:
@@ -221,6 +221,8 @@ class VendorConsignment(models.Model):
     challan_no = models.CharField(max_length=60)
     challan_key = models.CharField(max_length=60, db_index=True)
     source = models.CharField(max_length=6, choices=Source.choices)
+    warehouse = models.CharField(max_length=12, choices=[("RETAIL", "Retail warehouse"),
+                                                        ("INDUSTRIAL", "Industrial warehouse")])  # chosen by the clerk
     portal_document = models.ForeignKey("core.Document", null=True, blank=True, on_delete=models.PROTECT,
                                         related_name="+")
     status = models.CharField(max_length=14, choices=TrackStatus.choices, default=TrackStatus.LINKED)

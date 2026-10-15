@@ -21,7 +21,8 @@ urlpatterns = [
     path("<int:pk>/outbound/ships/add/", views_outbound.outbound_add_ship, name="outbound_add_ship"),
     path("outbound/ships/<int:ship_pk>/remove/", views_outbound.outbound_remove_ship, name="outbound_remove_ship"),
     path("<int:pk>/outbound/upload/", views_outbound.outbound_upload, name="outbound_upload"),
-    path("<int:pk>/outbound/assign/", views_outbound.outbound_assign, name="outbound_assign"),
+    path("outbound/ships/<int:ship_pk>/rows/", views_outbound.outbound_rows, name="outbound_rows"),
+    path("outbound/ships/<int:ship_pk>/reopen/", views_outbound.outbound_reopen, name="outbound_reopen"),
     path("<int:pk>/vendor/", views_outbound.vendor_page, name="vendor"),
     path("vendor/<int:cons_pk>/remove/", views_outbound.vendor_remove, name="vendor_remove"),
 ]

@@ -1,4 +1,4 @@
-"""Screen 03 part B - outbound Despatch row assignment and vendor challans (SoT 5.3, 5.4)."""
+"""Screen 03 part B - outbound tick-and-tally and vendor challans (SoT 5.3 revised 15-Oct-2026, 5.4)."""
 import shutil
 from datetime import datetime
 from decimal import Decimal
@@ -15,6 +15,8 @@ from tests.conftest import sample
 from tests.helpers import verified_client
 
 pytestmark = pytest.mark.django_db
+# first rows of the real Despatch sample (all TO ORG 094 Pondicherry):
+# row 7: 12 pcs 12 L · row 8: 16 pcs 8 L · row 9: 60 pcs 60 L · report total 36 rows
 
 
 @pytest.fixture
@@ -36,100 +38,124 @@ def _report(env, iw):
     return outbound.upload_report(env["clerk"], iw.pk, path, "Outbound SIT sample.xlsx")
 
 
-def test_outbound_ships_and_balance(env):
+def _all_rows(iw):
+    return list(DespatchRow.objects.filter(report__iw=iw).order_by("row_no"))
+
+
+def test_report_first_then_ship_and_destination_from_report(env):
     clerk, iw = env["clerk"], _iw(env["clerk"])
-    with pytest.raises(IwError, match="number of packages"):
-        outbound.add_ship(clerk, iw.pk, ship_id="52611001", destination="094 : Pondicherry", doc_nop="0")
-    # Ship A = first 3 rows (12 + 16 + 60 NOP; 12 + 8 + 60 LTR), Ship B = next 3 (30 + 12 + 24; 30 + 48 + 12)
-    a = outbound.add_ship(clerk, iw.pk, ship_id="52611001", destination="094 : Pondicherry", doc_nop="88", doc_ltr="80")
-    b = outbound.add_ship(clerk, iw.pk, ship_id="52611002", destination="094", doc_nop="66", doc_ltr="90")
-    assert Organisation.objects.get(code="094").name == "Pondicherry"
     _report(env, iw)
-    rows = list(outbound.visible_rows(iw).order_by("row_no"))
-    assert len(rows) == 36
-    choice = {r.pk: str(a.pk) for r in rows[:3]} | {r.pk: str(b.pk) for r in rows[3:6]}
-    outbound.assign(clerk, iw.pk, choice, set())
-    st = outbound.state(iw)
-    assert all(bal.balanced for bal in st.balances) and st.undecided == 30 and not st.ready
-    outbound.assign(clerk, iw.pk, {r.pk: "X" for r in rows[6:]}, set())
-    st = outbound.state(iw)
-    assert st.ready
+    assert outbound.report_destinations(iw) == [("094", "Pondicherry", 36)]
+    ship = outbound.add_ship(clerk, iw.pk, ship_id="52611001", destination="094", doc_ltr="80", doc_kg="0")
+    assert Organisation.objects.get(code="094").name == "Pondicherry"   # name taken from the report
+    with pytest.raises(IwError, match="LTR and / or KG"):
+        outbound.add_ship(clerk, iw.pk, ship_id="2", destination="094", doc_ltr="0", doc_kg="")
+    rows = outbound.available_rows(ship)
+    assert len(rows) == 36 and outbound.covers(ship, outbound.Totals.of(rows))
+
+
+def test_tick_until_tally_and_server_check(env):
+    clerk, iw = env["clerk"], _iw(env["clerk"])
+    _report(env, iw)
+    a = outbound.add_ship(clerk, iw.pk, ship_id="52611001", destination="094", doc_ltr="80", doc_kg="0", doc_nop="88")
+    r = _all_rows(iw)
+    with pytest.raises(IwError, match="do not tally"):
+        outbound.save_selection(clerk, a.pk, {r[0].pk, r[1].pk}, set())        # 20 L only
+    outbound.save_selection(clerk, a.pk, {r[0].pk, r[1].pk, r[2].pk}, set())  # 12 + 8 + 60 L, 88 pcs
     a.refresh_from_db()
-    assert a.status == TrackStatus.ROWS_ASSIGNED
-    outbound.assign(clerk, iw.pk, {rows[0].pk: "X"}, set())   # unbalances Ship A
+    assert a.status == TrackStatus.ROWS_ASSIGNED and a.tallied_at
+    # Ship B on the same vehicle never sees Ship A's rows
+    b = outbound.add_ship(clerk, iw.pk, ship_id="52611002", destination="094", doc_ltr="90", doc_kg="0")
+    assert {x.pk for x in outbound.available_rows(b)}.isdisjoint({r[0].pk, r[1].pk, r[2].pk})
+    with pytest.raises(IwError, match="no longer available"):
+        outbound.save_selection(clerk, b.pk, {r[0].pk}, set())
+    assert not outbound.state(iw).ready
+    outbound.save_selection(clerk, b.pk, {r[3].pk, r[4].pk, r[5].pk}, set())  # 30 + 48 + 12 L
+    assert outbound.state(iw).ready
+    outbound.reopen(clerk, b.pk)
     assert not outbound.state(iw).ready
 
 
-def test_wrong_destination_and_assign_all(env):
+def test_report_with_less_than_document(env):
     clerk, iw = env["clerk"], _iw(env["clerk"])
-    other = outbound.add_ship(clerk, iw.pk, ship_id="1", destination="092 : Chennai-2", doc_nop="5")
-    pondy = outbound.add_ship(clerk, iw.pk, ship_id="2", destination="094 : Pondicherry", doc_nop="1")
     _report(env, iw)
-    row = outbound.visible_rows(iw).first()
-    with pytest.raises(IwError, match="goes to 094, but Ship 1 goes to 092"):
-        outbound.assign(clerk, iw.pk, {row.pk: str(other.pk)}, set())
-    assert outbound.assign_all_for_destination(clerk, iw.pk, "094") == 36
-    assert DespatchRow.objects.filter(outbound_ship=pondy).count() == 36
+    ship = outbound.add_ship(clerk, iw.pk, ship_id="1", destination="094", doc_ltr="999999", doc_kg="0")
+    assert not outbound.covers(ship, outbound.Totals.of(outbound.available_rows(ship)))
+
+
+def test_suggestion_finds_exact_combination(env):
+    clerk, iw = env["clerk"], _iw(env["clerk"])
+    _report(env, iw)
+    ship = outbound.add_ship(clerk, iw.pk, ship_id="7", destination="094", doc_ltr="80", doc_kg="0", doc_nop="88")
+    rows = outbound.available_rows(ship)
+    picked = outbound.suggest(ship, rows)
+    t = outbound.Totals.of([x for x in rows if x.pk in set(picked)])
+    assert (t.ltr, t.kg, t.nop) == (Decimal("80"), Decimal("0"), Decimal("88"))
+    outbound.save_selection(clerk, ship.pk, set(picked), set())
 
 
 def test_identical_row_on_another_iw_needs_acknowledgement(env):
     clerk = env["clerk"]
     first, second = _iw(clerk), _iw(clerk, vehicle="KA01AB1234")
     for iw in (first, second):
-        outbound.add_ship(clerk, iw.pk, ship_id="9", destination="094 : Pondicherry", doc_nop="12", doc_ltr="12")
         _report(env, iw)
-    r1 = outbound.visible_rows(first).order_by("row_no").first()
-    outbound.assign(clerk, first.pk, {r1.pk: str(first.outbound_ships.get().pk)}, set())
-    r2 = outbound.visible_rows(second).order_by("row_no").first()
-    with pytest.raises(IwError, match="identical to a row already assigned on IW-2627-000001"):
-        outbound.assign(clerk, second.pk, {r2.pk: str(second.outbound_ships.get().pk)}, set())
-    outbound.assign(clerk, second.pk, {r2.pk: str(second.outbound_ships.get().pk)}, {r2.pk})
-    r2.refresh_from_db()
-    assert r2.reuse_acknowledged and r2.outbound_ship_id
+        outbound.add_ship(clerk, iw.pk, ship_id="9", destination="094", doc_ltr="12", doc_kg="0")
+    s1, s2 = first.outbound_ships.get(), second.outbound_ships.get()
+    outbound.save_selection(clerk, s1.pk, {_all_rows(first)[0].pk}, set())
+    row2 = _all_rows(second)[0]
+    assert [x.reused_on for x in outbound.available_rows(s2) if x.pk == row2.pk] == ["IW-2627-000001"]
+    with pytest.raises(IwError, match="need the 'I checked' tick"):
+        outbound.save_selection(clerk, s2.pk, {row2.pk}, set())
+    outbound.save_selection(clerk, s2.pk, {row2.pk}, {row2.pk})
 
 
 def test_outbound_only_for_outbound_load_types(env):
     iw = _iw(env["clerk"], code="DIRECT_FACTORY")
     with pytest.raises(IwError, match="no outbound"):
-        outbound.add_ship(env["clerk"], iw.pk, ship_id="1", destination="094 : Pondicherry", doc_nop="1")
+        outbound.add_ship(env["clerk"], iw.pk, ship_id="1", destination="094 : Pondicherry", doc_ltr="1")
 
 
 def test_vendor_from_portal_and_manual(env):
     clerk, iw = env["clerk"], _iw(env["clerk"], code="VENDOR")
     path = env["tmp"] / "portal.xlsx"
     shutil.copy(sample("Vendor SIT sample.xlsx"), path)
-    cons = vendor.add_from_portal(clerk, iw.pk, path, "portal.xlsx", "v54", "641406/876/2627")
-    assert (cons.vendor_id, cons.po_no) == ("V54", "376841")
+    with pytest.raises(IwError, match="Select the warehouse"):
+        vendor.add_from_portal(clerk, iw.pk, path, "portal.xlsx", "v54", "641406/876/2627")
+    cons = vendor.add_from_portal(clerk, iw.pk, path, "portal.xlsx", "v54", "641406/876/2627", "industrial")
+    assert (cons.vendor_id, cons.po_no, cons.warehouse) == ("V54", "376841", "INDUSTRIAL")
     line = cons.lines.get()
     assert (line.sku, line.nop, line.measure_family, line.floor_sku) == ("F007500991040002", 300, "KG", "750 991")
     assert Vendor.objects.get(code="V54").name == "CNA COATINGS INDIA PRIVATE LIMITED"
     with pytest.raises(IwError, match="already on this IW"):
-        vendor.add_from_portal(clerk, iw.pk, path, "portal.xlsx", "V54", "641406/876/2627")
+        vendor.add_from_portal(clerk, iw.pk, path, "portal.xlsx", "V54", "641406/876/2627", "RETAIL")
     other = _iw(clerk, code="VENDOR", vehicle="TN52AC1171")
     with pytest.raises(IwError, match="already on IW-2627-000001"):
         vendor.add_manual(clerk, other.pk, vendor_code="V54", vendor_name="", po_no="1", challan_no="641406 / 876 / 2627",
-                          lines=[("F007500991040002", "Putty", "K", "10", "400")])
-    with pytest.raises(IwError, match="is new"):
-        vendor.add_manual(clerk, other.pk, vendor_code="V99", vendor_name="", po_no="1", challan_no="C1",
-                          lines=[("F007500991040002", "Putty", "K", "10", "400")])
+                          lines=[("F007500991040002", "Putty", "K", "10", "400")], warehouse="RETAIL")
     manual = vendor.add_manual(clerk, other.pk, vendor_code="V99", vendor_name="New Vendor", po_no="77",
-                               challan_no="C1", lines=[("F007500991040002", "Putty", "K", "10", "400"), ("", "", "", "", "")])
-    assert manual.lines.get().kg == Decimal("400")
-    with pytest.raises(IwError, match="not a vendor load"):
-        vendor.add_manual(clerk, _iw(clerk, code="RDC", vehicle="X9").pk, vendor_code="V99", vendor_name="", po_no="1",
-                          challan_no="C2", lines=[("F007500991040002", "Putty", "K", "1", "40")])
+                               challan_no="C1", lines=[("F007500991040002", "Putty", "K", "10", "400")],
+                               warehouse="RETAIL")
+    assert manual.lines.get().kg == Decimal("400") and manual.warehouse == "RETAIL"
 
 
 def test_screens(client, env):
     c = verified_client(client, env["clerk"])
     iw = _iw(env["clerk"])
-    c.post(reverse("iw:outbound_add_ship", args=[iw.pk]),
-           {"ship_id": "52611001", "destination": "094 : Pondicherry", "doc_nop": "88", "doc_ltr": "80"})
     with open(sample("Outbound SIT sample.xlsx"), "rb") as fh:
         resp = c.post(reverse("iw:outbound_upload", args=[iw.pk]), {"file": fh}, follow=True)
-    assert "36 rows" in resp.content.decode()
-    page = c.get(reverse("iw:outbound", args=[iw.pk])).content.decode()
-    assert "Assign all 094 rows to Ship 52611001" in page and "Not balanced" in page
-    detail = c.get(reverse("iw:detail", args=[iw.pk])).content.decode()
-    assert "Outbound not ready" in detail
+    assert "36 rows" in resp.content.decode() and "094 : Pondicherry" in resp.content.decode()
+    resp = c.post(reverse("iw:outbound_add_ship", args=[iw.pk]),
+                  {"ship_id": "52611001", "destination": "094 : Pondicherry", "doc_ltr": "80", "doc_kg": "0"},
+                  follow=True)
+    page = resp.content.decode()
+    assert "Tick the SKUs" in page and "tally.js" in page
+    ship = iw.outbound_ships.get()
+    page = c.get(reverse("iw:outbound_rows", args=[ship.pk]) + "?suggest=1").content.decode()
+    assert "Suggested rows are ticked" in page
+    r = _all_rows(iw)
+    resp = c.post(reverse("iw:outbound_rows", args=[ship.pk]), {"row": [r[0].pk]}, follow=True)
+    assert "do not tally" in resp.content.decode()
+    resp = c.post(reverse("iw:outbound_rows", args=[ship.pk]), {"row": [r[0].pk, r[1].pk, r[2].pk]}, follow=True)
+    assert "tally with the document" in resp.content.decode()
+    assert "Outbound ready" in c.get(reverse("iw:detail", args=[iw.pk])).content.decode()
     assert Iw.objects.get(pk=iw.pk).status == Iw.Status.MATERIAL_LINKED

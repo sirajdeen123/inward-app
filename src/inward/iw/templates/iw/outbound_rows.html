@@ -1,0 +1,38 @@
+{% extends "web/base.html" %}
+{% load static %}
+{% block title %}Ship {{ ship.ship_id }} rows · {{ iw }}{% endblock %}
+{% block content %}
+<p><a href="{% url 'iw:outbound' iw.pk %}">&larr; Outbound on {{ iw }}</a></p>
+<h1>Outbound Ship {{ ship.ship_id }} · {{ ship.destination }}</h1>
+{% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
+
+{% if not enough %}
+<div class="alert alert-error">The report rows for {{ ship.destination_id }} total only LTR {{ offered.ltr|floatformat:"-3" }} / KG {{ offered.kg|floatformat:"-3" }}{% if ship.doc_nop is not None %} / packages {{ offered.nop|floatformat:"-3" }}{% endif %} - less than the Ship document. Check the entered numbers or upload the right Despatch Detail Report.</div>
+{% elif exact %}
+<div class="alert alert-success">The report rows match the Ship document exactly - all rows are ticked. Check and save.</div>
+{% else %}
+<div class="alert alert-info">The report has more than this Ship. Tick the SKUs that are on Ship {{ ship.ship_id }} until both totals match.
+  <a href="?suggest=1">Suggest a matching combination</a></div>
+{% endif %}
+
+<form method="post" id="tally-form" data-target-ltr="{{ ship.doc_ltr|stringformat:'s' }}" data-target-kg="{{ ship.doc_kg|stringformat:'s' }}" data-target-nop="{% if ship.doc_nop is not None %}{{ ship.doc_nop|stringformat:'s' }}{% endif %}">{% csrf_token %}
+  <div class="tally card">
+    <div class="tally-cell"><div class="kpi-label">LTR entered / ticked</div><div class="kpi-value">{{ ship.doc_ltr|floatformat:"-3" }} / <span id="t-ltr">{{ ticked_totals.ltr|floatformat:"-3" }}</span></div></div>
+    <div class="tally-cell"><div class="kpi-label">KG entered / ticked</div><div class="kpi-value">{{ ship.doc_kg|floatformat:"-3" }} / <span id="t-kg">{{ ticked_totals.kg|floatformat:"-3" }}</span></div></div>
+    <div class="tally-cell"><div class="kpi-label">Packages entered / ticked</div><div class="kpi-value">{{ ship.doc_nop|floatformat:"-3"|default:"-" }} / <span id="t-nop">{{ ticked_totals.nop|floatformat:"-3" }}</span></div></div>
+    <div class="tally-cell"><div class="kpi-label">Status</div><div class="kpi-value"><span id="t-status" class="chip chip-warn">Not matching</span></div></div>
+  </div>
+  <div class="scroll"><table class="tbl">
+    <thead><tr><th>Tick</th><th class="num">Row</th><th>Floor SKU</th><th>Full SKU</th><th>Description</th><th>BL</th><th class="num">Packages</th><th class="num">LTR</th><th class="num">KG</th></tr></thead>
+    <tbody>{% for r in rows %}
+      <tr><td><input type="checkbox" name="row" value="{{ r.pk }}" class="tick" data-ltr="{{ r.ltr|stringformat:'s' }}" data-kg="{{ r.kg|stringformat:'s' }}" data-nop="{{ r.nop|stringformat:'s' }}"{% if r.ticked %} checked{% endif %}{% if not enough %} disabled{% endif %} aria-label="Row {{ r.row_no }} {{ r.floor_sku }}">
+        {% if r.reused_on %}<label class="check warn-text"><input type="checkbox" name="ack" value="{{ r.pk }}"{% if r.reuse_acknowledged %} checked{% endif %}> already on {{ r.reused_on }} - I checked it is a different despatch</label>{% endif %}</td>
+      <td class="num">{{ r.row_no }}</td><td class="mono nowrap"><b>{{ r.floor_sku }}</b></td><td class="mono">{{ r.sku }}</td><td>{{ r.description }}</td><td>{{ r.business_line }}</td>
+      <td class="num">{{ r.nop|floatformat:"-3" }}</td><td class="num">{{ r.ltr|floatformat:"-3" }}</td><td class="num">{{ r.kg|floatformat:"-3" }}</td></tr>
+    {% empty %}<tr><td colspan="9" class="muted">No free rows for {{ ship.destination }} in the uploaded report(s).</td></tr>{% endfor %}</tbody>
+  </table></div>
+  <div class="bar"><button type="submit" id="t-save" class="btn btn-primary"{% if not enough %} disabled{% endif %}>Save Ship {{ ship.ship_id }}</button>
+    <span class="muted">Save works only when the ticked rows tally exactly. Unticked rows are not on this vehicle.</span></div>
+</form>
+<script src="{% static 'inward/tally.js' %}" defer></script>
+{% endblock %}

@@ -15,6 +15,8 @@
     <div class="depot">Depot {{ depot.code }} · {{ depot.name }}{% if depot.cfa %}<br>Operated by {{ depot.cfa }} (CFA){% endif %}</div>
     <a href="{% url 'web:home' %}" class="nav{% if request.resolver_match.url_name == 'home' %} active{% endif %}">Home</a>
     <a href="{% url 'sit:home' %}" class="nav{% if request.resolver_match.app_name == 'sit' %} active{% endif %}">01 SIT import</a>
+    <a href="{% url 'iw:list' %}" class="nav{% if request.resolver_match.app_name == 'iw' %} active{% endif %}">02 IW vehicles</a>
+    <a href="{% url 'accounts:approvals' %}" class="nav{% if request.resolver_match.url_name == 'approvals' %} active{% endif %}">Approvals{% if approvals_pending %} <span class="badge">{{ approvals_pending }}</span>{% endif %}</a>
     <a href="{% url 'web:import_preview' %}" class="nav{% if request.resolver_match.url_name == 'import_preview' %} active{% endif %}">Import preview</a>
     <a href="{% url 'web:health' %}" class="nav{% if request.resolver_match.url_name == 'health' %} active{% endif %}">System health</a>
     {% if user.is_staff %}<a href="/{{ ADMIN_URL }}" class="nav">Masters &amp; users</a>{% endif %}

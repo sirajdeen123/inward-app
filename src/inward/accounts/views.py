@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from django import forms
 from django.conf import settings
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.contrib.auth import authenticate, login, logout
 from django.shortcuts import redirect, render
 from django.urls import reverse
@@ -89,6 +91,25 @@ def two_factor_view(request):
                                     secure=request.is_secure(), httponly=True, samesite="Lax")
             return response
     return render(request, "accounts/two_factor_verify.html", {"form": form, "error": error, "next": _next(request, "")})
+
+
+@login_required
+def approvals_view(request):
+    from inward.accounts.approvals import pending_for
+    return render(request, "accounts/approvals.html", {"pending": pending_for(request.user)})
+
+
+@require_POST
+@login_required
+def decide_view(request, pk):
+    from inward.accounts.approvals import decide_and_apply
+    approve = request.POST.get("decision") == "approve"
+    try:
+        req = decide_and_apply(request.user, pk, approve, request.POST.get("note", "")[:300])
+        messages.success(request, f"Request {req.pk} {req.status.lower()}.")
+    except Exception as exc:  # noqa: BLE001 - PermissionDenied, already decided, effect refused
+        messages.error(request, f"Not done: {exc}")
+    return redirect("accounts:approvals")
 
 
 @require_POST

@@ -1,0 +1,20 @@
+{% extends "web/base.html" %}
+{% block title %}Approvals{% endblock %}
+{% block content %}
+<h1>Approvals</h1>
+<p class="muted">Requests waiting for your decision. You never see your own requests here.</p>
+{% for r in pending %}
+<div class="card">
+  <div class="bar"><b>{{ r.permission.description }}</b><span class="chip">{{ r.entity_type }} {{ r.payload.iw_no|default:r.entity_id }}</span>
+    <div class="grow"></div><span class="muted">requested by {{ r.requested_by }} · {{ r.created_at|date:"d-M-Y H:i" }}</span></div>
+  <p>Reason: "{{ r.reason }}"</p>
+  <form method="post" action="{% url 'accounts:decide' r.pk %}" class="inline">{% csrf_token %}
+    <label for="note-{{ r.pk }}">Note</label><input id="note-{{ r.pk }}" name="note" class="input-inline" maxlength="300">
+    <button type="submit" name="decision" value="approve" class="btn btn-primary">Approve</button>
+    <button type="submit" name="decision" value="reject" class="btn">Reject</button>
+  </form>
+</div>
+{% empty %}
+<div class="alert alert-info">Nothing waiting for approval.</div>
+{% endfor %}
+{% endblock %}

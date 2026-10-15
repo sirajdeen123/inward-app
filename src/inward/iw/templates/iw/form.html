@@ -1,0 +1,28 @@
+{% extends "web/base.html" %}
+{% block title %}{% if iw %}{{ iw }}{% else %}New IW{% endif %}{% endblock %}
+{% block content %}
+<p><a href="{% if iw %}{% url 'iw:detail' iw.pk %}{% else %}{% url 'iw:list' %}{% endif %}">&larr; Back</a></p>
+<h1>{% if iw and iw.iw_no %}Edit {{ iw.iw_no }}{% elif iw %}Draft IW{% else %}02 · New IW - vehicle / consignment{% endif %}</h1>
+{% if form.non_field_errors %}<div class="alert alert-error">{{ form.non_field_errors|join:" " }}</div>{% endif %}
+<form method="post" class="card form-grid">{% csrf_token %}
+  {{ form.version }}
+  {% for field in form %}{% if not field.is_hidden %}
+  <div class="field{% if field.name == 'remarks' %} span-all{% endif %}">
+    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+    {{ field }}
+    {% if field.errors %}<div class="field-error">{{ field.errors|join:" " }}</div>{% endif %}
+  </div>
+  {% endif %}{% endfor %}
+  <datalist id="org-list">{% for o in orgs %}<option value="{{ o.code }} : {{ o.name }}"></option>{% endfor %}</datalist>
+  <datalist id="transporter-list">{% for t in transporters %}<option value="{{ t.name }}"></option>{% endfor %}</datalist>
+  <div class="span-all bar">
+    {% if iw and iw.iw_no %}
+      <button type="submit" name="action" value="save" class="btn btn-primary">Save changes</button>
+    {% else %}
+      <button type="submit" name="action" value="create" class="btn btn-primary">Create IW (issue number)</button>
+      <button type="submit" name="action" value="draft" class="btn">Save draft</button>
+    {% endif %}
+    <span class="muted">The IW number is taken from the financial year of the arrival date.</span>
+  </div>
+</form>
+{% endblock %}

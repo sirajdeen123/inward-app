@@ -25,6 +25,13 @@ def depot_info() -> dict:
 
 def depot(request) -> dict:
     ctx = {"ADMIN_URL": settings.INWARD["ADMIN_URL"], "TEST_MODE": settings.INWARD["MODE"] == "TEST"}
+    user = getattr(request, "user", None)
+    if user is not None and user.is_authenticated:
+        try:
+            from inward.accounts.approvals import pending_for
+            ctx["approvals_pending"] = pending_for(user).count()
+        except Exception:  # noqa: BLE001
+            ctx["approvals_pending"] = 0
     try:
         ctx["depot"] = depot_info()
     except Exception:  # noqa: BLE001 - the banner must never break a page (e.g. before migrations)

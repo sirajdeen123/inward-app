@@ -10,7 +10,7 @@ from django.conf import settings
 from django.db import transaction
 
 from inward.core import audit, documents
-from inward.core.models import ExceptionEvent, ImportBatch
+from inward.core.models import ExceptionEvent, ImportBatch, Organisation
 from inward.domain.sit_changes import CRITICAL, SitEvent, ShipState, detect_changes
 from inward.importers.common import file_sha256
 from inward.importers.sit import parse_sit
@@ -111,6 +111,10 @@ def import_sit_file(path: Path, *, source: str, user=None, message_id: str = "",
                 ExceptionEvent.objects.create(code=f"SIT_{e.event.value}", severity="CRITICAL", entity_type="ship",
                                               entity_id=e.ship_id, message=_describe(e))
 
+        # ---- organisations seen in SIT become selectable sources (never overwrites edited masters)
+        for row in first_rows.values():
+            _ensure_org(row.from_org_code, row.from_org_name)
+
         # ---- Ship monitoring state
         partial = {e.ship_id for e in events if e.event in _PARTIAL_EVENTS}
         blocked = parsed.blocked_ships
@@ -143,6 +147,20 @@ def import_sit_file(path: Path, *, source: str, user=None, message_id: str = "",
                      after={"file": name, "source": source, "system_date": parsed.system_date, "ships": len(current),
                             "events": len(events), "critical": imp.critical_count, "issues": len(parsed.issues)})
     return imp
+
+
+def _org_type(name: str) -> str:
+    upper = name.upper()
+    if "MFG" in upper or "FACTORY" in upper:
+        return Organisation.OrgType.FACTORY
+    if upper.startswith("RDC") or " RDC" in upper:
+        return Organisation.OrgType.RDC
+    return Organisation.OrgType.DEPOT
+
+
+def _ensure_org(code: str, name: str) -> None:
+    if code and not Organisation.objects.filter(code=code).exists():
+        Organisation.objects.create(code=code, name=name or code, org_type=_org_type(name or ""))
 
 
 def _describe(e) -> str:

@@ -1,0 +1,139 @@
+from __future__ import annotations
+
+from django.contrib import messages
+from django.core.paginator import Paginator
+from django.db.models import Q
+from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_POST
+
+from inward.accounts.models import ApprovalRequest
+from inward.accounts.services import PermissionDenied, modes_for
+from inward.core.models import AuditEvent, Organisation, Transporter
+from inward.core.versioning import StaleEdit
+from inward.domain.normalize import search_key
+from inward.iw import services
+from inward.iw.forms import IwForm, VoidForm
+from inward.iw.models import Iw
+from inward.web.views import needs
+
+
+def _data(form: IwForm) -> services.IwData:
+    c = form.cleaned_data
+    return services.IwData(arrival_at=c["arrival_at"], load_type=c["load_type"], source_org=c["source_org"],
+                           vehicle_no=c["vehicle_no"], driver_name=c["driver_name"], driver_mobile=c["driver_mobile"],
+                           transporter_name=c["transporter"], lr_no=c["lr_no"], remarks=c["remarks"])
+
+
+def _lists() -> dict:
+    return {"orgs": Organisation.objects.filter(active=True).order_by("code"),
+            "transporters": Transporter.objects.filter(active=True).order_by("-verified", "name")}
+
+
+def _warn_duplicate_vehicle(request, vehicle_no: str, exclude_pk=None):
+    others = services.open_iws_for_vehicle(vehicle_no, exclude_pk)
+    if others.exists():
+        messages.warning(request, "Note: this vehicle already has open IW(s): "
+                                  + ", ".join(str(i) for i in others[:5]) + ". Check it is not a duplicate entry.")
+
+
+@needs("SEARCH_REPORTS")
+def iw_list(request):
+    qs = Iw.objects.select_related("load_type", "source_org", "transporter")
+    q = request.GET.get("q", "").strip()
+    status = request.GET.get("status", "")
+    if q:
+        key = search_key(q)
+        qs = qs.filter(Q(iw_no__icontains=q) | Q(vehicle_key__icontains=key) | Q(lr_key__icontains=key))
+    if status:
+        qs = qs.filter(status=status)
+    page = Paginator(qs, 40).get_page(request.GET.get("page"))
+    return render(request, "iw/list.html", {"page": page, "q": q, "status": status, "statuses": Iw.Status.choices,
+                                            "can_edit": "GRANT" in modes_for(request.user, "IW_EDIT")})
+
+
+@needs("IW_EDIT")
+def iw_new(request):
+    form = IwForm(request.POST or None, initial=IwForm.initial_for())
+    if request.method == "POST" and form.is_valid():
+        try:
+            if request.POST.get("action") == "draft":
+                iw = services.save_draft(request.user, _data(form))
+                messages.success(request, "Draft saved. No IW number is issued until you create the IW.")
+            else:
+                iw = services.create(request.user, _data(form))
+                messages.success(request, f"{iw.iw_no} created.")
+                _warn_duplicate_vehicle(request, iw.vehicle_no, iw.pk)
+            return redirect("iw:detail", pk=iw.pk)
+        except services.IwError as exc:
+            form.add_error(None, str(exc))
+    return render(request, "iw/form.html", {"form": form, "iw": None, **_lists()})
+
+
+@needs("IW_EDIT")
+def iw_edit(request, pk):
+    iw = get_object_or_404(Iw, pk=pk)
+    if not iw.is_editable:
+        messages.error(request, "This IW can no longer be edited.")
+        return redirect("iw:detail", pk=pk)
+    form = IwForm(request.POST or None, initial=IwForm.initial_for(iw))
+    if request.method == "POST" and form.is_valid():
+        try:
+            action = request.POST.get("action")
+            if iw.status == Iw.Status.DRAFT and action == "draft":
+                services.save_draft(request.user, _data(form), iw)
+                messages.success(request, "Draft saved.")
+            elif iw.status == Iw.Status.DRAFT:
+                iw = services.create(request.user, _data(form), draft=iw)
+                messages.success(request, f"{iw.iw_no} created.")
+                _warn_duplicate_vehicle(request, iw.vehicle_no, iw.pk)
+            else:
+                iw = services.update(request.user, iw.pk, form.cleaned_data["version"] or 0, _data(form))
+                messages.success(request, f"{iw.iw_no} updated.")
+            return redirect("iw:detail", pk=iw.pk)
+        except (services.IwError, StaleEdit) as exc:
+            form.add_error(None, str(exc))
+    return render(request, "iw/form.html", {"form": form, "iw": iw, **_lists()})
+
+
+@needs("SEARCH_REPORTS")
+def iw_detail(request, pk):
+    iw = get_object_or_404(Iw.objects.select_related("load_type", "source_org", "transporter", "created_by"), pk=pk)
+    pending_void = ApprovalRequest.objects.filter(permission_id="IW_VOID", entity_type="iw", entity_id=str(iw.pk),
+                                                  status=ApprovalRequest.Status.PENDING).first()
+    history = AuditEvent.objects.filter(iw_id=iw.pk).select_related("user").order_by("-occurred_at")[:50]
+    void_modes = modes_for(request.user, "IW_VOID")
+    return render(request, "iw/detail.html", {
+        "iw": iw, "pending_void": pending_void, "history": history, "void_form": VoidForm(),
+        "can_edit": iw.is_editable and "GRANT" in modes_for(request.user, "IW_EDIT"),
+        "can_request_void": iw.is_editable and iw.status != Iw.Status.DRAFT and not pending_void
+                            and bool(void_modes & {"REQUEST", "APPROVE"}),
+    })
+
+
+@require_POST
+@needs("IW_VOID", modes=("REQUEST", "APPROVE"))
+def iw_void(request, pk):
+    iw = get_object_or_404(Iw, pk=pk)
+    form = VoidForm(request.POST)
+    if not form.is_valid():
+        messages.error(request, "A reason is mandatory for VOID.")
+        return redirect("iw:detail", pk=pk)
+    try:
+        services.request_void(request.user, iw, form.cleaned_data["reason"])
+        messages.success(request, f"VOID of {iw.iw_no} requested. The CFA Manager must approve it.")
+    except (services.IwError, PermissionDenied) as exc:
+        messages.error(request, str(exc))
+    return redirect("iw:detail", pk=pk)
+
+
+@require_POST
+@needs("IW_EDIT")
+def iw_discard(request, pk):
+    iw = get_object_or_404(Iw, pk=pk)
+    try:
+        services.discard_draft(request.user, iw)
+        messages.success(request, "Draft discarded.")
+    except PermissionDenied as exc:
+        messages.error(request, str(exc))
+        return redirect("iw:detail", pk=pk)
+    return redirect("iw:list")

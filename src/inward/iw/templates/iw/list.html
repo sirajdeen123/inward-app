@@ -1,0 +1,26 @@
+{% extends "web/base.html" %}
+{% block title %}IW vehicles{% endblock %}
+{% block content %}
+<div class="bar"><h1>02 · IW vehicles</h1><div class="grow"></div>
+  {% if can_edit %}<a href="{% url 'iw:new' %}" class="btn btn-primary">New IW</a>{% endif %}</div>
+<form method="get" class="filters">
+  <label for="q">IW, vehicle or LR</label><input id="q" name="q" value="{{ q }}" placeholder="e.g. 2627-000001 or TN60E8139">
+  <label for="status">Status</label>
+  <select id="status" name="status"><option value="">All</option>
+    {% for value, label in statuses %}<option value="{{ value }}"{% if value == status %} selected{% endif %}>{{ label }}</option>{% endfor %}
+  </select>
+  <button type="submit" class="btn btn-sm">Filter</button>
+</form>
+<div class="scroll"><table class="tbl">
+  <thead><tr><th>IW</th><th>Arrival</th><th>Load type</th><th>Source</th><th>Vehicle</th><th>Transporter</th><th>LR</th><th>Status</th></tr></thead>
+  <tbody>{% for iw in page %}
+    <tr><td><a href="{% url 'iw:detail' iw.pk %}">{{ iw }}</a></td><td class="nowrap">{{ iw.arrival_at|date:"d-M-Y H:i" }}</td>
+    <td>{{ iw.load_type }}</td><td>{{ iw.source_org|default:"-" }}</td><td class="mono">{{ iw.vehicle_no }}</td>
+    <td>{{ iw.transporter|default:"-" }}</td><td>{{ iw.lr_no|default:"-" }}</td>
+    <td><span class="chip {% if iw.status == 'VOID' %}chip-bad{% elif iw.status == 'DRAFT' %}chip-warn{% endif %}">{{ iw.get_status_display }}</span></td></tr>
+  {% empty %}<tr><td colspan="8" class="muted">No IW yet.</td></tr>{% endfor %}</tbody>
+</table></div>
+<p class="pager">{% if page.has_previous %}<a href="?q={{ q }}&amp;status={{ status }}&amp;page={{ page.previous_page_number }}">Previous</a>{% endif %}
+  Page {{ page.number }} of {{ page.paginator.num_pages }} ({{ page.paginator.count }})
+  {% if page.has_next %}<a href="?q={{ q }}&amp;status={{ status }}&amp;page={{ page.next_page_number }}">Next</a>{% endif %}</p>
+{% endblock %}

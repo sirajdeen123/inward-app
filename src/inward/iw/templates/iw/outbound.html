@@ -1,0 +1,67 @@
+{% extends "web/base.html" %}
+{% block title %}Outbound · {{ iw }}{% endblock %}
+{% block content %}
+<p><a href="{% url 'iw:detail' iw.pk %}">&larr; {{ iw }}</a></p>
+<h1>Outbound transhipment on {{ iw }}</h1>
+<p class="muted">Every report row must be assigned to an outbound Ship or marked "Not on this vehicle", and every Ship must balance with its document totals.</p>
+
+<div class="card">
+  <h2>1 · Outbound Ships (from the Ship documents)</h2>
+  {% if ships %}<table class="tbl">
+    <thead><tr><th>Ship ID</th><th>Destination</th><th class="num">Doc NOP</th><th class="num">Doc LTR</th><th class="num">Doc KG</th><th class="num">Assigned NOP</th><th class="num">Assigned LTR</th><th class="num">Assigned KG</th><th>Balance</th><th></th></tr></thead>
+    <tbody>{% for b in state.balances %}
+      <tr><td class="mono">{{ b.ship.ship_id }}</td><td>{{ b.ship.destination }}</td>
+      <td class="num">{{ b.ship.doc_nop|floatformat:"-3" }}</td><td class="num">{{ b.ship.doc_ltr|floatformat:"-3" }}</td><td class="num">{{ b.ship.doc_kg|floatformat:"-3" }}</td>
+      <td class="num">{{ b.nop|floatformat:"-3" }}</td><td class="num">{{ b.ltr|floatformat:"-3" }}</td><td class="num">{{ b.kg|floatformat:"-3" }}</td>
+      <td>{% if b.balanced %}<span class="chip chip-ok">Balanced</span>{% else %}<span class="chip chip-warn">Not balanced</span>{% endif %}</td>
+      <td><form method="post" action="{% url 'iw:outbound_remove_ship' b.ship.pk %}">{% csrf_token %}<button type="submit" class="btn btn-sm">Remove</button></form></td></tr>
+    {% endfor %}</tbody>
+  </table>{% endif %}
+  <form method="post" action="{% url 'iw:outbound_add_ship' iw.pk %}" class="form-grid">{% csrf_token %}
+    <div class="field"><label for="ob-id">Outbound Ship ID *</label><input id="ob-id" name="ship_id" inputmode="numeric"></div>
+    <div class="field"><label for="ob-dest">Destination *</label><input id="ob-dest" name="destination" list="org-list" placeholder="094 : Pondicherry"></div>
+    <div class="field"><label for="ob-nop">Packages (NOP) on document *</label><input id="ob-nop" name="doc_nop" inputmode="decimal"></div>
+    <div class="field"><label for="ob-ltr">LTR on document</label><input id="ob-ltr" name="doc_ltr" inputmode="decimal"></div>
+    <div class="field"><label for="ob-kg">KG on document</label><input id="ob-kg" name="doc_kg" inputmode="decimal"></div>
+    <div class="field"><label>&nbsp;</label><button type="submit" class="btn">Add outbound Ship</button></div>
+    <datalist id="org-list">{% for o in orgs %}<option value="{{ o.code }} : {{ o.name }}"></option>{% endfor %}</datalist>
+  </form>
+</div>
+
+<div class="card">
+  <h2>2 · Berger Despatch Detail Report</h2>
+  <form method="post" action="{% url 'iw:outbound_upload' iw.pk %}" enctype="multipart/form-data" class="inline">{% csrf_token %}
+    <label for="dr-file">Upload report (.xls / .xlsx)</label><input id="dr-file" type="file" name="file" required>
+    <button type="submit" class="btn">Upload</button>
+  </form>
+  <p class="muted">{{ state.reports }} report(s) loaded{% if state.hidden %} · {{ state.hidden }} row(s) for other destinations hidden{% endif %}.</p>
+</div>
+
+<div class="card">
+  <h2>3 · Assign rows</h2>
+  {% if multi_ship %}<div class="alert alert-warning"><b>One report supports {{ ships|length }} outbound Ships.</b> Check every row against the Ship documents before assigning.</div>{% endif %}
+  {% if single_dest %}<div class="bar">{% for dest, ship in single_dest %}
+    <form method="post" action="{% url 'iw:outbound_assign' iw.pk %}">{% csrf_token %}<input type="hidden" name="all_for" value="{{ dest }}">
+      <button type="submit" class="btn btn-sm">Assign all {{ dest }} rows to Ship {{ ship.ship_id }}</button></form>{% endfor %}</div>{% endif %}
+  {% if rows %}
+  <form method="post" action="{% url 'iw:outbound_assign' iw.pk %}">{% csrf_token %}
+    <div class="scroll"><table class="tbl">
+      <thead><tr><th class="num">Row</th><th>To Org</th><th>Floor SKU</th><th>Description</th><th class="num">NOP</th><th class="num">LTR</th><th class="num">KG</th><th>Assign to</th></tr></thead>
+      <tbody>{% for r in rows %}
+        <tr{% if not r.choice %} class="row-warn"{% endif %}><td class="num">{{ r.row_no }}</td><td>{{ r.to_org_code }}</td><td class="mono nowrap"><b>{{ r.floor_sku }}</b></td><td>{{ r.description }}</td>
+        <td class="num">{{ r.nop|floatformat:"-3" }}</td><td class="num">{{ r.ltr|floatformat:"-3" }}</td><td class="num">{{ r.kg|floatformat:"-3" }}</td>
+        <td><select name="row_{{ r.pk }}" aria-label="Assign row {{ r.row_no }}" class="input-inline">
+            <option value="">- decide -</option>
+            {% for s in ships %}{% if s.destination_id == r.to_org_code %}<option value="{{ s.pk }}"{% if r.choice == s.pk|stringformat:"s" %} selected{% endif %}>Ship {{ s.ship_id }}</option>{% endif %}{% endfor %}
+            <option value="X"{% if r.choice == "X" %} selected{% endif %}>Not on this vehicle</option>
+          </select>
+          {% if r.reused_on and not r.reuse_acknowledged %}<label class="check warn-text"><input type="checkbox" name="ack_{{ r.pk }}"> Identical row already on {{ r.reused_on }} - I checked it is a different despatch</label>{% endif %}
+        </td></tr>
+      {% endfor %}</tbody>
+    </table></div>
+    <div class="bar"><button type="submit" class="btn btn-primary">Save assignment</button>
+      {% if state.ready %}<span class="chip chip-ok">All rows decided and every Ship balanced</span>{% else %}<span class="chip chip-warn">{{ state.undecided }} row(s) undecided{% for b in state.balances %}{% if not b.balanced %} · Ship {{ b.ship.ship_id }} not balanced{% endif %}{% endfor %}</span>{% endif %}</div>
+  </form>
+  {% else %}<p class="muted">{% if not ships %}Add the outbound Ship(s) first.{% else %}Upload the Despatch Detail Report.{% endif %}</p>{% endif %}
+</div>
+{% endblock %}

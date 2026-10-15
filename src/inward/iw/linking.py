@@ -35,7 +35,8 @@ def _require_open(iw: Iw) -> None:
 
 
 def _refresh_status(iw: Iw) -> None:
-    has_refs = iw.ship_links.exists() or iw.colour_bank_items.exists() or iw.non_stock_refs.exists()
+    has_refs = (iw.ship_links.exists() or iw.colour_bank_items.exists() or iw.non_stock_refs.exists()
+                or iw.outbound_ships.exists() or iw.vendor_consignments.exists())
     if has_refs and iw.status == Iw.Status.OPEN:
         iw.status = Iw.Status.MATERIAL_LINKED
     elif not has_refs and iw.status == Iw.Status.MATERIAL_LINKED:

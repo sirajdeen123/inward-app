@@ -150,3 +150,97 @@ class NonStockLine(models.Model):
 
     class Meta:
         db_table = "iw_non_stock_line"
+
+
+class OutboundShip(models.Model):
+    """Outbound transhipment Ship (not in SIT). Rows of the Despatch Detail Report are assigned to it and must
+    balance with the totals on its document (SoT 5.3)."""
+    iw = models.ForeignKey(Iw, on_delete=models.CASCADE, related_name="outbound_ships")
+    ship_id = models.CharField(max_length=20)
+    destination = models.ForeignKey(Organisation, on_delete=models.PROTECT, related_name="+")
+    doc_nop = models.DecimalField(max_digits=14, decimal_places=3)
+    doc_ltr = models.DecimalField(max_digits=18, decimal_places=3, default=0)
+    doc_kg = models.DecimalField(max_digits=18, decimal_places=3, default=0)
+    status = models.CharField(max_length=14, choices=TrackStatus.choices, default=TrackStatus.LINKED)
+    linked_by = models.ForeignKey(USER, on_delete=models.PROTECT, related_name="+")
+    linked_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "iw_outbound_ship"
+        constraints = [models.UniqueConstraint(fields=["iw", "ship_id"], name="uq_iw_outbound_ship")]
+
+
+class DespatchReport(models.Model):
+    iw = models.ForeignKey(Iw, on_delete=models.CASCADE, related_name="despatch_reports")
+    document = models.ForeignKey("core.Document", on_delete=models.PROTECT, related_name="+")
+    filename = models.CharField(max_length=260)
+    window_from = models.DateField(null=True, blank=True)
+    window_to = models.DateField(null=True, blank=True)
+    uploaded_by = models.ForeignKey(USER, on_delete=models.PROTECT, related_name="+")
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "iw_despatch_report"
+
+
+class DespatchRow(models.Model):
+    report = models.ForeignKey(DespatchReport, on_delete=models.CASCADE, related_name="rows")
+    row_no = models.PositiveIntegerField()
+    to_org_code = models.CharField(max_length=10)
+    to_org_name = models.CharField(max_length=120, blank=True)
+    sku = models.CharField(max_length=16)
+    floor_sku = models.CharField(max_length=8)
+    description = models.CharField(max_length=200)
+    business_line = models.CharField(max_length=40, blank=True)
+    uom = models.CharField(max_length=4, blank=True)
+    nop = models.DecimalField(max_digits=14, decimal_places=3)
+    pack_size = models.DecimalField(max_digits=18, decimal_places=6, null=True, blank=True)
+    ltr = models.DecimalField(max_digits=18, decimal_places=3, default=0)
+    kg = models.DecimalField(max_digits=18, decimal_places=3, default=0)
+    fingerprint = models.CharField(max_length=120, db_index=True)
+    outbound_ship = models.ForeignKey(OutboundShip, null=True, blank=True, on_delete=models.SET_NULL,
+                                      related_name="rows")
+    excluded = models.BooleanField(default=False)  # "Not on this vehicle"
+    reuse_acknowledged = models.BooleanField(default=False)
+
+    class Meta:
+        db_table = "iw_despatch_row"
+        ordering = ["report_id", "row_no"]
+
+
+class VendorConsignment(models.Model):
+    """Vendor challan on an IW. Unique key Vendor Code + Challan No; IRR later matches only the PO Stock
+    Receipt No (SoT 5.4, 8.5)."""
+    class Source(models.TextChoices):
+        PORTAL = "PORTAL", "Vendor portal report"
+        MANUAL = "MANUAL", "Entered manually"
+
+    iw = models.ForeignKey(Iw, on_delete=models.CASCADE, related_name="vendor_consignments")
+    vendor = models.ForeignKey("core.Vendor", on_delete=models.PROTECT, related_name="+")
+    po_no = models.CharField(max_length=30)
+    challan_no = models.CharField(max_length=60)
+    challan_key = models.CharField(max_length=60, db_index=True)
+    source = models.CharField(max_length=6, choices=Source.choices)
+    portal_document = models.ForeignKey("core.Document", null=True, blank=True, on_delete=models.PROTECT,
+                                        related_name="+")
+    status = models.CharField(max_length=14, choices=TrackStatus.choices, default=TrackStatus.LINKED)
+    linked_by = models.ForeignKey(USER, on_delete=models.PROTECT, related_name="+")
+    linked_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "iw_vendor_consignment"
+
+
+class VendorLine(models.Model):
+    consignment = models.ForeignKey(VendorConsignment, on_delete=models.CASCADE, related_name="lines")
+    sku = models.CharField(max_length=16)
+    floor_sku = models.CharField(max_length=8)
+    description = models.CharField(max_length=200)
+    uom = models.CharField(max_length=4, blank=True)
+    measure_family = models.CharField(max_length=3, blank=True)
+    nop = models.DecimalField(max_digits=14, decimal_places=3)
+    ltr = models.DecimalField(max_digits=18, decimal_places=3, default=0)
+    kg = models.DecimalField(max_digits=18, decimal_places=3, default=0)
+
+    class Meta:
+        db_table = "iw_vendor_line"

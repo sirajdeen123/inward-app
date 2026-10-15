@@ -14,6 +14,7 @@ from inward.domain.normalize import search_key
 from inward.iw import services
 from inward.iw.forms import IwForm, VoidForm
 from inward.iw.linking import LIVE
+from inward.iw.outbound import state as outbound_state
 from inward.iw.models import Iw, ShipLink
 from inward.sit.models import SitShip
 from inward.web.views import needs
@@ -119,6 +120,8 @@ def iw_detail(request, pk):
         "iw": iw, "pending_void": pending_void, "history": history, "void_form": VoidForm(),
         "ship_links": links, "all_totals": link_totals(all_lines), "linkable_ships": linkable,
         "colour_bank": iw.colour_bank_items.all(), "non_stock": iw.non_stock_refs.select_related("sender"),
+        "outbound_state": outbound_state(iw) if iw.load_type.has_outbound else None,
+        "vendor_consignments": iw.vendor_consignments.select_related("vendor").prefetch_related("lines"),
         "can_link": iw.is_editable and iw.status != Iw.Status.DRAFT and "GRANT" in modes_for(request.user, "MATERIAL_LINK"),
         "can_lscrr": "GRANT" in modes_for(request.user, "SED_TRX_LSCRR"),
         "can_edit": iw.is_editable and "GRANT" in modes_for(request.user, "IW_EDIT"),

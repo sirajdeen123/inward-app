@@ -179,6 +179,9 @@ INWARD = {
     "SIT_SUBJECT": env("INWARD_SIT_SUBJECT", "BPIL Depot Stock In Transit Report"),
     "MAIL_CONFIRM_TIMEOUT_MIN": int(env("INWARD_MAIL_CONFIRM_TIMEOUT_MIN", "30")),
     "MESSAGE_ID_DOMAIN": env("INWARD_MESSAGE_ID_DOMAIN", "inward.rainbowlogistics.co.in"),
+    # OneDrive mirror through rclone (SoT 9): e.g. "onedrive:Inward Bundles"; empty = mirror off
+    "ONEDRIVE_REMOTE": env("INWARD_ONEDRIVE_REMOTE", ""),
+    "RCLONE_CONFIG": env("INWARD_RCLONE_CONFIG", "/srv/inward/.config/rclone/rclone.conf"),
 }
 
 LOGGING = {

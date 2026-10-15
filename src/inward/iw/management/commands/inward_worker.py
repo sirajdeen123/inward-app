@@ -17,6 +17,26 @@ from inward.iw import comms
 log = logging.getLogger("inward.worker")
 
 
+def _mirror() -> dict:
+    """OneDrive mirror (SoT 9): pending uploads; the integrity check once per ISO week."""
+    from django.db import IntegrityError
+    from django.utils import timezone
+
+    from inward.core import mirror
+    from inward.iw.models import ReportRun
+    if not mirror.enabled():
+        return {}
+    out = mirror.mirror_pending()
+    week = f"{timezone.localdate():%G-W%V}"
+    if not ReportRun.objects.filter(kind="ONEDRIVE_CHECK", period=week).exists():
+        try:
+            ReportRun.objects.create(kind="ONEDRIVE_CHECK", period=week)
+            out["integrity"] = mirror.integrity_check()
+        except IntegrityError:
+            pass
+    return out
+
+
 class Command(BaseCommand):
     help = "Mail queue, Sent Mail confirmation, SED approval replies and reminders."
 
@@ -31,6 +51,8 @@ class Command(BaseCommand):
             close_old_connections()
             try:  # the inbox (SED approval replies) is read every 10th round, about every 5 minutes
                 stats = comms.run_once(from_settings(), read_inbox=once or rounds % 10 == 0)
+                if once or rounds % 20 == 0:
+                    stats.update(_mirror())
                 rounds += 1
                 if any(v for v in stats.values()):
                     log.info("worker round: %s", stats)

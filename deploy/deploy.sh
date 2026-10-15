@@ -55,7 +55,7 @@ fi
 
 # 3. Python environment and release steps
 # system libraries for MRA PDFs (WeasyPrint: Pango + HarfBuzz); shared libraries only, other apps unaffected
-PDF_PKGS="libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0 fonts-dejavu-core"
+PDF_PKGS="libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0 fonts-dejavu-core rclone"
 dpkg -s $PDF_PKGS >/dev/null 2>&1 || DEBIAN_FRONTEND=noninteractive apt-get install -y -qq $PDF_PKGS >/dev/null
 [ -x "$ROOT/venv/bin/python" ] || as_inward python3 -m venv "$ROOT/venv"
 as_inward "$ROOT/venv/bin/pip" install --quiet --upgrade pip
@@ -67,6 +67,7 @@ run_manage seed_reference_data   # adds new roles / permissions / package types;
 run_manage collectstatic --noinput --clear -v 0
 
 # 4. service and web site
+install -d -o inward -g inward -m 700 /srv/inward/.config /srv/inward/.config/rclone  # OneDrive (rclone) connection
 install -m 644 "$ROOT/app/deploy/inward@.service" /etc/systemd/system/inward@.service
 install -m 644 "$ROOT/app/deploy/inward-worker@.service" /etc/systemd/system/inward-worker@.service
 install -m 644 "$ROOT/app/deploy/inward_proxy.conf" /etc/nginx/inward_proxy.conf

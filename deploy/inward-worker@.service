@@ -24,7 +24,7 @@ ProtectHome=true
 ProtectKernelTunables=true
 ProtectControlGroups=true
 RestrictSUIDSGID=true
-ReadWritePaths=/srv/inward/%i/data /srv/inward/%i/logs
+ReadWritePaths=/srv/inward/%i/data /srv/inward/%i/logs -/srv/inward/.config
 UMask=0027
 
 [Install]

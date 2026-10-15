@@ -46,6 +46,7 @@ class Document(models.Model):
     created_by = models.ForeignKey(USER, null=True, blank=True, on_delete=models.PROTECT, related_name="+")
     created_at = models.DateTimeField(auto_now_add=True)
     cloud_mirrored_at = models.DateTimeField(null=True, blank=True)  # OneDrive copy confirmed (SoT 9)
+    cloud_path = models.CharField(max_length=400, blank=True)        # readable path in the OneDrive mirror
 
     class Meta:
         db_table = "document"

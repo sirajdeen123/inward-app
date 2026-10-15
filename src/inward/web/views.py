@@ -166,6 +166,11 @@ def health(request):
                         f"OneDrive copy: {b.get('offsite', '-')}") if b.get("ok") else f"FAILED {b.get('error', '')}"))
     except (OSError, ValueError, KeyError):
         checks.append(("Nightly backup", False, "no backup has run yet"))
+    from inward.core import mirror
+    ms = mirror.status()
+    checks.append(("OneDrive mirror", ms["enabled"] and ms["pending"] < 50,
+                   f"{ms['total'] - ms['pending']} of {ms['total']} documents copied" if ms["enabled"]
+                   else "not connected yet (INWARD_ONEDRIVE_REMOTE)"))
     stuck = MailMessage.objects.exclude(status=MailMessage.Status.SENT)
     failed = stuck.filter(status__in=[MailMessage.Status.FAILED, MailMessage.Status.FAILED_UNCONFIRMED]).count()
     oldest = stuck.order_by("created_at").first()

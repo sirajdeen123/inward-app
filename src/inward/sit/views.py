@@ -41,7 +41,7 @@ def _decorate(events):
 
 @needs("SEARCH_REPORTS")
 def sit_home(request):
-    latest = SitImport.objects.select_related("batch", "batch__uploaded_by").first()
+    latest = SitImport.objects.filter(back_dated=False).select_related("batch", "batch__uploaded_by").first()
     counts = dict(SitShip.objects.values_list("status").annotate(n=Count("ship_id")))
     events = []
     if latest:
@@ -67,8 +67,7 @@ def sit_fetch(request):
     if result.found:
         messages.info(request, f"Latest SIT e-mail: '{result.subject}' received {result.received_at:%d-%b-%Y %H:%M}.")
     for imp in result.imported:
-        messages.success(request, f"Imported: {imp.ship_count} Ships, {imp.line_count} SKU lines, "
-                                  f"{imp.event_count} changes ({imp.critical_count} critical).")
+        messages.success(request, "Imported: " + services.describe(imp))
     for text in result.messages:
         messages.warning(request, text)
     return redirect("sit:home")
@@ -90,8 +89,7 @@ def sit_upload(request):
     path = Path(tmp.name)
     try:
         imp = services.import_sit_file(path, source="MANUAL", user=request.user, original_name=upload.name)
-        messages.success(request, f"Imported {upload.name}: {imp.ship_count} Ships, {imp.line_count} SKU lines, "
-                                  f"{imp.event_count} changes ({imp.critical_count} critical).")
+        messages.success(request, f"Imported {upload.name}: " + services.describe(imp))
     except (services.SitImportRejected, ImportFailed) as exc:
         messages.warning(request, str(exc))
     finally:

@@ -67,8 +67,10 @@ def import_sit_file(path: Path, *, source: str, user=None, message_id: str = "",
         raise AlreadyImported(existing)
 
     parsed = parse_sit(path)  # ImportFailed propagates with a clear message
-    latest = SitImport.objects.select_related("batch").first()
+    latest = SitImport.objects.filter(back_dated=False).select_related("batch").first()
     if latest and parsed.system_date and latest.system_date and parsed.system_date < latest.system_date:
+        if settings.INWARD["MODE"] == "TEST":  # UAT only: replaying old reports out of order
+            return _import_back_dated(path, parsed, sha, name, source, user, message_id, received_at, latest)
         raise SitImportRejected(
             f"This report (system date {parsed.system_date:%d-%b-%Y}) is older than the current one "
             f"({latest.system_date:%d-%b-%Y}). Older data would look like stock coming back, so it is not imported.")
@@ -147,6 +149,66 @@ def import_sit_file(path: Path, *, source: str, user=None, message_id: str = "",
                      after={"file": name, "source": source, "system_date": parsed.system_date, "ships": len(current),
                             "events": len(events), "critical": imp.critical_count, "issues": len(parsed.issues)})
     return imp
+
+
+def _import_back_dated(path: Path, parsed, sha: str, name: str, source: str, user, message_id: str,
+                       received_at, latest: SitImport) -> SitImport:
+    """UAT only. An older report after a newer one: Ships already in the engine are left exactly as they are;
+    Ships not yet known are added (In SIT, linkable). No change detection, no exceptions, and the import never
+    becomes the reference for the next comparison. Refused outright outside TEST mode."""
+    if settings.INWARD["MODE"] != "TEST":
+        raise SitImportRejected("Back-dated SIT import is available only in the UAT (TEST) environment.")
+    with transaction.atomic():
+        doc = documents.store(path.read_bytes(), filename=name, content_type="application/vnd.ms-excel",
+                              doc_type="SIT_REPORT", user=user)
+        known = set(SitShip.objects.filter(ship_id__in=parsed.ship_ids).values_list("ship_id", flat=True))
+        new = sorted(parsed.ship_ids - known)
+        batch = ImportBatch.objects.create(
+            kind="SIT", source=source, filename=name, sha256=sha, message_id=message_id, document=doc,
+            uploaded_by=user if getattr(user, "is_authenticated", False) else None,
+            window_from=parsed.window_from, window_to=parsed.window_to, row_count=len(parsed.rows) + len(parsed.issues),
+            accepted_count=len(parsed.rows), issue_count=len(parsed.issues), status="BACK_DATED",
+            summary={"back_dated": True, "reference_import": latest.pk, "new_ships": new[:500],
+                     "known_ships": len(known)})
+        imp = SitImport.objects.create(batch=batch, report_from=parsed.window_from, report_to=parsed.window_to,
+                                       system_date=parsed.system_date, received_at=received_at, back_dated=True,
+                                       ship_count=len(new), known_ships=len(known))
+        new_set = set(new)
+        lines = [ln for (ship_id, _), ln in parsed.lines.items() if ship_id in new_set]
+        SitLine.objects.bulk_create([
+            SitLine(sit_import=imp, ship_id=ln.ship_id, sku=ln.sku, floor_sku=ln.floor_sku, description=ln.description,
+                    business_line=ln.business_line, uom=ln.uom, measure_family=ln.family.value if ln.family else "",
+                    is_empty_packing=ln.is_empty_packing, pack_size=ln.pack_size, quantity=ln.quantity,
+                    measure=ln.measure) for ln in lines])
+        SitIssue.objects.bulk_create([SitIssue(sit_import=imp, row_no=i.row_no, ship_id=i.ref or "",
+                                               message=i.message[:300]) for i in parsed.issues if (i.ref or "") in new_set])
+        first_rows = {}
+        for r in parsed.rows:
+            if r.ship_id in new_set:
+                first_rows.setdefault(r.ship_id, r)
+        blocked = parsed.blocked_ships
+        for ship_id in new:
+            row = first_rows[ship_id]
+            _ensure_org(row.from_org_code, row.from_org_name)
+            SitShip.objects.create(ship_id=ship_id, from_org_code=row.from_org_code, from_org_name=row.from_org_name,
+                                   to_org_code=row.to_org_code, shipment_date=row.shipment_date,
+                                   first_seen=imp, last_seen=imp, has_issues=ship_id in blocked)
+        imp.line_count = len(lines)
+        imp.save(update_fields=["line_count"])
+        audit.record("SIT_IMPORTED_BACK_DATED", "sit_import", imp.pk, user=user,
+                     after={"file": name, "system_date": parsed.system_date, "reference_system_date": latest.system_date,
+                            "new_ships": new, "known_ships_left_unchanged": len(known), "mode": "TEST"})
+    return imp
+
+
+def describe(imp: SitImport) -> str:
+    """The clerk's confirmation line after an import."""
+    if imp.back_dated:
+        return (f"Back-dated report (UAT only, system date {imp.system_date:%d-%b-%Y}): {imp.ship_count} new Ship(s) "
+                f"added with {imp.line_count} SKU lines; {imp.known_ships} Ship(s) already in the engine left unchanged. "
+                "No change events were raised.")
+    return (f"{imp.ship_count} Ships, {imp.line_count} SKU lines, {imp.event_count} changes "
+            f"({imp.critical_count} critical).")
 
 
 def _org_type(name: str) -> str:

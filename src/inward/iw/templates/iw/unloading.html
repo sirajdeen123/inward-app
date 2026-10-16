@@ -70,9 +70,16 @@
   <p>Confirms that unloading is complete and every checklist line not listed above was received as per document.</p>
   {% for b in blockers %}<div class="alert alert-error">{{ b }}</div>{% endfor %}
   <form method="post" action="{% url 'iw:verification_confirm' iw.pk %}">{% csrf_token %}
+    <div class="declare {% if declaration_kind == 'NIL' %}declare-nil{% endif %}">
+      <p><b>{% if declaration_kind == 'NIL' %}You are declaring NIL SED - the consignment was received in full and in good condition.{% else %}You are declaring {{ totals.lines }} SED line(s): short {{ totals.short|floatformat:"-3" }}, excess {{ totals.excess|floatformat:"-3" }}, damage {{ totals.damage|floatformat:"-3" }} pcs.{% endif %}</b></p>
+      {% for key, text in declarations %}<label class="check"><input type="checkbox" name="confirm" value="{{ key }}" required> {{ text }}</label>{% endfor %}
+      <p class="muted">Your name and the time are recorded and printed on the MRA.</p>
+    </div>
     <button type="submit" class="btn btn-primary"{% if blockers %} disabled{% endif %}>Confirm physical verification</button></form>
 </div>
 {% elif iw.status == 'PHYSICALLY_VERIFIED' %}
+{% if iw.sed_declaration %}<div class="card"><h2>Declaration at verification</h2><p><b>{{ iw.sed_declaration.kind }}</b> · by {{ iw.sed_declaration.by }}</p>
+  <ul>{% for s in iw.sed_declaration.statements %}<li>{{ s }}</li>{% endfor %}</ul></div>{% endif %}
 <div class="card">
   <h2>Reopen physical verification</h2>
   <p class="muted">Only before the MRA is issued. SED and material can then be changed again.</p>

@@ -23,7 +23,7 @@ from inward.core.models import Document, DocumentLink, ExceptionEvent
 log = logging.getLogger("inward.mirror")
 _UNSAFE = re.compile(r'[<>:"/\\|?*\x00-\x1f#%]')
 SKIP = {"DAMAGE_PHOTO_PREVIEW"}
-FOLDERS = {"MRA_PDF": "1 MRA", "DAMAGE_PHOTO": "2 Damage photos", "SIGNED_MRA": "3 Signed MRA and LR",
+FOLDERS = {"MRA_PDF": "1 MRA", "SED_AUDIT_MEMO": "1 MRA", "DAMAGE_PHOTO": "2 Damage photos", "SIGNED_MRA": "3 Signed MRA and LR",
            "LR_SCAN": "3 Signed MRA and LR", "MAIL_SENT_EML": "4 E-mails", "SED_APPROVAL_REPLY": "4 E-mails",
            "SED_APPROVAL_EVIDENCE": "4 E-mails", "IRR_RECON_REPORT": "5 Reconciliation",
            "DESPATCH_REPORT": "6 Source reports", "DESTINATION_SIT_REPORT": "6 Source reports",

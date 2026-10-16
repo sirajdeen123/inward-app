@@ -52,6 +52,8 @@ def blockers(iw: Iw) -> list[str]:
     t = sed.totals(iw)
     if t.values_missing:
         out.append(f"Enter the financial value of {t.values_missing} Short / Damage line(s).")
+    if iw.status == Iw.Status.PHYSICALLY_VERIFIED and not iw.sed_declaration:
+        out.append("The NIL / SED declaration is missing - reopen physical verification and confirm it again.")
     if _operator(iw) is None:
         out.append("No operating CFA is set in the Depot master for the arrival date.")
     return out
@@ -148,6 +150,7 @@ def build(iw: Iw) -> dict:
                        "short_value": _money(t.short_value), "damage_value": _money(t.damage_value),
                        "claimable": _money(t.claimable)},
         "unloading": unl, "memos": memos,
+        "declaration": {k: v for k, v in (iw.sed_declaration or {}).items() if k != "by_id"},
     }
 
 
@@ -167,8 +170,9 @@ def is_current(iw: Iw, mra: MraRevision | None) -> bool:
 
 
 @transaction.atomic
-def issue(user: User, iw_pk: int, reason: str = "") -> tuple[MraRevision, bool]:
-    """Returns (revision, created). An unchanged MRA is not re-issued; R02+ needs a reason."""
+def issue(user: User, iw_pk: int, reason: str = "", reconfirm: bool = False) -> tuple[MraRevision, bool]:
+    """Returns (revision, created). An unchanged MRA is not re-issued; R02+ needs a reason. The clerk re-confirms the
+    SED declaration made at verification (second check, 16-Oct-2026)."""
     require(user, "MRA_ISSUE")
     iw = Iw.objects.select_for_update(of=("self",)).select_related("load_type", "source_org", "transporter").get(pk=iw_pk)
     problems = blockers(iw)
@@ -179,6 +183,11 @@ def issue(user: User, iw_pk: int, reason: str = "") -> tuple[MraRevision, bool]:
     last = iw.mras.first()
     if last and last.content_hash == digest:
         return last, False
+    if not reconfirm:
+        d = iw.sed_declaration or {}
+        raise IwError("Re-confirm the SED declaration before issuing the MRA: "
+                      + ("NIL SED - no short, excess or damage." if d.get("kind") == "NIL"
+                         else f"{d.get('lines', 0)} SED line(s) with {d.get('photos', 0)} damage photo(s)."))
     if last and not clean_text(reason):
         raise IwError(f"The MRA changed since {last.label}. Enter what changed - it is printed on {_next(iw)}.")
     rev = (iw.mras.aggregate(m=Max("revision"))["m"] or 0) + 1

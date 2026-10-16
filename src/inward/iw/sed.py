@@ -372,22 +372,48 @@ def verification_blockers(iw: Iw) -> list[str]:
     return out
 
 
+# The clerk must actively declare the result twice - here (two statements) and again when issuing the MRA -
+# so a forgotten SED or damage photo cannot slip through (business owner's decision, 16-Oct-2026).
+DECLARATIONS = {
+    "NIL": [("nil_short_excess", "Every package was counted against the unloading checklist: there is NO short and NO "
+                                 "excess in this consignment."),
+            ("nil_damage", "No package, tin, drum or carton is damaged: there is NO damage, so no photo is needed.")],
+    "SED": [("sed_complete", "Every short, excess and damaged SKU of this consignment is recorded above - nothing is "
+                             "left out."),
+            ("sed_photos", "Every damaged item is photographed and the photos are attached to its line.")],
+}
+CONFIRM_ALL = {key for items in DECLARATIONS.values() for key, _ in items}
+
+
+def declaration_kind(iw: Iw) -> str:
+    return "SED" if iw.sed_lines.exists() else "NIL"
+
+
 @transaction.atomic
-def confirm_verification(user: User, iw_pk: int) -> Iw:
+def confirm_verification(user: User, iw_pk: int, confirmations=()) -> Iw:
     require(user, "PHYSICAL_SED_QTY")
     iw = Iw.objects.select_for_update().get(pk=iw_pk)
     _require_unloading(iw)
     blockers = verification_blockers(iw)
     if blockers:
         raise IwError(" ".join(blockers))
+    kind = declaration_kind(iw)
+    missing = [text for key, text in DECLARATIONS[kind] if key not in set(confirmations)]
+    if missing:
+        raise IwError("Tick both declarations before confirming: " + " / ".join(missing))
     t = totals(iw)
+    photos = SedPhoto.objects.filter(line__iw=iw).count()
+    now = timezone.now()
+    iw.sed_declaration = {"kind": kind, "statements": [text for _, text in DECLARATIONS[kind]],
+                          "by": user.full_name or user.username, "by_id": user.pk, "at": now.isoformat(),
+                          "checklist_revision": iw.checklists.first().revision, "lines": t.lines, "photos": photos,
+                          "short": str(t.short), "excess": str(t.excess), "damage": str(t.damage)}
     iw.status = Iw.Status.PHYSICALLY_VERIFIED
-    iw.verified_at, iw.verified_by = timezone.now(), user
+    iw.verified_at, iw.verified_by = now, user
     iw.version += 1
-    iw.save(update_fields=["status", "verified_at", "verified_by", "version", "updated_at"])
+    iw.save(update_fields=["status", "verified_at", "verified_by", "sed_declaration", "version", "updated_at"])
     audit.record("PHYSICAL_VERIFICATION_CONFIRMED", "iw", iw.pk, user=user, iw_id=iw.pk,
-                 after={"checklist_revision": iw.checklists.first().revision, "sed_lines": t.lines,
-                        "short": t.short, "excess": t.excess, "damage": t.damage})
+                 after={"declaration": iw.sed_declaration})
     return iw
 
 
@@ -401,7 +427,8 @@ def reopen_verification(user: User, iw_pk: int, reason: str) -> Iw:
         raise IwError("A reason is mandatory to reopen physical verification.")
     iw.status = Iw.Status.UNLOADING_IN_PROGRESS
     iw.verified_at = iw.verified_by = None
+    iw.sed_declaration = {}
     iw.version += 1
-    iw.save(update_fields=["status", "verified_at", "verified_by", "version", "updated_at"])
+    iw.save(update_fields=["status", "verified_at", "verified_by", "sed_declaration", "version", "updated_at"])
     audit.record("PHYSICAL_VERIFICATION_REOPENED", "iw", iw.pk, user=user, iw_id=iw.pk, after={"reason": clean_text(reason)})
     return iw

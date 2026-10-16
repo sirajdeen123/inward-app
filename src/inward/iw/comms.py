@@ -216,6 +216,8 @@ def send_blockers(iw: Iw) -> list[str]:
     last = iw.mras.first()
     if iw.status != Iw.Status.PHYSICALLY_VERIFIED:
         out.append("The MRA can be sent after physical verification and before it is already issued.")
+    if not unloading.gate_ok(iw):
+        out.append("Record the unloading charge and its payment position first (mandatory before the MRA).")
     if last is None:
         out.append("Issue the MRA first.")
     elif not mra_service.is_current(iw, last):
@@ -401,7 +403,18 @@ def decide_evidence(user: User, approval_pk: int, accept: bool) -> SedApproval:
     ap.save(update_fields=["status", "accepted_by", "decided_at"])
     audit.record("SED_APPROVAL_EVIDENCE_" + ("ACCEPTED" if accept else "REJECTED"), "iw", ap.iw_id, user=user,
                  iw_id=ap.iw_id, after={"revision": ap.mra.label})
+    if accept:
+        _audit_memo(ap.iw, "manual approval evidence accepted", user)
     return ap
+
+
+def _audit_memo(iw: Iw, why: str, user=None) -> None:
+    """Refresh the SED Audit Memo; never let a PDF problem stop the mail / approval flow."""
+    from inward.iw import audit_memo
+    try:
+        audit_memo.regenerate(iw, user, why)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("SED audit memo for %s: %s", iw.pk, exc)
 
 # ---------------------------------------------------------------- worker: outbox
 
@@ -439,6 +452,8 @@ def _mark_sent(m: MailMessage, ev) -> None:
     if m.iw_id:
         with transaction.atomic():
             try_complete(m.iw)
+        if m.purpose == P.SED_APPROVAL:
+            _audit_memo(m.iw, "SED approval request sent")
 
 
 def process_outbox(transport, now=None) -> dict:
@@ -570,6 +585,7 @@ def handle_reply(raw: bytes) -> str:
                          after={"revision": ap.mra.label, "from": sender, "text": ap.decision_text,
                                 "closed_iw": ap.iw.status == Iw.Status.CLOSED})
             outcome = ap.status.lower()
+            _audit_memo(ap.iw, f"Depot Manager reply: {outcome}")
     InboundMail.objects.create(message_id=mid[:250], subject=subject[:250], sender=sender[:256], received_at=received,
                                outcome=outcome[:200], approval=ap if ap and outcome in ("approved", "rejected") else None)
     return outcome

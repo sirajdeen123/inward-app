@@ -49,6 +49,7 @@ class Iw(models.Model):
     voided_at = models.DateTimeField(null=True, blank=True)
     verified_at = models.DateTimeField(null=True, blank=True)  # physical verification confirmed (SoT 7.2)
     verified_by = models.ForeignKey(USER, null=True, blank=True, on_delete=models.PROTECT, related_name="+")
+    sed_declaration = models.JSONField(default=dict, blank=True)  # NIL / SED declaration at verification (16-Oct-2026)
     version = models.PositiveIntegerField(default=1)
 
     class Meta:

@@ -16,7 +16,7 @@ from inward.core.models import AuditEvent, DocumentLink
 from inward.iw.models import Iw
 
 _UNSAFE = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
-FOLDERS = {"MRA_PDF": "1 MRA", "DAMAGE_PHOTO": "2 Damage photos", "DAMAGE_PHOTO_PREVIEW": None,
+FOLDERS = {"MRA_PDF": "1 MRA", "SED_AUDIT_MEMO": "1 MRA", "DAMAGE_PHOTO": "2 Damage photos", "DAMAGE_PHOTO_PREVIEW": None,
            "SIGNED_MRA": "3 Signed MRA", "LR_SCAN": "3 LR", "MAIL_SENT_EML": "4 E-mails",
            "SED_APPROVAL_REPLY": "4 E-mails", "SED_APPROVAL_EVIDENCE": "4 E-mails", "IRR_RECON_REPORT": "5 Reconciliation",
            "DESPATCH_REPORT": "6 Source reports", "DESTINATION_SIT_REPORT": "6 Source reports",

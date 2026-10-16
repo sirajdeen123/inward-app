@@ -22,7 +22,7 @@ def verified(ready):  # noqa: F811
     dmg = sed.save_line(clerk, w["iw"].pk, _in(w, WEATHERCOAT, damage_qty="1", damage_kind="MATERIAL",
                                                damage_remarks="drum leaking", damage_value="2400"))
     sed.add_photo(clerk, dmg.pk, _jpeg(), "d.jpg")
-    sed.confirm_verification(clerk, w["iw"].pk)
+    sed.confirm_verification(clerk, w["iw"].pk, sed.CONFIRM_ALL)
     unloading.save_counts(clerk, w["iw"].pk, {})
     unloading.record(clerk, w["iw"].pk, unloading.UnloadingInput(tonnage="13.2", status="PART_PAID",
                                                                  paid_amount="2000", payment_mode="CASH"))
@@ -35,12 +35,12 @@ def test_blockers_until_everything_recorded(unloading_iw):  # noqa: F811
     assert any("physical verification" in x for x in b) and any("package counts" in x for x in b)
     assert any("unloading charge" in x for x in b)
     with pytest.raises(IwError):
-        mra.issue(unloading_iw["clerk"], unloading_iw["iw"].pk)
+        mra.issue(unloading_iw["clerk"], unloading_iw["iw"].pk, reconfirm=True)
 
 
 def test_content_and_revisions(verified):
     w, clerk = verified, verified["clerk"]
-    rev, created = mra.issue(clerk, w["iw"].pk)
+    rev, created = mra.issue(clerk, w["iw"].pk, reconfirm=True)
     assert created and rev.label == "R01"
     c = rev.content
     assert c["depot"]["cfa"] == "RAINBOW LOGISTICS" and c["depot"]["company"] == "BERGER PAINTS INDIA LTD"
@@ -53,13 +53,13 @@ def test_content_and_revisions(verified):
     assert kinds["SHORT"]["rows"][0]["action"] == "Issue TRX"       # LSCRR not declared
     assert "not yet declared" in kinds["SHORT"]["rows"][0]["note"]
     assert kinds["DAMAGE"]["rows"][0]["action"] == "Subinventory transfer to DMG"
-    assert mra.issue(clerk, w["iw"].pk) == (rev, False)               # unchanged: no new revision
+    assert mra.issue(clerk, w["iw"].pk, reconfirm=True) == (rev, False)               # unchanged: no new revision
     # a change needs a reason and makes R02
     unloading.record(clerk, w["iw"].pk, unloading.UnloadingInput(tonnage="13.2", status="PAID", payment_mode="CASH"))
     assert not mra.is_current(w["iw"], rev)
     with pytest.raises(IwError, match="Enter what changed"):
-        mra.issue(clerk, w["iw"].pk)
-    rev2, created = mra.issue(clerk, w["iw"].pk, "balance unloading paid")
+        mra.issue(clerk, w["iw"].pk, reconfirm=True)
+    rev2, created = mra.issue(clerk, w["iw"].pk, "balance unloading paid", reconfirm=True)
     assert created and rev2.label == "R02" and rev2.content["unloading"]["outstanding"] == "0.00"
 
 
@@ -78,7 +78,7 @@ def test_missing_value_blocks(verified):
     line = w["iw"].sed_lines.get(sku=EASYCLEAN)
     line.short_value = None
     line.save()
-    sed.confirm_verification(w["clerk"], w["iw"].pk)
+    sed.confirm_verification(w["clerk"], w["iw"].pk, sed.CONFIRM_ALL)
     assert any("financial value" in b for b in mra.blockers(Iw.objects.get(pk=w["iw"].pk)))
 
 
@@ -88,6 +88,8 @@ def test_html_render_and_screens(client, verified):
     page = c.get(reverse("iw:mra", args=[w["iw"].pk])).content.decode()
     assert "Issue MRA R01" in page
     resp = c.post(reverse("iw:mra_issue", args=[w["iw"].pk]), follow=True)
+    assert "Re-confirm the SED declaration" in resp.content.decode()
+    resp = c.post(reverse("iw:mra_issue", args=[w["iw"].pk]), {"reconfirm": "yes"}, follow=True)
     assert "MRA R01 issued" in resp.content.decode()
     html = c.get(reverse("iw:mra_view", args=[w["iw"].pk, 1])).content.decode()
     assert "DRIVER COPY" in html and "DEPOT COPY" in html and "Operated by: RAINBOW LOGISTICS (CFA)" in html
@@ -101,6 +103,27 @@ def test_html_render_and_screens(client, verified):
 
 def test_material_change_after_mra_needs_reopen(verified):
     w = verified
-    mra.issue(w["clerk"], w["iw"].pk)
+    mra.issue(w["clerk"], w["iw"].pk, reconfirm=True)
     with pytest.raises(IwError, match="reopen"):
         linking.add_colour_bank(w["clerk"], w["iw"].pk, direction="IN", challan_no="CB-5")
+
+
+def test_mra_needs_reconfirmation_and_prints_declaration(verified):
+    w = verified
+    with pytest.raises(IwError, match="Re-confirm the SED declaration"):
+        mra.issue(w["clerk"], w["iw"].pk)
+    rev, _ = mra.issue(w["clerk"], w["iw"].pk, reconfirm=True)
+    assert rev.content["declaration"]["kind"] == "SED" and rev.content["declaration"]["photos"] == 1
+    html = mra.render(rev.content, 1, rev.issued_at, "x")
+    assert "Verification declaration (SED)" in html
+
+
+def test_unloading_mandatory_before_mra(unloading_iw):  # noqa: F811
+    w = unloading_iw
+    sed.confirm_verification(w["clerk"], w["iw"].pk, sed.CONFIRM_ALL)
+    from inward.iw import unloading
+    unloading.save_counts(w["clerk"], w["iw"].pk, {})
+    b = mra.blockers(w["iw"])
+    assert any("unloading charge" in x for x in b)
+    with pytest.raises(IwError, match="unloading charge"):
+        mra.issue(w["clerk"], w["iw"].pk, reconfirm=True)

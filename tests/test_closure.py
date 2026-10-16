@@ -23,7 +23,7 @@ def reconciled(at_erp):
     w, clerk = at_erp, at_erp["clerk"]
     from inward.iw import mra
     Iw.objects.filter(pk=w["iw"].pk).update(status=Iw.Status.PHYSICALLY_VERIFIED)
-    rev, _ = mra.issue(clerk, w["iw"].pk)
+    rev, _ = mra.issue(clerk, w["iw"].pk, reconfirm=True)
     Iw.objects.filter(pk=w["iw"].pk).update(status=Iw.Status.MRA_ISSUED)
     for purpose in ("MRA", "SED_NOTIFY"):
         MailMessage.objects.create(iw=w["iw"], mra=rev, purpose=purpose, stamp=f"x {purpose}", subject="s",

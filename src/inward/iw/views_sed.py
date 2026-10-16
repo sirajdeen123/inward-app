@@ -35,6 +35,7 @@ def _context(request, iw: Iw, **extra) -> dict:
             "blockers": sed.verification_blockers(iw) if iw.status == Iw.Status.UNLOADING_IN_PROGRESS else [],
             "can_value": "GRANT" in modes_for(request.user, "SED_VALUE"),
             "editable": iw.status == Iw.Status.UNLOADING_IN_PROGRESS,
+            "declarations": sed.DECLARATIONS[sed.declaration_kind(iw)], "declaration_kind": sed.declaration_kind(iw),
             "kinds": SedLine.DamageKind.choices, **extra}
 
 
@@ -136,7 +137,7 @@ def sed_photo(request, photo_pk, size):
 @needs("PHYSICAL_SED_QTY")
 def verification_confirm(request, pk):
     try:
-        sed.confirm_verification(request.user, pk)
+        sed.confirm_verification(request.user, pk, set(request.POST.getlist("confirm")))
         messages.success(request, "Physical verification confirmed. Next: package counts, unloading charge, then the MRA.")
     except IwError as exc:
         messages.error(request, str(exc))

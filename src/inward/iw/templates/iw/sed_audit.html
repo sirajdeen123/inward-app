@@ -1,0 +1,75 @@
+{% load static %}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SED Audit Memo {{ iw.iw_no }} V{{ version }}</title>
+<link rel="stylesheet" href="{% static 'inward/mra.css' %}">
+</head>
+<body>
+<section class="page">
+  <header class="head">
+    <div class="brandrow">{% if logo %}<img src="{{ logo }}" alt="logo" class="logo">{% endif %}<div>
+      {% if c.depot.company %}<div class="company">{{ c.depot.company }}</div>{% endif %}
+      <div class="depot">Depot {{ c.depot.code }} · {{ c.depot.name }}</div>
+      <div class="cfa">Operated by: {{ c.depot.cfa }} (CFA)</div>
+      <div class="title">SED AUDIT MEMO</div>
+    </div></div>
+    <div class="right"><div><b>{{ iw.iw_no }} · V{{ version }}</b></div><div>{{ c.iw.vehicle }} · {{ c.iw.arrival }}</div><div>Generated {{ generated }}</div></div>
+  </header>
+
+  <table class="kv">
+    <tr><th>Load type</th><td>{{ c.iw.load_type }}</td><th>Source</th><td>{{ c.iw.source_org|default:"-" }}</td></tr>
+    <tr><th>Transporter / LR</th><td>{{ c.iw.transporter|default:"-" }}{% if c.iw.lr %} · LR {{ c.iw.lr }}{% endif %}</td><th>Driver</th><td>{{ c.iw.driver|default:"-" }} {{ c.iw.driver_mobile }}</td></tr>
+    <tr><th>References</th><td colspan="3">{% for r in c.references %}{{ r.kind }} {{ r.ref }}{% if not forloop.last %}; {% endif %}{% endfor %}</td></tr>
+  </table>
+
+  <h2>1. Declaration at physical verification</h2>
+  <p><b>{{ declaration.kind|default:"-" }}</b> - declared by {{ declaration.by|default:"-" }} on {{ c.iw.verified|default:"-" }} against unloading checklist R{{ declaration.checklist_revision|default:"-" }}; {{ declaration.lines|default:0 }} SED line(s), {{ declaration.photos|default:0 }} damage photo(s).</p>
+  {% if declaration.statements %}<ul class="small">{% for s in declaration.statements %}<li>{{ s }}</li>{% endfor %}</ul>{% endif %}
+  <p class="small">The MRA was issued only after the clerk re-confirmed this declaration.</p>
+
+  <h2>2. SED memos, Oracle transactions and IRR result</h2>
+  {% for m in memos %}
+  <table class="grid fixed" style="margin-bottom:6px"><colgroup><col class="c-full"><col><col class="c-q"><col class="c-val"><col class="c-rem"></colgroup>
+    <thead><tr><th colspan="5">{{ m.title }}{% if m.lscrr %} · LSCRR-covered (no separate TRX){% endif %}</th></tr>
+      <tr><th>SKU</th><th>Description</th><th class="num">Pcs</th><th class="num">Value Rs</th><th>Remarks</th></tr></thead>
+    <tbody>{% for ln in m.lines %}<tr><td class="mono">{{ ln.sku }}<div class="small">{{ ln.floor }}</div></td><td>{{ ln.desc }}<div class="small">recorded by {{ ln.by }} {{ ln.at }}</div></td><td class="num">{{ ln.qty }}</td><td class="num">{% if m.kind != 'EXCESS' %}{{ ln.value }}{% endif %}</td><td>{{ ln.remarks }}</td></tr>{% endfor %}
+      <tr><td colspan="5" class="small"><b>Oracle TRX:</b> {% for t in m.trx %}{{ t.no }} (entered by {{ t.by }} {{ t.at }}){% if not forloop.last %}; {% endif %}{% empty %}{% if m.lscrr %}not required{% else %}not entered yet{% endif %}{% endfor %}
+        · <b>IRR:</b> {{ m.irr }}{% for n in m.irr_notes %} · {{ n }}{% endfor %}</td></tr></tbody></table>
+  {% endfor %}
+  <p class="small">IRR reconciliation as of {{ recon_at }}.</p>
+
+  <h2>3. Damage photos</h2>
+  {% if photos %}<table class="grid fixed"><colgroup><col class="c-ref"><col class="c-dq"><col><col class="c-act"></colgroup>
+    <thead><tr><th>SKU / reference</th><th>Taken</th><th>File, SHA-256, OneDrive</th><th>Document ID</th></tr></thead>
+    <tbody>{% for p in photos %}<tr><td>{{ p.sku }}<div class="small">{{ p.source }}</div></td><td class="small">{{ p.at }}<br>{{ p.by }}</td>
+      <td class="small">{{ p.file.name }}<br><span class="mono">{{ p.file.sha256 }}</span><br>{{ p.file.onedrive }}</td><td class="small mono">{{ p.file.id }}</td></tr>{% endfor %}</tbody></table>
+  {% else %}<p>No damage photos (no damage recorded).</p>{% endif %}
+
+  <h2>4. Depot Manager approval</h2>
+  {% for a in approvals %}
+  <table class="grid" style="margin-bottom:6px"><tbody>
+    <tr><th style="width:32mm">MRA {{ a.mra }}</th><td><b>{{ a.status }}</b>{% if a.decided != '-' %} · {{ a.decided }}{% endif %}{% if a.decision %} · "{{ a.decision }}"{% endif %}</td></tr>
+    <tr><th>Request</th><td class="small">{% with r=a.request %}{{ r.subject }} [{{ r.stamp }}]<br>To {{ r.to }}{% if r.cc %} · Cc {{ r.cc }}{% endif %}<br>{{ r.status }} · queued {{ r.queued }} · sent {{ r.sent }} · Message-ID {{ r.message_id }}{% if r.eml %}<br>Sent copy: {{ r.eml.name }} · SHA-256 <span class="mono">{{ r.eml.sha256 }}</span> · {{ r.eml.onedrive }}{% endif %}{% endwith %}</td></tr>
+    {% if a.reminder %}<tr><th>Reminder</th><td class="small">{{ a.reminder.status }} · sent {{ a.reminder.sent }} [{{ a.reminder.stamp }}]</td></tr>{% endif %}
+    {% if a.reply_from or a.evidence %}<tr><th>Approval evidence</th><td class="small">{% if a.reply_from %}Reply from {{ a.reply_from }}<br>{% endif %}{{ a.check }}{% if a.evidence %}<br>File: {{ a.evidence.name }} · document {{ a.evidence.id }} · SHA-256 <span class="mono">{{ a.evidence.sha256 }}</span><br>{{ a.evidence.onedrive }}{% endif %}</td></tr>{% endif %}
+  </tbody></table>
+  {% empty %}<p>No approval request (no SED).</p>{% endfor %}
+  <p class="small">The Depot Manager's approval is tracked and shown but, by policy (SoT 7.8), does not block the Oracle SED entry or IW closure.</p>
+
+  <h2>5. MRA and mandatory e-mails</h2>
+  <table class="grid"><tbody>{% for r in mras %}<tr><td>MRA {{ r.label }}</td><td class="small">issued {{ r.issued }} by {{ r.by }}{% if r.reason %} · {{ r.reason }}{% endif %}{% if r.file %}<br>{{ r.file.name }} · SHA-256 <span class="mono">{{ r.file.sha256 }}</span> · {{ r.file.onedrive }}{% endif %}</td></tr>{% endfor %}
+    {% for m in mails %}<tr><td>{{ m.purpose }}</td><td class="small">To {{ m.to }}{% if m.cc %} · Cc {{ m.cc }}{% endif %}<br>{{ m.status }} · sent {{ m.sent }} [{{ m.stamp }}]{% if m.eml %}<br>Sent copy SHA-256 <span class="mono">{{ m.eml.sha256 }}</span> · {{ m.eml.onedrive }}{% endif %}</td></tr>{% endfor %}</tbody></table>
+
+  <h2>6. Where the records are kept</h2>
+  <p class="small">{{ storage }} Every action above is also in the IW's append-only audit trail (Dossier ZIP: audit_trail.csv).</p>
+
+  <div class="sign">
+    <div class="box"><div class="sealfor">&nbsp;</div><div class="line"></div>Prepared by (clerk)</div>
+    <div class="box">{% if c.depot.seal.for %}<div class="sealfor">{{ c.depot.seal.for }}</div>{% endif %}<div class="line"></div>Authorised signatory{% if c.depot.seal.operated %}<div class="small">{{ c.depot.seal.operated }}</div>{% endif %}</div>
+  </div>
+  <footer class="foot">SED Audit Memo · {{ iw.iw_no }} · version V{{ version }}{% if version > 1 %} (supersedes V{{ version|add:"-1" }}){% endif %}</footer>
+</section>
+</body>
+</html>

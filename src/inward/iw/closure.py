@@ -135,6 +135,8 @@ def close(user: User, iw_pk: int) -> IwClosure:
         raise IwError("Not ready to close: " + "; ".join(g.label + (f" ({g.detail})" if g.detail else "") for g in bad))
     number = iw.closures.count() + 1
     now = timezone.now()
+    from inward.iw import audit_memo
+    audit_memo.regenerate(iw, user, f"closure C{number}")  # final audit copy with TRX numbers and IRR result
     html = report_html(iw, results, gate_list, number, user.full_name or user.username, now)
     data = pdf.html_to_pdf(html)
     doc = None

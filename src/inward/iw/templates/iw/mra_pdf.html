@@ -53,6 +53,7 @@
       <th class="num">Rs {{ c.sed_totals.claimable }}</th><th><span class="small">Claimable = short {{ c.sed_totals.short_value }} + damage {{ c.sed_totals.damage_value }}</span></th></tr></tfoot></table>
   {% else %}<p>Received in full as per documents - no Short, Excess or Damage.</p>{% endif %}
 
+  {% if c.declaration %}<p class="small"><b>Verification declaration ({{ c.declaration.kind }}):</b> {% for s in c.declaration.statements %}{{ s }} {% endfor %}- declared by {{ c.declaration.by }} on {{ c.iw.verified }}{% if c.declaration.kind == 'SED' %}; {{ c.declaration.photos }} damage photo(s) on file{% endif %}.</p>{% endif %}
   <h2>Unloading</h2>
   {% if c.unloading %}<p>Unloading amount Rs {{ c.unloading.charge }} · {{ c.unloading.status }}{% if c.unloading.mode %} · {{ c.unloading.mode }}{% endif %}{% if c.unloading.ref %} ({{ c.unloading.ref }}){% endif %}{% if c.unloading.outstanding != '0.00' %} · outstanding Rs {{ c.unloading.outstanding }}{% endif %}</p>{% endif %}
 

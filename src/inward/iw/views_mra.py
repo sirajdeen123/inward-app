@@ -28,7 +28,8 @@ def mra_page(request, pk):
 @needs("MRA_ISSUE")
 def mra_issue(request, pk):
     try:
-        rev, created = mra.issue(request.user, pk, request.POST.get("reason", ""))
+        rev, created = mra.issue(request.user, pk, request.POST.get("reason", ""),
+                                 reconfirm=request.POST.get("reconfirm") == "yes")
         if created:
             messages.success(request, f"MRA {rev.label} issued." + ("" if rev.pdf else
                              " The PDF is made on the server; use 'View / print' on this PC."))
@@ -67,7 +68,7 @@ def mra_pdf(request, pk, revision):
 
 def _comms_context(request, iw: Iw) -> dict:
     from inward.accounts.services import modes_for
-    from inward.iw import comms
+    from inward.iw import audit_memo, comms
     latest = iw.mras.first()
     return {"targets": comms.mra_targets(iw), "send_blockers": comms.send_blockers(iw),
             "mails": latest.mails.select_related("eml").order_by("id") if latest else [],
@@ -76,7 +77,8 @@ def _comms_context(request, iw: Iw) -> dict:
             "release_blockers": comms.release_blockers(iw),
             "can_release": "GRANT" in modes_for(request.user, "MAIL_PENDING_RELEASE"),
             "can_accept": "GRANT" in modes_for(request.user, "SED_EVIDENCE_ACCEPT"),
-            "releases": iw.mail_releases.select_related("released_by")}
+            "releases": iw.mail_releases.select_related("released_by"),
+            "audit_memos": audit_memo.versions(iw)}
 
 
 @require_POST
@@ -190,3 +192,35 @@ def email_verify(request):
             messages.error(request, str(exc))
         return redirect("iw:email_verify")
     return render(request, "iw/email_verify.html", {"rows": comms.unverified_emails()})
+
+
+@require_POST
+@needs("MRA_ISSUE")
+def audit_memo_generate(request, pk):
+    from inward.iw import audit_memo
+    iw = get_object_or_404(Iw, pk=pk)
+    doc = audit_memo.regenerate(iw, request.user, "on request")
+    if doc:
+        messages.success(request, f"SED Audit Memo {doc.original_filename} generated.")
+    elif not iw.sed_lines.exists():
+        messages.info(request, "No SED on this IW - the MRA's NIL declaration is the record.")
+    else:
+        messages.info(request, "The PDF is made on the server; use View on this computer.")
+    return redirect("iw:mra", pk=pk)
+
+
+@needs("SEARCH_REPORTS")
+def audit_memo_view(request, pk):
+    from inward.iw import audit_memo
+    iw = get_object_or_404(Iw, pk=pk)
+    return HttpResponse(audit_memo.render(iw, len(audit_memo.versions(iw)) + 1))
+
+
+@needs("SEARCH_REPORTS")
+def audit_memo_file(request, pk, doc_pk):
+    from inward.core.models import DocumentLink
+    link = get_object_or_404(DocumentLink.objects.select_related("document"), entity_type="iw", entity_id=str(pk),
+                             role="sed_audit_memo", document_id=doc_pk)
+    resp = HttpResponse(documents.read(link.document), content_type="application/pdf")
+    resp["Content-Disposition"] = f'inline; filename="{link.document.original_filename}"'
+    return resp

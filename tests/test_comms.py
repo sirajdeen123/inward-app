@@ -56,7 +56,7 @@ class FakeGmail:
 def issued(verified, settings):  # noqa: F811
     settings.INWARD = {**settings.INWARD, "MODE": "LIVE", "GMAIL_ADDRESS": "inward@example.com"}
     w = verified
-    rev, _ = mra.issue(w["clerk"], w["iw"].pk)
+    rev, _ = mra.issue(w["clerk"], w["iw"].pk, reconfirm=True)
     if rev.pdf is None:  # no Pango on a development PC: stand-in PDF
         rev.pdf = documents.store(b"%PDF-1.7 test", filename=f"MRA {w['iw'].iw_no} R01.pdf",
                                   content_type="application/pdf", doc_type="MRA_PDF")
@@ -236,3 +236,29 @@ def test_screens(client, sent, make_user):
     c2 = verified_client(client, cfa)
     page = c2.get(reverse("iw:email_verify")).content.decode()
     assert "new@example.com" in page
+
+
+def test_sed_audit_memo_is_complete_and_versioned(sent, monkeypatch):
+    from inward.core import pdf
+    from inward.iw import audit_memo
+    monkeypatch.setattr(pdf, "html_to_pdf", lambda html, stylesheet="": b"%PDF-1.7 " + html.encode()[:2000])
+    w, g = sent, sent["gmail"]
+    comms.process_outbox(g)
+    comms.process_outbox(g)                                   # all SENT -> memo V1 when the request is sent
+    v = audit_memo.versions(w["iw"])
+    assert len(v) == 1 and v[0].doc_type == "SED_AUDIT_MEMO"
+    assert comms.handle_reply(_reply(_approval_subject(w), "APPROVED", mid="<ok@x>")) == "approved"
+    v = audit_memo.versions(Iw.objects.get(pk=w["iw"].pk))
+    assert len(v) == 2 and v[0].supersedes == v[1]          # new version, the earlier one kept
+    html = audit_memo.render(Iw.objects.get(pk=w["iw"].pk), 3)
+    for text in ("SED AUDIT MEMO", "Declaration at physical verification", "Approved - mail on file",
+                 "passed Gmail sender authentication", DM, "Damage photos", "SHA-256", "(copy pending)",
+                 "Where the records are kept", "Short memo", "BERGER PAINTS INDIA LTD"):
+        assert text in html, text
+
+
+def test_audit_memo_screens(client, sent):
+    c = verified_client(client, sent["clerk"])
+    page = c.get(reverse("iw:mra", args=[sent["iw"].pk])).content.decode()
+    assert "SED Audit Memo" in page
+    assert "SED AUDIT MEMO" in c.get(reverse("iw:audit_memo_view", args=[sent["iw"].pk])).content.decode()

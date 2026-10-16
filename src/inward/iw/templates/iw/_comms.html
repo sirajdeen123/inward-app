@@ -48,6 +48,16 @@
 </div>
 {% endif %}
 
+{% if iw.sed_lines.exists %}
+<div class="card">
+  <h2>SED Audit Memo</h2>
+  <p class="muted">One document for the auditor: declaration, memos, photos, approval mails and reply, Oracle TRX, IRR result and where every file is kept. Made again automatically when the approval request is sent, when the Depot Manager replies or evidence is accepted, and at closure.</p>
+  {% for d in audit_memos %}<div><a href="{% url 'iw:audit_memo_file' iw.pk d.pk %}" target="_blank" rel="noopener">{{ d.original_filename }}</a> <span class="muted">{{ d.created_at|date:"d-M-Y H:i" }}</span>{% if forloop.first %} <span class="chip chip-ok">current</span>{% endif %}</div>{% empty %}<p class="muted">Not generated yet.</p>{% endfor %}
+  <p><a class="btn btn-sm" href="{% url 'iw:audit_memo_view' iw.pk %}" target="_blank" rel="noopener">View current state</a>
+    <form method="post" action="{% url 'iw:audit_memo_generate' iw.pk %}" class="inline-form">{% csrf_token %}<button type="submit" class="btn btn-sm">Generate PDF now</button></form></p>
+</div>
+{% endif %}
+
 {% if all_mails %}
 <div class="card">
   <h2>E-mails</h2>

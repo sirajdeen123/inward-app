@@ -13,11 +13,14 @@
 {% elif not latest %}
 <form method="post" action="{% url 'iw:mra_issue' iw.pk %}" class="card">{% csrf_token %}
   <h2>Issue MRA R01</h2>
+  <label class="check declare"><input type="checkbox" name="reconfirm" value="yes" required> I re-confirm the SED declared at verification: {% if iw.sed_declaration.kind == 'NIL' %}<b>NIL SED</b> - no short, no excess, no damage{% else %}<b>{{ iw.sed_declaration.lines }} SED line(s)</b> with <b>{{ iw.sed_declaration.photos }} damage photo(s)</b>{% endif %} (declared by {{ iw.sed_declaration.by }}).</label>
   <button type="submit" class="btn btn-primary">Issue MRA</button></form>
 {% elif not current %}
 <form method="post" action="{% url 'iw:mra_issue' iw.pk %}" class="card form-grid">{% csrf_token %}
   <h2 class="span-all">The details changed after {{ latest.label }} <span class="chip chip-warn">New revision needed</span></h2>
   <div class="field span-all"><label for="m-reason">What changed (printed on the new revision) *</label><input id="m-reason" name="reason" required></div>
+<div class="span-all">  <label class="check declare"><input type="checkbox" name="reconfirm" value="yes" required> I re-confirm the SED declared at verification: {% if iw.sed_declaration.kind == 'NIL' %}<b>NIL SED</b> - no short, no excess, no damage{% else %}<b>{{ iw.sed_declaration.lines }} SED line(s)</b> with <b>{{ iw.sed_declaration.photos }} damage photo(s)</b>{% endif %} (declared by {{ iw.sed_declaration.by }}).</label>
+</div>
   <div class="span-all"><button type="submit" class="btn btn-primary">Issue new revision</button></div></form>
 {% else %}
 <div class="card bar"><span class="chip chip-ok">{{ latest.label }} is up to date</span></div>

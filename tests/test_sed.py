@@ -103,7 +103,7 @@ def test_photos_and_verification(unloading):
         sed.add_photo(clerk, line.pk, b"not an image", "x.jpg")
     photo = sed.add_photo(clerk, line.pk, _jpeg(), "IMG_001.jpg")
     assert photo.original.content_type == "image/jpeg" and photo.preview.size_bytes < photo.original.size_bytes
-    iw = sed.confirm_verification(clerk, w["iw"].pk)
+    iw = sed.confirm_verification(clerk, w["iw"].pk, sed.CONFIRM_ALL)
     assert iw.status == Iw.Status.PHYSICALLY_VERIFIED and iw.verified_by == clerk
     with pytest.raises(IwError, match="Reopen it"):
         sed.save_line(clerk, iw.pk, _in(w, WEATHERCOAT, short_qty="1"))
@@ -118,7 +118,7 @@ def test_stale_checklist_blocks_verification(unloading):
     w = unloading
     linking.add_colour_bank(w["clerk"], w["iw"].pk, direction="IN", challan_no="CB-1")
     with pytest.raises(IwError, match="regenerate"):
-        sed.confirm_verification(w["clerk"], w["iw"].pk)
+        sed.confirm_verification(w["clerk"], w["iw"].pk, sed.CONFIRM_ALL)
 
 
 def test_screens(client, unloading):
@@ -139,10 +139,35 @@ def test_screens(client, unloading):
     assert img["Content-Type"] == "image/jpeg"
     page = c.get(reverse("iw:sed_edit", args=[line.pk])).content.decode()
     assert 'value="450"' in page
-    resp = c.post(reverse("iw:verification_confirm", args=[w["iw"].pk]), follow=True)
+    resp = c.post(reverse("iw:verification_confirm", args=[w["iw"].pk]), {"confirm": ["sed_complete"]}, follow=True)
+    assert "Tick both declarations" in resp.content.decode()
+    resp = c.post(reverse("iw:verification_confirm", args=[w["iw"].pk]),
+                  {"confirm": ["sed_complete", "sed_photos"]}, follow=True)
     assert "Physical verification confirmed" in resp.content.decode() and "Reopen physical verification" in resp.content.decode()
 
 
 def _upload():
     from django.core.files.uploadedfile import SimpleUploadedFile
     return SimpleUploadedFile("IMG_002.jpg", _jpeg("blue"), content_type="image/jpeg")
+
+
+def test_nil_sed_needs_both_declarations(unloading):
+    w = unloading
+    with pytest.raises(IwError, match="NO short and NO excess"):
+        sed.confirm_verification(w["clerk"], w["iw"].pk, {"nil_damage"})
+    with pytest.raises(IwError, match="Tick both"):
+        sed.confirm_verification(w["clerk"], w["iw"].pk, {"sed_complete", "sed_photos"})   # SED ticks for a NIL IW
+    iw = sed.confirm_verification(w["clerk"], w["iw"].pk, {"nil_short_excess", "nil_damage"})
+    assert iw.sed_declaration["kind"] == "NIL" and iw.sed_declaration["lines"] == 0 and len(iw.sed_declaration["statements"]) == 2
+    assert sed.reopen_verification(w["clerk"], iw.pk, "found a dented drum").sed_declaration == {}
+
+
+def test_sed_declaration_records_photos(unloading):
+    w = unloading
+    line = sed.save_line(w["clerk"], w["iw"].pk, _in(w, EASYCLEAN, damage_qty="1", damage_kind="MATERIAL",
+                                                     damage_remarks="leak", damage_value="10"))
+    sed.add_photo(w["clerk"], line.pk, _jpeg(), "a.jpg")
+    with pytest.raises(IwError, match="Tick both"):
+        sed.confirm_verification(w["clerk"], w["iw"].pk, {"nil_short_excess", "nil_damage"})
+    iw = sed.confirm_verification(w["clerk"], w["iw"].pk, {"sed_complete", "sed_photos"})
+    assert iw.sed_declaration["kind"] == "SED" and iw.sed_declaration["photos"] == 1

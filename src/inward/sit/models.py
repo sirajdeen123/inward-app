@@ -18,8 +18,8 @@ class SitImport(models.Model):
     line_count = models.PositiveIntegerField(default=0)
     event_count = models.PositiveIntegerField(default=0)
     critical_count = models.PositiveIntegerField(default=0)
-    # UAT only (INWARD_MODE=TEST): an older report loaded after a newer one. It only adds Ships not yet known,
-    # changes nothing else and is never the reference for change detection (decision 16-Oct-2026).
+    # UAT only (INWARD_MODE=TEST): every import is a merge - Ships not yet known are added, duplicates skipped,
+    # nothing else changes and no change detection runs (decisions 16 / 17-Oct-2026). Never set on live.
     back_dated = models.BooleanField(default=False)
     known_ships = models.PositiveIntegerField(default=0)  # back-dated: Ships already in the engine, left unchanged
 

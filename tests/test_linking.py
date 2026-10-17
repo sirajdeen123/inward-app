@@ -97,7 +97,12 @@ def test_draft_and_void_rules(world, make_user):
     assert linking.link_ship(world["clerk"], _iw(world["clerk"], vehicle="NEW1").pk, "52497520")
 
 
-def test_sit_removal_of_linked_ship_is_not_critical(world):
+@pytest.fixture
+def live(settings):
+    settings.INWARD = {**settings.INWARD, "MODE": "LIVE"}   # change detection runs on live only (UAT merges)
+
+
+def test_sit_removal_of_linked_ship_is_not_critical(live, world):
     iw = _iw(world["clerk"])
     linking.link_ship(world["clerk"], iw.pk, "52497520")
     imp = sit.import_sit_file(sit_html(world["tmp"] / "s2.xls", [

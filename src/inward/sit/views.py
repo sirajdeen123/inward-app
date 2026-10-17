@@ -41,7 +41,7 @@ def _decorate(events):
 
 @needs("SEARCH_REPORTS")
 def sit_home(request):
-    latest = SitImport.objects.filter(back_dated=False).select_related("batch", "batch__uploaded_by").first()
+    latest = SitImport.objects.select_related("batch", "batch__uploaded_by").first()
     counts = dict(SitShip.objects.values_list("status").annotate(n=Count("ship_id")))
     events = []
     if latest:

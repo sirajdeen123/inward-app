@@ -67,10 +67,10 @@ def import_sit_file(path: Path, *, source: str, user=None, message_id: str = "",
         raise AlreadyImported(existing)
 
     parsed = parse_sit(path)  # ImportFailed propagates with a clear message
+    if settings.INWARD["MODE"] == "TEST":  # UAT only: every report is merged, in any date order (17-Oct-2026)
+        return _import_uat_merge(path, parsed, sha, name, source, user, message_id, received_at)
     latest = SitImport.objects.filter(back_dated=False).select_related("batch").first()
     if latest and parsed.system_date and latest.system_date and parsed.system_date < latest.system_date:
-        if settings.INWARD["MODE"] == "TEST":  # UAT only: replaying old reports out of order
-            return _import_back_dated(path, parsed, sha, name, source, user, message_id, received_at, latest)
         raise SitImportRejected(
             f"This report (system date {parsed.system_date:%d-%b-%Y}) is older than the current one "
             f"({latest.system_date:%d-%b-%Y}). Older data would look like stock coming back, so it is not imported.")
@@ -151,13 +151,16 @@ def import_sit_file(path: Path, *, source: str, user=None, message_id: str = "",
     return imp
 
 
-def _import_back_dated(path: Path, parsed, sha: str, name: str, source: str, user, message_id: str,
-                       received_at, latest: SitImport) -> SitImport:
-    """UAT only. An older report after a newer one: Ships already in the engine are left exactly as they are;
-    Ships not yet known are added (In SIT, linkable). No change detection, no exceptions, and the import never
-    becomes the reference for the next comparison. Refused outright outside TEST mode."""
+def _import_uat_merge(path: Path, parsed, sha: str, name: str, source: str, user, message_id: str,
+                      received_at) -> SitImport:
+    """UAT only (INWARD_MODE=TEST). Any SIT report, older or newer, any number of times: a Ship ID already in the
+    engine is a duplicate and is skipped - the Ship already there (linked to an IW or not) stays exactly as it
+    is; Ship IDs not yet known are added (In SIT, linkable). Ships missing from the report are never removed.
+    No date check, no change detection, no exceptions. Refused outright outside TEST mode; the live system
+    keeps the normal date order and change detection (SoT 3.3)."""
     if settings.INWARD["MODE"] != "TEST":
-        raise SitImportRejected("Back-dated SIT import is available only in the UAT (TEST) environment.")
+        raise SitImportRejected("The merge import is available only in the UAT (TEST) environment.")
+    latest = SitImport.objects.first()
     with transaction.atomic():
         doc = documents.store(path.read_bytes(), filename=name, content_type="application/vnd.ms-excel",
                               doc_type="SIT_REPORT", user=user)
@@ -168,7 +171,7 @@ def _import_back_dated(path: Path, parsed, sha: str, name: str, source: str, use
             uploaded_by=user if getattr(user, "is_authenticated", False) else None,
             window_from=parsed.window_from, window_to=parsed.window_to, row_count=len(parsed.rows) + len(parsed.issues),
             accepted_count=len(parsed.rows), issue_count=len(parsed.issues), status="BACK_DATED",
-            summary={"back_dated": True, "reference_import": latest.pk, "new_ships": new[:500],
+            summary={"uat_merge": True, "previous_import": latest.pk if latest else None, "new_ships": new[:500],
                      "known_ships": len(known)})
         imp = SitImport.objects.create(batch=batch, report_from=parsed.window_from, report_to=parsed.window_to,
                                        system_date=parsed.system_date, received_at=received_at, back_dated=True,
@@ -195,18 +198,18 @@ def _import_back_dated(path: Path, parsed, sha: str, name: str, source: str, use
                                    first_seen=imp, last_seen=imp, has_issues=ship_id in blocked)
         imp.line_count = len(lines)
         imp.save(update_fields=["line_count"])
-        audit.record("SIT_IMPORTED_BACK_DATED", "sit_import", imp.pk, user=user,
-                     after={"file": name, "system_date": parsed.system_date, "reference_system_date": latest.system_date,
-                            "new_ships": new, "known_ships_left_unchanged": len(known), "mode": "TEST"})
+        audit.record("SIT_IMPORTED_UAT_MERGE", "sit_import", imp.pk, user=user,
+                     after={"file": name, "system_date": parsed.system_date, "new_ships": new,
+                            "duplicate_ships_skipped": len(known), "mode": "TEST"})
     return imp
 
 
 def describe(imp: SitImport) -> str:
     """The clerk's confirmation line after an import."""
     if imp.back_dated:
-        return (f"Back-dated report (UAT only, system date {imp.system_date:%d-%b-%Y}): {imp.ship_count} new Ship(s) "
-                f"added with {imp.line_count} SKU lines; {imp.known_ships} Ship(s) already in the engine left unchanged. "
-                "No change events were raised.")
+        when = f"system date {imp.system_date:%d-%b-%Y}" if imp.system_date else "no system date"
+        return (f"UAT merge ({when}): {imp.ship_count} new Ship(s) added with {imp.line_count} SKU lines; "
+                f"{imp.known_ships} duplicate Ship(s) already in the engine skipped and left unchanged.")
     return (f"{imp.ship_count} Ships, {imp.line_count} SKU lines, {imp.event_count} changes "
             f"({imp.critical_count} critical).")
 

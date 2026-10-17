@@ -30,6 +30,7 @@ def _rows(a_qty=49, include_c=True, b_qty=50, extra=False):
 @pytest.fixture(autouse=True)
 def _docs(settings, tmp_path):
     settings.DOCUMENT_ROOT = tmp_path / "docs"
+    settings.INWARD = {**settings.INWARD, "MODE": "LIVE"}   # live rules; the UAT merge has its own test below
 
 
 def test_first_import_creates_ships_and_refuses_duplicates(tmp_path, seeded):
@@ -122,21 +123,28 @@ def test_ship_totals_and_serial_numbers(client, tmp_path, seeded, make_user):
     assert "1325.6" in listing and "140" in listing
 
 
-def test_back_dated_report_in_uat_adds_only_new_ships(tmp_path, seeded, settings):
+def test_uat_merge_any_order_skips_duplicates(tmp_path, seeded, settings):
     settings.INWARD = {**settings.INWARD, "MODE": "TEST"}
-    newest = services.import_sit_file(sit_html(tmp_path / "new.xls", _rows(include_c=False), system_date="27-JUN-2026"),
-                                      source="MANUAL")
+    first = services.import_sit_file(sit_html(tmp_path / "new.xls", _rows(include_c=False), system_date="27-JUN-2026"),
+                                     source="MANUAL")
+    assert first.back_dated and first.ship_count == 2 and first.known_ships == 0
     a_before = SitShip.objects.get(ship_id=A[1])
-    old_rows = _rows(a_qty=60, include_c=True) + [("'390:Hindupur - Mfg", "52000001", "10-JUN-2026", "F00Z00021G001000",
-                                                    "BERGER SHADE TOOL-FANDECK 2500", "RETAIL", "L", "1", "7")]
-    imp = services.import_sit_file(sit_html(tmp_path / "old.xls", old_rows, system_date="20-JUN-2026"), source="MANUAL")
-    assert imp.back_dated and imp.ship_count == 2 and imp.known_ships == 2 and imp.event_count == 0
+    older = _rows(a_qty=60, include_c=True) + [("'390:Hindupur - Mfg", "52000001", "10-JUN-2026", "F00Z00021G001000",
+                                                 "BERGER SHADE TOOL-FANDECK 2500", "RETAIL", "L", "1", "7")]
+    imp = services.import_sit_file(sit_html(tmp_path / "old.xls", older, system_date="20-JUN-2026"), source="MANUAL")
+    assert imp.ship_count == 2 and imp.known_ships == 2 and imp.event_count == 0          # older date accepted
     assert set(SitShip.objects.filter(first_seen=imp).values_list("ship_id", flat=True)) == {C[1], "52000001"}
     a_after = SitShip.objects.get(ship_id=A[1])
-    assert (a_after.last_seen_id, a_after.status) == (a_before.last_seen_id, a_before.status)   # left unchanged
-    assert not ExceptionEvent.objects.exists() and "Back-dated report (UAT only" in services.describe(imp)
-    # the next normal report is still compared with the newest normal one, not the back-dated one
-    nxt = services.import_sit_file(sit_html(tmp_path / "next.xls", _rows(include_c=False), system_date="28-JUN-2026"),
-                                   source="MANUAL")
-    assert not nxt.back_dated and nxt.event_count == 0
-    assert SitImport.objects.filter(back_dated=False).first() == nxt and newest.pk < nxt.pk
+    assert (a_after.last_seen_id, a_after.status) == (a_before.last_seen_id, a_before.status)   # duplicate skipped
+    newer = services.import_sit_file(sit_html(tmp_path / "next.xls", _rows(include_c=False, extra=True),
+                                              system_date="30-JUN-2026"), source="MANUAL")
+    assert newer.ship_count == 0 and newer.known_ships == 2                                  # nothing new
+    assert SitShip.objects.filter(status=SitShip.Status.IN_SIT).count() == 4                 # nothing removed
+    assert not ExceptionEvent.objects.exists() and "UAT merge" in services.describe(imp)
+
+
+def test_uat_merge_refused_outside_test(tmp_path, seeded, settings):
+    from inward.importers.sit import parse_sit
+    path = sit_html(tmp_path / "x.xls", _rows())
+    with pytest.raises(services.SitImportRejected, match="only in the UAT"):
+        services._import_uat_merge(path, parse_sit(path), "abc", "x.xls", "MANUAL", None, "", None)

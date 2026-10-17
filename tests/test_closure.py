@@ -147,6 +147,8 @@ def test_detailed_report_with_locators(client, reconciled):
                              "no": "42637", "qty": "97"}]
     assert ln["floor"] and ln["diff"] == "0" and d["all_ok"]
     assert ship["dates"] == [{"no": "42637", "date": date(2026, 9, 26)}] and not ship["many"]
+    assert ship["ltr"] == "1329.2" and ship["kg"] == "140"                      # 980 + 349.2 LTR, putty 140 KG
+    assert d["total"]["actual"] == ship["actual"] and d["total"]["ltr"] == "1329.2"   # SED TRX not added again
     c = verified_client(client, w["clerk"])
     page = c.get(reverse("iw:recon_detail", args=[w["iw"].pk])).content.decode()
     assert "DETAILED RECONCILIATION REPORT" in page and "035RCK WH1.R2.C4.2" in page and "All reconciled" in page

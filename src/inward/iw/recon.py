@@ -284,6 +284,8 @@ def detail(iw: Iw) -> dict:
         r["ok"] = r["status"] in (FULL, COVERED)
         r["expected"] = _f(sum((Decimal(ln["expected"]) for ln in r["lines"]), ZERO))
         r["actual"] = _f(sum((Decimal(ln["actual"]) for ln in r["lines"]), ZERO))
+        for fam in ("LTR", "KG"):
+            r[fam.lower()] = _f(sum((Decimal(ln["act_measure"]) for ln in r["lines"] if ln["family"] == fam), ZERO))
         dates = []
         for no in r["numbers"]:
             day = (IrrTransaction.objects.filter(Q(receipt_no=no) | Q(trx_number=no)).order_by("trx_date")
@@ -291,8 +293,12 @@ def detail(iw: Iw) -> dict:
             dates.append({"no": no, "date": day})
         r["dates"] = dates
         r["many"] = len(r["numbers"]) > 1   # several receipts: show the number against each put-away row
+    # what came into stock = the Ship and PO receipts; the SED memo TRX are adjustments and are not added again
+    stock = [r for r in results if r["kind"] in ("SHIP", "PO")]
+    total = {k: _f(sum((Decimal(r[k]) for r in stock), ZERO)) for k in ("actual", "ltr", "kg")}
+    total["skus"] = len({ln["sku"] for r in stock for ln in r["lines"]})
     return {"results": results, "all_ok": bool(results) and all(r["ok"] for r in results),
-            "skus": sum(len(r["lines"]) for r in results)}
+            "skus": sum(len(r["lines"]) for r in results), "total": total, "receipts": len(stock)}
 
 
 def reconcile(iw: Iw) -> list[Result]:

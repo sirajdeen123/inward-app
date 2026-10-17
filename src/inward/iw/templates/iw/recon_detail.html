@@ -27,13 +27,17 @@
 
 <main>
   <h2>Summary <span class="badge {% if d.all_ok %}ok{% else %}bad{% endif %}">{% if d.all_ok %}All reconciled{% else %}Not fully reconciled{% endif %}</span></h2>
-  <table class="tbl"><thead><tr><th>Item</th><th>Receipt / TRX No</th><th>IRR date</th><th class="num">SKUs</th><th class="num">IRR pcs</th><th>Result</th></tr></thead>
+  <table class="tbl"><thead><tr><th>Item</th><th>Receipt / TRX No</th><th>IRR date</th><th class="num">SKUs</th><th class="num">IRR pcs</th><th class="num">LTR</th><th class="num">KG</th><th>Result</th></tr></thead>
     <tbody>{% for r in d.results %}<tr><td>{{ r.track }}</td>
       <td class="mono">{% for x in r.dates %}<div>{{ x.no }}</div>{% empty %}-{% endfor %}</td>
       <td>{% for x in r.dates %}<div>{{ x.date|date:"d-M-Y"|default:"not in IRR" }}</div>{% empty %}-{% endfor %}</td>
       <td class="num">{{ r.lines|length }}</td><td class="num">{{ r.actual }}{% if not r.ok and r.expected != r.actual %} <span class="small">(expected {{ r.expected }})</span>{% endif %}</td>
+      <td class="num">{% if r.ltr != '0' %}{{ r.ltr }}{% else %}-{% endif %}</td><td class="num">{% if r.kg != '0' %}{{ r.kg }}{% else %}-{% endif %}</td>
       <td><span class="badge {% if r.ok %}ok{% else %}bad{% endif %}">{{ r.status }}</span></td></tr>
-      {% empty %}<tr><td colspan="6">Nothing to reconcile - this IW ends at the MRA.</td></tr>{% endfor %}</tbody></table>
+      {% empty %}<tr><td colspan="8">Nothing to reconcile - this IW ends at the MRA.</td></tr>{% endfor %}</tbody>
+    {% if d.receipts %}<tfoot><tr><th colspan="3">Total received in stock (Ship / PO receipts{% if d.receipts > 1 %} - {{ d.receipts }}{% endif %})</th><th class="num">{{ d.total.skus }}</th><th class="num">{{ d.total.actual }}</th>
+      <th class="num">{{ d.total.ltr }}</th><th class="num">{{ d.total.kg }}</th><th></th></tr></tfoot>{% endif %}</table>
+  <p class="small">The SED memo TRX are adjustments to the same stock and are not added to the total.</p>
   <p class="small">Location = Source SUB INV and Source Locator of the IRR row (where the floor supervisor placed the stock in Oracle). A SKU on several locators or lots shows one line each with its pieces.</p>
 
   {% for r in d.results %}{% if r.lines or r.notes %}
@@ -47,9 +51,11 @@
         <tr{% if ln.diff != '0' %} class="off"{% endif %}><td class="num">{{ forloop.counter }}</td><td class="mono b">{{ ln.floor }}</td><td class="mono">{{ ln.sku }}</td><td class="desc">{{ ln.description }}</td>
           <td class="num b">{{ ln.actual }}{% if ln.diff != '0' %}<div class="small">exp {{ ln.expected }}</div>{% endif %}</td>
           <td class="num">{% if ln.family %}{{ ln.act_measure }} {{ ln.family }}{% endif %}</td>
-          <td class="mono">{% for p in ln.places %}<div>{{ p.subinv }} {{ p.locator }}{% if ln.places|length > 1 %} <b>&times; {{ p.qty }}</b>{% endif %}{% if r.many %} <span class="small">· {{ p.no }}</span>{% endif %}</div>{% empty %}<span class="muted">not in the IRR</span>{% endfor %}</td>
-          <td class="mono small">{% for p in ln.places %}<div>{{ p.lot }}</div>{% endfor %}</td></tr>
-      {% endfor %}</tbody></table></div>{% endif %}
+          <td class="loc">{% for p in ln.places %}<div>{{ p.subinv }} {{ p.locator }}{% if ln.places|length > 1 %} <b>&times; {{ p.qty }}</b>{% endif %}{% if r.many %} <span class="small">· {{ p.no }}</span>{% endif %}</div>{% empty %}<span class="muted">not in the IRR</span>{% endfor %}</td>
+          <td class="loc">{% for p in ln.places %}<div>{{ p.lot }}</div>{% endfor %}</td></tr>
+      {% endfor %}</tbody>
+      <tfoot><tr><th colspan="4">Total {{ r.lines|length }} SKU(s)</th><th class="num">{{ r.actual }}</th>
+        <th class="num">{% if r.ltr != '0' %}{{ r.ltr }} LTR{% endif %}{% if r.ltr != '0' and r.kg != '0' %}<br>{% endif %}{% if r.kg != '0' %}{{ r.kg }} KG{% endif %}</th><th colspan="2"></th></tr></tfoot></table></div>{% endif %}
   </section>
   {% endif %}{% endfor %}
 

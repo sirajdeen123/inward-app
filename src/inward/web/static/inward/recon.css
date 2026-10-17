@@ -1,6 +1,6 @@
-/* Detailed reconciliation report: screen, browser print and WeasyPrint PDF (A4 landscape, header on every page). */
+/* Detailed reconciliation report: screen, browser print and WeasyPrint PDF (A4 portrait, header on every page). */
 @page {
-  size: A4 landscape; margin: 30mm 9mm 12mm 9mm;
+  size: A4 portrait; margin: 32mm 8mm 12mm 8mm;
   @top-center { content: element(runhead); width: 100%; vertical-align: bottom; }
   @bottom-left { content: element(runfoot); }
   @bottom-right { content: "Page " counter(page) " of " counter(pages); font-size: 8pt; color: #333; }
@@ -11,19 +11,23 @@ body { font-family: "DejaVu Sans", Arial, sans-serif; font-size: 9pt; color: #00
 .runfoot { position: running(runfoot); font-size: 7.5pt; color: #444 }
 .rh { width: 100%; border-collapse: collapse; border-bottom: 2px solid #000 }
 .rh td { vertical-align: bottom; padding: 0 4px 3px 0; font-size: 8.5pt }
-.rh-logo { width: 22mm } .rh-logo img { width: 20mm; height: auto }
+.rh-logo { width: 19mm } .rh-logo img { width: 17mm; height: auto }
 .co { font-size: 11.5pt; font-weight: 700 } .doc { font-weight: 700; margin-top: 2px }
-.rh-iw { text-align: right; width: 45% } .iwno { font-size: 11pt; font-weight: 700 }
+.rh-iw { text-align: right; width: 42% } .iwno { font-size: 11pt; font-weight: 700 }
 h2 { font-size: 10pt; margin: 8px 0 3px }
 .tbl { border-collapse: collapse; width: 100% }
 .tbl thead { display: table-header-group }
 .tbl th, .tbl td { border: 1px solid #666; padding: 2px 4px; vertical-align: top }
 .tbl th { background: #eee; text-align: left; font-size: 8pt }
 .detail { table-layout: fixed }
-.detail td { font-size: 7.5pt; padding: 1px 3px; line-height: 1.25 }
+.detail td, .detail th { font-size: 7pt; padding: 1px 2px; line-height: 1.25 }
+.detail .loc { font-family: "DejaVu Sans Condensed", "Arial Narrow", Arial, sans-serif; font-size: 7pt }
+.detail .mono { font-size: 6.8pt }
+tfoot th { background: #f4f4f4; text-align: left }
+tfoot th.num { text-align: right }
 .detail .desc { white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
-.c-sl { width: 7mm } .c-floor { width: 16mm } .c-full { width: 34mm } .c-pcs { width: 13mm } .c-meas { width: 20mm }
-.c-loc { width: 52mm } .c-lot { width: 33mm }
+.c-sl { width: 6mm } .c-floor { width: 14mm } .c-full { width: 27mm } .c-pcs { width: 11mm } .c-meas { width: 17mm }
+.c-loc { width: 37mm } .c-lot { width: 25mm }
 tr { page-break-inside: avoid }
 .track { page-break-inside: auto }
 .num { text-align: right } .mono { font-family: "DejaVu Sans Mono", monospace } .b { font-weight: 700 }
@@ -43,7 +47,7 @@ tr { page-break-inside: avoid }
   .toolbar .grow { flex: 1 }
   .toolbar button, .toolbar .btnlink { font: inherit; padding: 6px 14px; border: 1px solid #333; border-radius: 6px; background: #fff; color: #000; text-decoration: none; cursor: pointer }
   .scroll { overflow-x: auto }
-  .detail { min-width: 980px }
+  .detail { min-width: 760px }
 }
 @media (max-width: 700px) {
   body { padding: 10px 16px; font-size: 10pt }

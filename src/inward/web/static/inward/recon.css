@@ -14,12 +14,16 @@ body { font-family: "DejaVu Sans", Arial, sans-serif; font-size: 9pt; color: #00
 .rh-logo { width: 22mm } .rh-logo img { width: 20mm; height: auto }
 .co { font-size: 11.5pt; font-weight: 700 } .doc { font-weight: 700; margin-top: 2px }
 .rh-iw { text-align: right; width: 45% } .iwno { font-size: 11pt; font-weight: 700 }
-h2 { font-size: 10.5pt; margin: 10px 0 4px }
+h2 { font-size: 10pt; margin: 8px 0 3px }
 .tbl { border-collapse: collapse; width: 100% }
 .tbl thead { display: table-header-group }
 .tbl th, .tbl td { border: 1px solid #666; padding: 2px 4px; vertical-align: top }
 .tbl th { background: #eee; text-align: left; font-size: 8pt }
-.detail td { font-size: 8pt }
+.detail { table-layout: fixed }
+.detail td { font-size: 7.5pt; padding: 1px 3px; line-height: 1.25 }
+.detail .desc { white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+.c-sl { width: 7mm } .c-floor { width: 16mm } .c-full { width: 34mm } .c-pcs { width: 13mm } .c-meas { width: 20mm }
+.c-loc { width: 44mm } .c-lot { width: 33mm }
 tr { page-break-inside: avoid }
 .track { page-break-inside: auto }
 .num { text-align: right } .mono { font-family: "DejaVu Sans Mono", monospace } .b { font-weight: 700 }
@@ -41,7 +45,7 @@ tr { page-break-inside: avoid }
   .scroll { overflow-x: auto }
   .detail { min-width: 980px }
 }
-@media screen and (max-width: 700px) {
+@media (max-width: 700px) {
   body { padding: 10px 16px; font-size: 10pt }
   .rh-logo { display: none }
   .rh td { display: block; width: auto; text-align: left }

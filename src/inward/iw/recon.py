@@ -284,6 +284,13 @@ def detail(iw: Iw) -> dict:
         r["ok"] = r["status"] in (FULL, COVERED)
         r["expected"] = _f(sum((Decimal(ln["expected"]) for ln in r["lines"]), ZERO))
         r["actual"] = _f(sum((Decimal(ln["actual"]) for ln in r["lines"]), ZERO))
+        dates = []
+        for no in r["numbers"]:
+            day = (IrrTransaction.objects.filter(Q(receipt_no=no) | Q(trx_number=no)).order_by("trx_date")
+                   .values_list("trx_date", flat=True).first())
+            dates.append({"no": no, "date": day})
+        r["dates"] = dates
+        r["many"] = len(r["numbers"]) > 1   # several receipts: show the number against each put-away row
     return {"results": results, "all_ok": bool(results) and all(r["ok"] for r in results),
             "skus": sum(len(r["lines"]) for r in results)}
 

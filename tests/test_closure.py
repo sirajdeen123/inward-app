@@ -1,4 +1,6 @@
 """Screen 05 part C - scans, closure gate, IRR Reconciliation Report, reopen (SoT 8.7, table 11)."""
+from datetime import date
+
 import pytest
 from django.urls import reverse
 
@@ -144,6 +146,7 @@ def test_detailed_report_with_locators(client, reconciled):
     assert ln["places"] == [{"subinv": "035RCK", "locator": "WH1.R2.C4.2", "lot": "330/334078/08-2026",
                              "no": "42637", "qty": "97"}]
     assert ln["floor"] and ln["diff"] == "0" and d["all_ok"]
+    assert ship["dates"] == [{"no": "42637", "date": date(2026, 9, 26)}] and not ship["many"]
     c = verified_client(client, w["clerk"])
     page = c.get(reverse("iw:recon_detail", args=[w["iw"].pk])).content.decode()
     assert "DETAILED RECONCILIATION REPORT" in page and "035RCK WH1.R2.C4.2" in page and "All reconciled" in page

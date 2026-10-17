@@ -50,14 +50,14 @@ def build(iw: Iw) -> dict:
     for m in erp.memos(iw):
         res = results.get(f"SED {m.source_label} {m.kind.lower()}")
         memos.append({
-            "title": f"{m.kind.title()} memo - {m.source_label}", "kind": m.kind, "lscrr": m.lscrr_covered,
+            "title": f"{m.kind.title()} memo - {m.source_label}", "kind": m.kind, "direct": m.direct, "lsccr": m.lsccr_no,
             "lines": [{"sku": ln.sku, "floor": ln.floor_sku, "desc": ln.description, "qty": str(q.normalize()),
                        "value": f"{(ln.short_value if m.kind == 'SHORT' else ln.damage_value if m.kind == 'DAMAGE' else 0) or 0:.2f}",
                        "remarks": {"SHORT": ln.short_remarks, "EXCESS": ln.excess_remarks, "DAMAGE": ln.damage_remarks}[m.kind],
                        "by": ln.updated_by.username if ln.updated_by_id else "", "at": _t(ln.updated_at)}
                       for ln, q in m.lines],
             "trx": [{"no": t.trx_no, "by": t.entered_by.username, "at": _t(t.entered_at)} for t in m.trx],
-            "irr": res["status"] if res else ("LSCRR-covered" if m.lscrr_covered else "not reconciled yet"),
+            "irr": res["status"] if res else "not reconciled yet",
             "irr_notes": res["notes"] if res else []})
     photos = [{"sku": p.line.floor_sku, "source": p.line.source_label, "by": p.uploaded_by.username,
                "at": _t(p.uploaded_at), "file": _file(p.original)}

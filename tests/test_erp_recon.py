@@ -1,4 +1,4 @@
-"""Screen 05 - receipts, LSCRR, SED TRX, IRR import and reconciliation (SoT 8.1 - 8.6, table 10)."""
+"""Screen 05 - receipts, LSCCR, SED TRX, IRR import and reconciliation (SoT 8.1 - 8.6, table 10)."""
 import shutil
 from datetime import date, datetime
 from decimal import Decimal
@@ -67,20 +67,23 @@ def _by_track(iw):
     return {r.track: r for r in recon.reconcile(iw)}
 
 
-def test_lscrr_needed_before_receipt_then_full_reconciliation(at_erp):
+def test_direct_factory_full_receipt_and_lsccr_trx(at_erp):
     w, clerk = at_erp, at_erp["clerk"]
     ref = f"SHIP:{w['link'].pk}"
-    with pytest.raises(IwError, match="LSCRR status"):
-        erp.add_receipt(clerk, w["iw"].pk, ref, "NORMAL", "42637")
-    erp.set_lscrr(clerk, w["link"].pk, False)
-    erp.add_receipt(clerk, w["iw"].pk, ref, "NORMAL", "42637")
+    erp.add_receipt(clerk, w["iw"].pk, ref, "NORMAL", "42637")          # no LSCCR needed for the receipt
     assert Iw.objects.get(pk=w["iw"].pk).status == Iw.Status.ERP_IN_PROGRESS
     res = _by_track(w["iw"])
     assert res[f"Ship {SHIP}"].status == "NOT_FOUND"
     assert res[f"SED Ship {SHIP} short"].status == "PENDING"
-    full_receipt()                                         # not LSCRR: full document quantity
+    full_receipt()                       # always the full document quantity, also with a short on the LSCCR
     assert _by_track(w["iw"])[f"Ship {SHIP}"].status == "FULL"
     memos = {m.kind: m for m in erp.memos(w["iw"])}
+    assert memos["SHORT"].direct and not memos["SHORT"].lsccr_no
+    with pytest.raises(IwError, match="LSCCR No first"):
+        erp.add_sed_trx(clerk, w["iw"].pk, memos["SHORT"].key, "3560000101")
+    erp.set_lscrr(clerk, w["link"].pk, "lsc617983")
+    memos = {m.kind: m for m in erp.memos(w["iw"])}
+    assert memos["SHORT"].lsccr_no == "LSC617983"
     erp.add_sed_trx(clerk, w["iw"].pk, memos["SHORT"].key, "3560000101")
     erp.add_sed_trx(clerk, w["iw"].pk, memos["DAMAGE"].key, "3562905914")   # the Receipt half of the pair
     irr_rows([("Miscellaneous Issue", "3560000101", EASYCLEAN, 3, "10.8", None, "Issue", ""),
@@ -94,7 +97,6 @@ def test_lscrr_needed_before_receipt_then_full_reconciliation(at_erp):
 
 def test_partial_and_over_receipt(at_erp):
     w, clerk = at_erp, at_erp["clerk"]
-    erp.set_lscrr(clerk, w["link"].pk, False)
     erp.add_receipt(clerk, w["iw"].pk, f"SHIP:{w['link'].pk}", "NORMAL", "42637")
     full_receipt(less={EASYCLEAN: 10})
     assert _by_track(w["iw"])[f"Ship {SHIP}"].status == "PARTIAL"
@@ -104,38 +106,39 @@ def test_partial_and_over_receipt(at_erp):
     assert r.status == "REVIEW" and any("IRR 99" in n for n in r.notes)
 
 
-def test_lscrr_applied_expects_reduced_quantity_and_hints(at_erp):
-    w, clerk = at_erp, at_erp["clerk"]
-    erp.set_lscrr(clerk, w["link"].pk, True, "LS-77")
-    erp.add_receipt(clerk, w["iw"].pk, f"SHIP:{w['link'].pk}", "NORMAL", "42637")
-    full_receipt()                                         # IRR shows the full document instead of doc - S - D
-    r = _by_track(w["iw"])
-    assert r[f"Ship {SHIP}"].status == "REVIEW" and "IRR matches non-LSCRR pattern" in r[f"Ship {SHIP}"].notes
-    assert r[f"SED Ship {SHIP} short"].status == "LSCRR_COVERED" and r[f"SED Ship {SHIP} short"].ok
-    with pytest.raises(IwError, match="LSCRR-covered"):
-        erp.add_sed_trx(clerk, w["iw"].pk, erp.memos(w["iw"])[0].key, "999")
-
-
-def test_lscrr_reduced_and_excess_receipt_as_misc(at_erp):
+def test_lsccr_request_set_rows(at_erp):
+    """As IW-2627-000001 in UAT: full receipt, then the request set's Misc Issue / Misc Receipt (reason 08)."""
     w, clerk = at_erp, at_erp["clerk"]
     from inward.iw.models import SedLine
     SedLine.objects.filter(iw=w["iw"], sku=EASYCLEAN).update(short_qty=0, excess_qty=2, short_value=None)
-    erp.set_lscrr(clerk, w["link"].pk, True, "LS-77")
+    erp.set_lscrr(clerk, w["link"].pk, "LSC617983")
     erp.add_receipt(clerk, w["iw"].pk, f"SHIP:{w['link'].pk}", "NORMAL", "42637")
-    erp.add_receipt(clerk, w["iw"].pk, f"SHIP:{w['link'].pk}", "EXCESS", "3570001")
-    full_receipt(less={WEATHERCOAT: 1})                    # doc - damage
-    irr_rows([("Miscellaneous Receipt", "3570001", EASYCLEAN, 2, "7.2", None, "Receipt", "")])
+    with pytest.raises(IwError, match="Stock Receipt numbers"):
+        erp.add_receipt(clerk, w["iw"].pk, f"SHIP:{w['link'].pk}", "EXCESS", "3570001")
+    full_receipt()
+    memos = {m.kind: m for m in erp.memos(w["iw"])}
+    erp.add_sed_trx(clerk, w["iw"].pk, memos["EXCESS"].key, "3672576526")
+    erp.add_sed_trx(clerk, w["iw"].pk, memos["DAMAGE"].key, "3672576518")
+    irr_rows([("Miscellaneous Receipt", "3672576526", EASYCLEAN, 2, "7.2", None, "Receipt", ""),
+              ("Miscellaneous Issue", "3672576518", WEATHERCOAT, 1, "20", None, "Issue", "")])
     r = _by_track(w["iw"])
-    assert r[f"Ship {SHIP}"].status == "FULL" and r[f"Ship {SHIP} excess"].status == "FULL"
+    assert r[f"Ship {SHIP}"].status == "FULL" and f"Ship {SHIP} excess" not in r
+    assert r[f"SED Ship {SHIP} excess"].status == "FULL"
+    assert r[f"SED Ship {SHIP} damage"].status == "FULL"          # LSCCR damage as a Miscellaneous Issue
+    assert any("not the LSCCR request set" in n for n in r[f"SED Ship {SHIP} damage"].notes)
+    IrrTransaction.objects.filter(trx_number__in=["3672576526", "3672576518"]).update(
+        reason_description="08 / Depot-Short Stock Receipt")
+    r = _by_track(w["iw"])
+    assert not r[f"SED Ship {SHIP} damage"].notes and not r[f"SED Ship {SHIP} excess"].notes
 
 
 def test_receipt_of_another_ship_and_wrong_trx_type(at_erp):
     w, clerk = at_erp, at_erp["clerk"]
-    erp.set_lscrr(clerk, w["link"].pk, False)
     erp.add_receipt(clerk, w["iw"].pk, f"SHIP:{w['link'].pk}", "NORMAL", "42637")
     full_receipt(ship="51882836")
     r = _by_track(w["iw"])[f"Ship {SHIP}"]
     assert r.status == "REVIEW" and any("belongs to Ship 51882836" in n for n in r.notes)
+    erp.set_lscrr(clerk, w["link"].pk, "LSC1")
     memo = {m.kind: m for m in erp.memos(w["iw"])}["SHORT"]
     erp.add_sed_trx(clerk, w["iw"].pk, memo.key, "3560000101")
     irr_rows([("Miscellaneous Receipt", "3560000101", EASYCLEAN, 3, "10.8", None, "Receipt", "")])
@@ -144,16 +147,19 @@ def test_receipt_of_another_ship_and_wrong_trx_type(at_erp):
         erp.add_sed_trx(clerk, w["iw"].pk, memo.key, "3560000101")
 
 
-def test_lscrr_change_after_receipt_needs_supervisor(at_erp, make_user):
+def test_lsccr_change_after_trx_needs_supervisor(at_erp, make_user):
     w, clerk = at_erp, at_erp["clerk"]
-    erp.set_lscrr(clerk, w["link"].pk, False)
-    erp.add_receipt(clerk, w["iw"].pk, f"SHIP:{w['link'].pk}", "NORMAL", "42637")
+    with pytest.raises(IwError, match="LSCCR number"):
+        erp.set_lscrr(clerk, w["link"].pk, " ")
+    erp.set_lscrr(clerk, w["link"].pk, "LS-1")
+    erp.set_lscrr(clerk, w["link"].pk, "LS-2")                         # no TRX yet: the clerk may correct it
+    erp.add_sed_trx(clerk, w["iw"].pk, erp.memos(w["iw"])[0].key, "3560000101")
     with pytest.raises(IwError, match="System Supervisor"):
-        erp.set_lscrr(clerk, w["link"].pk, True, "LS-1")
+        erp.set_lscrr(clerk, w["link"].pk, "LS-3")
     sup = make_user("sup_ls", "SYSTEM_SUPERVISOR")
     with pytest.raises(IwError, match="reason"):
-        erp.set_lscrr(sup, w["link"].pk, True, "LS-1")
-    assert erp.set_lscrr(sup, w["link"].pk, True, "LS-1", "factory confirmed LSCRR").lscrr_applied
+        erp.set_lscrr(sup, w["link"].pk, "LS-3")
+    assert erp.set_lscrr(sup, w["link"].pk, "LS-3", "wrong request set number").lscrr_no == "LS-3"
 
 
 def test_vendor_po_receipt(seeded, make_user, settings, tmp_path):
@@ -195,8 +201,9 @@ def test_screens(client, at_erp):
     w = at_erp
     c = verified_client(client, w["clerk"])
     page = c.get(reverse("iw:erp", args=[w["iw"].pk])).content.decode()
-    assert f"Ship {SHIP}" in page and "LSCRR applied in Oracle?" in page and "SED memos" in page
-    c.post(reverse("iw:lscrr_set", args=[w["iw"].pk, w["link"].pk]), {"applied": "no"})
+    assert f"Ship {SHIP}" in page and "LSCCR No needed before the SED TRX Nos" in page and "LSCCR request set" in page
+    c.post(reverse("iw:lscrr_set", args=[w["iw"].pk, w["link"].pk]), {"lscrr_no": "LSC617983"})
+    assert "LSCCR LSC617983" in c.get(reverse("iw:erp", args=[w["iw"].pk])).content.decode()
     resp = c.post(reverse("iw:receipt_add", args=[w["iw"].pk]),
                   {"ref": f"SHIP:{w['link'].pk}", "kind": "NORMAL", "receipt_no": "42637"}, follow=True)
     assert "IRR verification pending" in resp.content.decode()

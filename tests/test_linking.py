@@ -1,4 +1,4 @@
-"""Screen 03 part A - inbound Ships, split vehicle, LSCRR, Colour Bank, Non-Stock (SoT 5)."""
+"""Screen 03 part A - inbound Ships, split vehicle, LSCCR, Colour Bank, Non-Stock (SoT 5)."""
 from datetime import datetime
 from decimal import Decimal
 
@@ -40,12 +40,12 @@ def _iw(clerk, code="DIRECT_FACTORY", vehicle="TN60E8139"):
 
 def test_link_freezes_baseline_and_sets_status(world):
     iw = _iw(world["clerk"])
-    link = linking.link_ship(world["clerk"], iw.pk, "52497520", lscrr_no="lscrr-77", lscrr_applied=True)
+    link = linking.link_ship(world["clerk"], iw.pk, "52497520", lscrr_no="lsc-77")
     lines = {ln.sku: ln for ln in link.lines.all()}
     assert lines["F002980000020000"].quantity == 49 and lines["F002980000020000"].measure == 980
     assert lines["F00B470633002001"].measure == 140 and lines["F00B470633002001"].measure_family == "KG"
     assert lines["2010370991BULKPC"].is_empty_packing and lines["2010370991BULKPC"].measure == 0
-    assert (link.lscrr_no, link.lscrr_applied) == ("LSCRR-77", True)
+    assert (link.lscrr_no, link.lscrr_applied) == ("LSC-77", True)
     iw.refresh_from_db()
     assert iw.status == Iw.Status.MATERIAL_LINKED
     assert linking.ship_link_state()[0] == {"52497520"}
@@ -134,11 +134,11 @@ def test_screens(client, world):
     page = c.get(reverse("iw:link_ship", args=[iw.pk]) + "?ship=52497520").content.decode()
     assert "298 000" in page and "Link Ship 52497520" in page
     resp = c.post(reverse("iw:link_ship", args=[iw.pk]), {"ship_id": "52497520", "confirm": "1",
-                                                          "lscrr_no": "L-1", "lscrr_applied": "no"}, follow=True)
+                                                          "lscrr_no": "L-1"}, follow=True)
     html = resp.content.decode()
-    assert "Ship 52497520 linked" in html and "980 LTR" in html and "LSCRR L-1" in html
+    assert "Ship 52497520 linked" in html and "980 LTR" in html and "LSCCR L-1" in html
     link = ShipLink.objects.get(iw=iw)
-    c.post(reverse("iw:lscrr", args=[link.pk]), {"lscrr_no": "L-2", "lscrr_applied": "yes"})
+    c.post(reverse("iw:lscrr", args=[link.pk]), {"lscrr_no": "L-2"})
     link.refresh_from_db()
     assert (link.lscrr_no, link.lscrr_applied) == ("L-2", True)
     resp = c.post(reverse("iw:add_non_stock", args=[iw.pk]), {"sender_name": "Mkt", "document_no": "D1",

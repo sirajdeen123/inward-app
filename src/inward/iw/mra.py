@@ -5,9 +5,9 @@ summary and the unloading position. It never lists the consignment's full SKU de
 unloading rate. One PDF holds the MRA twice (driver copy, depot copy) followed by the SED memos for the System
 Supervisor. Revisions R01, R02 ... are frozen; a new one is issued only when the content changed (with a reason).
 
-Memo rules (SoT 7.3, table 10): Direct Factory Ship with LSCRR applied - Short and Damage are LSCRR-covered (no
-separate TRX), Excess needs a separate Excess Receipt; otherwise Short -> issue TRX, Excess -> receipt TRX,
-Damage -> subinventory transfer to DMG. Outbound, Colour Bank and Non-Stock have no memos.
+Memo rules (SoT 7.3, table 10): Short -> issue TRX, Excess -> receipt TRX, Damage -> subinventory transfer to DMG.
+Direct Factory Ship: all three are posted by the LSCCR request set, never manually (decision 17-Oct-2026); the
+TRX Nos it created are entered on Screen 05. Outbound, Colour Bank and Non-Stock have no memos.
 """
 from __future__ import annotations
 
@@ -71,13 +71,10 @@ def _operator(iw: Iw):
 def _memo_rule(line: SedLine, kind: str) -> tuple[str, str]:
     """(Oracle action, note) for one SED quantity."""
     link = line.ship_link
-    direct = link is not None and line.iw.load_type.is_direct_factory
-    if direct and link.lscrr_applied:
-        if kind == "EXCESS":
-            return "Excess Receipt", f"LSCRR {link.lscrr_no or '-'} applied - enter the separate Excess Receipt No"
-        return "LSCRR-covered", f"LSCRR {link.lscrr_no or '-'} - no separate TRX expected"
-    note = "LSCRR not yet declared for this Ship - confirm before ERP entry" if direct and link.lscrr_applied is None else ""
-    return {"SHORT": "Issue TRX", "EXCESS": "Receipt TRX", "DAMAGE": "Subinventory transfer to DMG"}[kind], note
+    if link is not None and line.iw.load_type.is_direct_factory:
+        return "By LSCCR request set", (f"LSCCR {link.lscrr_no}" if link.lscrr_no else "LSCCR No to be recorded") + \
+            " - do not post manually; enter the TRX No it created"
+    return {"SHORT": "Issue TRX", "EXCESS": "Receipt TRX", "DAMAGE": "Subinventory transfer to DMG"}[kind], ""
 
 
 def build(iw: Iw) -> dict:
@@ -86,7 +83,7 @@ def build(iw: Iw) -> dict:
     refs = []
     for l in iw.ship_links.select_related("ship").order_by("linked_at"):
         refs.append({"kind": "Ship", "ref": l.ship_id, "detail": f"{l.ship.from_org_code} {l.ship.from_org_name}".strip()
-                     + (f" · LSCRR {l.lscrr_no}" if l.lscrr_no else "") + (" · split vehicle" if l.is_split else "")})
+                     + (f" · LSCCR {l.lscrr_no}" if l.lscrr_no else "") + (" · split vehicle" if l.is_split else "")})
     for c in iw.vendor_consignments.select_related("vendor"):
         refs.append({"kind": "Vendor", "ref": f"{c.vendor_id} · PO {c.po_no} · challan {c.challan_no}",
                      "detail": c.vendor.name})
@@ -132,8 +129,7 @@ def build(iw: Iw) -> dict:
                          "remarks": {"SHORT": ln.short_remarks, "EXCESS": ln.excess_remarks,
                                      "DAMAGE": ln.damage_remarks}[kind]})
         if rows:
-            memos.append({"kind": kind, "title": title, "rows": rows,
-                          "all_lscrr": all(r["action"] == "LSCRR-covered" for r in rows)})
+            memos.append({"kind": kind, "title": title, "rows": rows})
 
     rec = UnloadingRecord.objects.filter(iw=iw).first()
     unl = {"charge": _money(rec.charge), "status": rec.get_status_display(), "paid": _money(rec.paid_amount),

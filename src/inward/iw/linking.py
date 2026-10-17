@@ -124,7 +124,7 @@ def parse_kg(value):
 
 @transaction.atomic
 def link_ship(user: User, iw_pk: int, ship_id: str, *, split: bool = False, split_reason: str = "",
-              allocations: dict[str, str] | None = None, lscrr_no: str = "", lscrr_applied: bool | None = None,
+              allocations: dict[str, str] | None = None, lscrr_no: str = "",
               gross_kg="") -> ShipLink:
     require(user, "MATERIAL_LINK")
     iw = Iw.objects.select_for_update().select_related("load_type").get(pk=iw_pk)
@@ -140,7 +140,7 @@ def link_ship(user: User, iw_pk: int, ship_id: str, *, split: bool = False, spli
         raise IwError("A reason is mandatory for a split vehicle.")
     link = ShipLink.objects.create(iw=iw, ship=cand.ship, baseline_import=cand.ship.last_seen, is_split=split,
                                    split_reason=split_reason.strip(), lscrr_no=clean_text(lscrr_no).upper(),
-                                   lscrr_applied=lscrr_applied if iw.load_type.is_direct_factory else None,
+                                   lscrr_applied=True if iw.load_type.is_direct_factory and lscrr_no.strip() else None,
                                    gross_kg=parse_kg(gross_kg), linked_by=user)
     total = Decimal(0)
     for ln in cand.lines:
@@ -167,19 +167,20 @@ def link_ship(user: User, iw_pk: int, ship_id: str, *, split: bool = False, spli
 
 
 @transaction.atomic
-def update_lscrr(user: User, link_pk: int, lscrr_no: str, applied: bool | None) -> ShipLink:
+def update_lscrr(user: User, link_pk: int, lscrr_no: str, applied: bool | None = None) -> ShipLink:
+    """The LSCCR No of a Direct Factory Ship before the MRA (after it: Screen 05, erp.set_lscrr)."""
     require(user, "SED_TRX_LSCRR")
     link = ShipLink.objects.select_for_update().select_related("iw", "iw__load_type").get(pk=link_pk)
     if not link.iw.load_type.is_direct_factory:
-        raise IwError("LSCRR applies to Direct Factory loads only.")
+        raise IwError("LSCCR applies to Direct Factory loads only.")
     if not link.iw.is_editable:
-        raise IwError("LSCRR mode can only be changed by the System Supervisor after MRA (Screen 05).")
-    before = {"lscrr_no": link.lscrr_no, "lscrr_applied": link.lscrr_applied}
+        raise IwError("After the MRA the LSCCR No is recorded on the ERP & IRR screen (Screen 05).")
+    before = {"lsccr_no": link.lscrr_no}
     link.lscrr_no = clean_text(lscrr_no).upper()
-    link.lscrr_applied = applied
+    link.lscrr_applied = True if link.lscrr_no else None
     link.save(update_fields=["lscrr_no", "lscrr_applied"])
-    audit.record("LSCRR_UPDATED", "iw", link.iw_id, user=user, iw_id=link.iw_id, before=before,
-                 after={"ship": link.ship_id, "lscrr_no": link.lscrr_no, "lscrr_applied": applied})
+    audit.record("LSCCR_UPDATED", "iw", link.iw_id, user=user, iw_id=link.iw_id, before=before,
+                 after={"ship": link.ship_id, "lsccr_no": link.lscrr_no})
     return link
 
 

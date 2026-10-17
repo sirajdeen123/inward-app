@@ -78,16 +78,20 @@ def actions(iw: Iw) -> list[Action]:
     if st in erp.ERP_STAGES:
         out = []
         for link in iw.ship_links.all():
-            if iw.load_type.is_direct_factory and link.lscrr_applied is None:
-                out.append(Action(f"Ship {link.ship_id}: record the LSCRR status", u("erp"), "ERP"))
-            elif not link.receipts.filter(kind=ErpReceipt.Kind.NORMAL).exists():
+            if not link.receipts.filter(kind=ErpReceipt.Kind.NORMAL).exists():
                 out.append(Action(f"Ship {link.ship_id}: enter the Stock Receipt No", u("erp"), "ERP"))
         for c in iw.vendor_consignments.all():
             if not c.receipts.exists():
                 out.append(Action(f"Challan {c.challan_no}: enter the PO Receipt No", u("erp"), "ERP"))
+        no_lsccr = set()
         for m in erp.memos(iw):
-            if not m.lscrr_covered and not m.trx:
-                out.append(Action(f"{m.source_label} {m.kind.lower()} memo: enter the Oracle TRX No", u("erp"), "SED"))
+            if m.direct and not m.lsccr_no:
+                if m.source_key not in no_lsccr:
+                    no_lsccr.add(m.source_key)
+                    out.append(Action(f"{m.source_label}: record the LSCCR No", u("erp"), "SED"))
+            elif not m.trx:
+                out.append(Action(f"{m.source_label} {m.kind.lower()} memo: enter the Oracle TRX No"
+                                  + (f" created by LSCCR {m.lsccr_no}" if m.direct else ""), u("erp"), "SED"))
         if out:
             return out
         run = iw.recon_runs.first()

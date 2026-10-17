@@ -26,11 +26,9 @@
     <div><label for="split_reason">Reason for split (mandatory when split)</label><input id="split_reason" name="split_reason" class="input-inline" value="{{ post.split_reason|default:'' }}"></div>
     {% if iw.load_type.is_direct_factory %}
     <div class="inline">
-      <label for="lscrr_no">LSCRR number</label><input id="lscrr_no" name="lscrr_no" class="input-inline" value="{{ post.lscrr_no|default:'' }}">
-      <label for="lscrr_applied">LSCRR applied in Oracle?</label>
-      <select id="lscrr_applied" name="lscrr_applied" class="input-inline"><option value="">Not known yet</option><option value="no">No - receipt shows full quantity</option><option value="yes">Yes - receipt net of short and damage</option></select>
+      <label for="lscrr_no">LSCCR No</label><input id="lscrr_no" name="lscrr_no" class="input-inline caps" value="{{ post.lscrr_no|default:'' }}">
     </div>
-    <p class="muted">Both are required before the Stock Receipt No is entered (Screen 05); you can fill them later.</p>
+    <p class="muted">Needed before the SED TRX Nos are entered (Screen 05) when this Ship has short / excess / damage; you can fill it later.</p>
     {% endif %}
     <div class="scroll"><table class="tbl">
       <thead><tr><th class="num">Sl.</th><th>Floor SKU</th><th>Description</th><th>BL</th><th class="num">Pack</th><th class="num">Pending in SIT</th><th class="num">On other IWs</th><th class="num">Available</th><th class="num">On this vehicle (split)</th></tr></thead>

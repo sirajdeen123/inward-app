@@ -31,10 +31,6 @@ def link_totals(lines) -> dict:
     return t
 
 
-def _bool(value: str):
-    return {"yes": True, "no": False}.get(value)
-
-
 @needs("MATERIAL_LINK")
 def link_ship(request, pk):
     iw = get_object_or_404(Iw.objects.select_related("load_type", "source_org"), pk=pk)
@@ -52,7 +48,6 @@ def link_ship(request, pk):
             link = linking.link_ship(request.user, iw.pk, ship_id, split=split,
                                      split_reason=request.POST.get("split_reason", ""), allocations=allocations,
                                      lscrr_no=request.POST.get("lscrr_no", ""),
-                                     lscrr_applied=_bool(request.POST.get("lscrr_applied", "")),
                                      gross_kg=request.POST.get("gross_kg", ""))
             messages.success(request, f"Ship {link.ship_id} linked to {iw}"
                                       f"{' as a split vehicle' if link.is_split else ''}.")
@@ -71,9 +66,8 @@ def link_ship(request, pk):
 def lscrr(request, link_pk):
     link = get_object_or_404(ShipLink, pk=link_pk)
     try:
-        linking.update_lscrr(request.user, link.pk, request.POST.get("lscrr_no", ""),
-                             _bool(request.POST.get("lscrr_applied", "")))
-        messages.success(request, f"LSCRR details saved for Ship {link.ship_id}.")
+        linking.update_lscrr(request.user, link.pk, request.POST.get("lscrr_no", ""))
+        messages.success(request, f"LSCCR No saved for Ship {link.ship_id}.")
     except IwError as exc:
         messages.error(request, str(exc))
     return redirect("iw:detail", pk=link.iw_id)

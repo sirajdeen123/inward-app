@@ -16,7 +16,7 @@
       {% if lk.totals.ltr %}· {{ lk.totals.ltr|floatformat:"-3" }} LTR{% endif %}{% if lk.totals.kg %} · {{ lk.totals.kg|floatformat:"-3" }} KG{% endif %}
       {% if lk.totals.empty %}· + {{ lk.totals.empty }} empty packing{% endif %}
       {% if lk.is_split %}<span class="chip chip-warn">Split vehicle</span>{% endif %}
-      {% if iw.load_type.is_direct_factory %}{% if lk.lscrr_no and lk.lscrr_applied is not None %}<span class="chip">LSCRR {{ lk.lscrr_no }} · {% if lk.lscrr_applied %}applied{% else %}not applied{% endif %}</span>{% else %}<span class="chip chip-warn">LSCRR details pending</span>{% endif %}{% endif %}
+      {% if iw.load_type.is_direct_factory and lk.lscrr_no %}<span class="chip">LSCCR {{ lk.lscrr_no }}</span>{% endif %}
     </summary>
     {% if lk.is_split %}<p class="muted">Split reason: {{ lk.split_reason }}</p>{% endif %}
     <div class="scroll"><table class="tbl">
@@ -31,13 +31,8 @@
     <div class="bar">
       {% if iw.load_type.is_direct_factory and can_lscrr %}
       <form method="post" action="{% url 'iw:lscrr' lk.pk %}" class="inline">{% csrf_token %}
-        <label for="lscrr-{{ lk.pk }}">LSCRR no</label><input id="lscrr-{{ lk.pk }}" name="lscrr_no" value="{{ lk.lscrr_no }}" class="input-inline">
-        <label for="lscrra-{{ lk.pk }}">Applied in Oracle?</label>
-        <select id="lscrra-{{ lk.pk }}" name="lscrr_applied" class="input-inline">
-          <option value=""{% if lk.lscrr_applied is None %} selected{% endif %}>Not known yet</option>
-          <option value="no"{% if lk.lscrr_applied is False %} selected{% endif %}>No</option>
-          <option value="yes"{% if lk.lscrr_applied %} selected{% endif %}>Yes</option></select>
-        <button type="submit" class="btn btn-sm">Save LSCRR</button>
+        <label for="lscrr-{{ lk.pk }}">LSCCR No</label><input id="lscrr-{{ lk.pk }}" name="lscrr_no" value="{{ lk.lscrr_no }}" class="input-inline caps">
+        <button type="submit" class="btn btn-sm">Save LSCCR No</button>
       </form>{% endif %}
       <div class="grow"></div>
       <form method="post" action="{% url 'iw:unlink_ship' lk.pk %}">{% csrf_token %}<button type="submit" class="btn btn-sm">Remove Ship</button></form>

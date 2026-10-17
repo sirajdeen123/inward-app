@@ -1,13 +1,14 @@
 """Screen 05 part B - IRR reconciliation (SoT 8.3 - 8.6, table 10). Started by the clerk; never closes anything.
 
 Ship (normal receipts): IRR 'Int Req Intr Rcpt' rows whose TRX Number is '<Receipt No> / <Ship ID>' (Shipping ID
-Number checked when present), aggregated by full SKU, against the expected quantity: the full document quantity,
-or document - short - damage for a Direct Factory Ship with LSCRR applied. LSCRR excess: the Excess Receipt No
-as 'Int Req Intr Rcpt <no> / <Ship ID>' or as a Miscellaneous Receipt with that TRX Number (decision 16-Oct-2026),
-against the SED excess. Vendor: only through the PO Receipt No ('Po Receipt' rows '<no> / <challan text>');
-challan text differences are information only. SED memos: by TRX No - Short = Miscellaneous Issue, Excess =
-Miscellaneous Receipt, Damage = Subinventory Transfer into DMG counted once from the Issue side (either number of
-the Issue / Receipt pair may be entered). Results: FULL, PARTIAL, REVIEW, NOT_FOUND (or PENDING = nothing entered).
+Number checked when present), aggregated by full SKU, against the full document quantity - also for a Direct
+Factory Ship, whose short / excess / damage the LSCCR request set posts separately (decision 17-Oct-2026).
+Vendor: only through the PO Receipt No ('Po Receipt' rows '<no> / <challan text>'); challan text differences are
+information only. SED memos: by TRX No - Short = Miscellaneous Issue, Excess = Miscellaneous Receipt, Damage =
+Subinventory Transfer into DMG counted once from the Issue side (either number of the Issue / Receipt pair may be
+entered); Direct Factory damage may also be a Miscellaneous Issue of the LSCCR request set. A request-set row whose
+reason is not '08 / Depot-Short Stock Receipt' is noted for information. Results: FULL, PARTIAL, REVIEW, NOT_FOUND
+(or PENDING = nothing entered). LSCRR_COVERED appears only in runs saved before 17-Oct-2026.
 """
 from __future__ import annotations
 
@@ -31,6 +32,7 @@ FULL, PARTIAL, REVIEW, NOT_FOUND, PENDING, COVERED = "FULL", "PARTIAL", "REVIEW"
 STOCK, PO, MISC_ISSUE, MISC_RECEIPT, SUBINV = ("INT REQ INTR RCPT", "PO RECEIPT", "MISCELLANEOUS ISSUE",
                                                "MISCELLANEOUS RECEIPT", "SUBINVENTORY TRANSFER")
 MEMO_TYPE = {"SHORT": MISC_ISSUE, "EXCESS": MISC_RECEIPT, "DAMAGE": SUBINV}
+LSCCR_REASON = "08"   # reason of the rows the LSCCR request set creates: '08 / Depot-Short Stock Receipt'
 ZERO = Decimal(0)
 
 
@@ -109,17 +111,11 @@ def _classify(res: Result, expected: dict[str, SkuLine], rows, tol: Decimal) -> 
 # ---------------------------------------------------------------- tracks
 
 
-def _ship_expected(link, lscrr: bool) -> dict[str, SkuLine]:
-    sed = defaultdict(lambda: ZERO)
-    if lscrr:
-        for s in link.sed_lines.all():
-            sed[s.sku] += s.short_qty + s.damage_qty
+def _ship_expected(link) -> dict[str, SkuLine]:
     out = {}
     for ln in link.lines.all():
-        qty = ln.quantity - sed[ln.sku]
-        per = (ln.measure / ln.quantity) if ln.quantity else ZERO
         fam = "" if ln.is_empty_packing else ln.measure_family
-        out[ln.sku] = SkuLine(ln.sku, qty, family=fam, exp_measure=(per * qty) if fam else None,
+        out[ln.sku] = SkuLine(ln.sku, ln.quantity, family=fam, exp_measure=ln.measure if fam else None,
                               description=ln.description)
     return out
 
@@ -152,55 +148,21 @@ def _receipt_rows(numbers: list[str], ship_id: str, notes: list[str], also_misc:
 
 def ship_results(iw: Iw, tol: Decimal) -> list[Result]:
     out = []
-    for link in iw.ship_links.prefetch_related("lines", "sed_lines", "receipts").order_by("linked_at"):
-        lscrr = bool(iw.load_type.is_direct_factory and link.lscrr_applied)
+    for link in iw.ship_links.prefetch_related("lines", "receipts").order_by("linked_at"):
         normal = [r.receipt_no for r in link.receipts.all() if r.kind == ErpReceipt.Kind.NORMAL]
         res = Result(f"Ship {link.ship_id}", "SHIP", normal, PENDING)
         if not normal:
             res.notes.append("Stock Receipt No not entered.")
-            out.append(res)
         else:
             rows, review = _receipt_rows(normal, link.ship_id, res.notes)
             if not rows and not review:
                 res.status = NOT_FOUND
-                out.append(res)
             else:
-                _classify(res, _ship_expected(link, lscrr), rows, tol)
+                _classify(res, _ship_expected(link), rows, tol)
                 if review:
                     res.status = REVIEW
-                if res.status == REVIEW and iw.load_type.is_direct_factory:
-                    hint = _lscrr_hint(link, lscrr, rows, tol)
-                    if hint:
-                        res.notes.append(hint)
-                out.append(res)
-        if lscrr:
-            excess_expected = {}
-            for s in link.sed_lines.all():
-                if s.excess_qty:
-                    excess_expected[s.sku] = SkuLine(s.sku, s.excess_qty, description=s.description)
-            nums = [r.receipt_no for r in link.receipts.all() if r.kind == ErpReceipt.Kind.EXCESS]
-            if excess_expected or nums:
-                ex = Result(f"Ship {link.ship_id} excess", "EXCESS", nums, PENDING)
-                if not nums:
-                    ex.notes.append("Excess Receipt No not entered.")
-                else:
-                    rows, review = _receipt_rows(nums, link.ship_id, ex.notes, also_misc=True)
-                    if not rows and not review:
-                        ex.status = NOT_FOUND
-                    else:
-                        _classify(ex, excess_expected, rows, tol)
-                        if review:
-                            ex.status = REVIEW
-                out.append(ex)
+        out.append(res)
     return out
-
-
-def _lscrr_hint(link, lscrr: bool, rows, tol: Decimal) -> str:
-    """If the IRR fits the other LSCRR pattern than declared, say so; the engine never switches mode."""
-    other = _classify(Result("", "", [], PENDING), _ship_expected(link, not lscrr), rows, tol)
-    if other.status == FULL:
-        return "IRR matches non-LSCRR pattern" if lscrr else "IRR matches LSCRR pattern"
-    return ""
 
 
 def vendor_results(iw: Iw, tol: Decimal) -> list[Result]:
@@ -240,14 +202,15 @@ def vendor_results(iw: Iw, tol: Decimal) -> list[Result]:
     return out
 
 
-def _memo_rows(trx_numbers: list[str], kind: str, notes: list[str]):
+def _memo_rows(trx_numbers: list[str], kind: str, notes: list[str], direct: bool = False):
+    allowed = {MEMO_TYPE[kind]} | ({MISC_ISSUE} if direct and kind == "DAMAGE" else set())
     rows, seen, review = [], set(), False
     for no in trx_numbers:
         found = list(IrrTransaction.objects.filter(trx_number=no))
         if not found:
             notes.append(f"TRX {no} not found in the IRR yet.")
             continue
-        if kind == "DAMAGE":
+        if kind == "DAMAGE" and not (direct and all(r.type_key == MISC_ISSUE for r in found)):
             issue_side = [r for r in found if r.transaction_type.upper() == "ISSUE"]
             if not issue_side and no.isdigit():  # the Receipt half was entered: take its Issue partner
                 for partner in (str(int(no) - 1), str(int(no) + 1)):
@@ -261,9 +224,16 @@ def _memo_rows(trx_numbers: list[str], kind: str, notes: list[str]):
                 review = True
                 notes.append(f"TRX {no} is not a transfer into the DMG sub-inventory.")
         types = {r.type_key for r in found}
-        if types - {MEMO_TYPE[kind]}:
+        if types - allowed:
             review = True
-            notes.append(f"TRX {no} is {', '.join(sorted(r.type for r in found))[:80]} - expected {MEMO_TYPE[kind].title()}.")
+            notes.append(f"TRX {no} is {', '.join(sorted(r.type for r in found))[:80]} - expected "
+                         f"{' or '.join(sorted(t.title() for t in allowed))}.")
+        if direct:
+            other = next((r for r in found if r.type_key in (MISC_ISSUE, MISC_RECEIPT)
+                          and not r.reason_description.startswith(LSCCR_REASON)), None)
+            if other:
+                notes.append(f"Info: TRX {no} reason '{other.reason_description or '-'}' - not the LSCCR request set "
+                             "(08 / Depot-Short Stock Receipt).")
         for r in found:
             key = (r.trx_number, r.trx_date, r.pk)
             if key not in seen:
@@ -276,16 +246,14 @@ def sed_results(iw: Iw, tol: Decimal) -> list[Result]:
     out = []
     for m in erp.memos(iw):
         label = f"SED {m.source_label} {m.kind.lower()}"
-        if m.lscrr_covered:
-            out.append(Result(label, "SED", [], COVERED, ["LSCRR-covered - no separate TRX expected."]))
-            continue
         nums = [t.trx_no for t in m.trx]
         res = Result(label, "SED", nums, PENDING)
         if not nums:
-            res.notes.append("TRX No not entered.")
+            res.notes.append(f"TRX No not entered (LSCCR {m.lsccr_no or 'No not recorded'} request set)." if m.direct
+                             else "TRX No not entered.")
             out.append(res)
             continue
-        rows, review = _memo_rows(nums, m.kind, res.notes)
+        rows, review = _memo_rows(nums, m.kind, res.notes, m.direct)
         if not rows and not review:
             res.status = NOT_FOUND
         else:

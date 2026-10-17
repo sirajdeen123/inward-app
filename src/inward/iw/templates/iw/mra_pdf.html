@@ -76,11 +76,10 @@
     <div class="brandrow">{% if logo %}<img src="{{ logo }}" alt="logo" class="logo">{% endif %}<div>{% if c.depot.company %}<div class="company">{{ c.depot.company }}</div>{% endif %}<div class="depot">Depot {{ c.depot.code }} · {{ c.depot.name }}</div><div class="cfa">Operated by: {{ c.depot.cfa }} (CFA)</div><div class="title">{{ m.title }}</div></div></div>
     <div class="right"><div><b>{{ c.iw.no }} · MRA {{ rev }}</b></div><div>{{ c.iw.vehicle }} · {{ c.iw.arrival }}</div><div>For: System Supervisor (Oracle entry)</div></div>
   </header>
-  {% if m.all_lscrr %}<p class="note">All lines are LSCRR-covered - no separate TRX expected.</p>{% endif %}
   <table class="grid fixed memo"><colgroup><col class="c-ref"><col class="c-full"><col><col class="c-q">{% if m.kind != 'EXCESS' %}<col class="c-val">{% endif %}<col class="c-act"><col class="c-rem"><col class="trx"></colgroup>
     <thead><tr><th>Reference</th><th>Full SKU</th><th>Description</th><th class="num">Pcs</th>{% if m.kind != 'EXCESS' %}<th class="num">Value Rs</th>{% endif %}<th>Oracle action</th><th>Remarks</th><th class="trx">TRX No</th></tr></thead>
     <tbody>{% for r in m.rows %}<tr><td>{{ r.source }}</td><td class="mono">{{ r.sku }}<div class="small">{{ r.floor_sku }}</div></td><td>{{ r.description }}</td><td class="num">{{ r.qty }}</td>
-      {% if m.kind != 'EXCESS' %}<td class="num">{{ r.value }}</td>{% endif %}<td><b>{{ r.action }}</b>{% if r.note %}<div class="small">{{ r.note }}</div>{% endif %}</td><td>{{ r.remarks }}</td><td class="trx">{% if r.action == 'LSCRR-covered' %}n/a{% endif %}</td></tr>{% endfor %}</tbody></table>
+      {% if m.kind != 'EXCESS' %}<td class="num">{{ r.value }}</td>{% endif %}<td><b>{{ r.action }}</b>{% if r.note %}<div class="small">{{ r.note }}</div>{% endif %}</td><td>{{ r.remarks }}</td><td class="trx"></td></tr>{% endfor %}</tbody></table>
   <div class="sign">
     <div class="box">{% if c.depot.seal.for %}<div class="sealfor">{{ c.depot.seal.for }}</div>{% endif %}<div class="line"></div>Authorised signatory &amp; depot seal{% if c.depot.seal.operated %}<div class="small">{{ c.depot.seal.operated }}</div>{% elif c.depot.seal %}<div class="small">{{ c.depot.seal }}</div>{% endif %}</div>
     <div class="box"><div class="sealfor">&nbsp;</div><div class="line"></div>System Supervisor · TRX entered on (date)</div>

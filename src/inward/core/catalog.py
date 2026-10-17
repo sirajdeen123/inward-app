@@ -21,7 +21,7 @@ PERMISSIONS = {
     "EMAIL_VERIFY": "Verify clerk-entered sender / organisation e-mails",
     "SED_EVIDENCE_ACCEPT": "Accept manually uploaded SED approval evidence",
     "RECEIPT_ENTRY": "Enter Stock / PO / Excess Receipt No",
-    "SED_TRX_LSCRR": "Enter SED TRX No; set LSCRR mode",
+    "SED_TRX_LSCRR": "Enter SED TRX No; record the LSCCR No",
     "IMPORT_RECONCILE": "Import SIT / IRR; run reconciliation",
     "IW_CLOSE": "Close IW",
     "IW_REOPEN": "Reopen closed IW",

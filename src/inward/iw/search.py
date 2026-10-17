@@ -80,7 +80,7 @@ def search(q: str, *, date_from=None, date_to=None, status: str = "", load_type:
         "source organisation")
     add(ShipLink.objects.filter(Q(ship_id=key) | Q(ship__from_org_code__iexact=q) | Q(ship__from_org_name__icontains=q)
                                 ).values_list("iw_id", flat=True), "Ship / origin")
-    add(ShipLink.objects.filter(lscrr_no__iexact=up).values_list("iw_id", flat=True), "LSCRR No")
+    add(ShipLink.objects.filter(lscrr_no__iexact=up).values_list("iw_id", flat=True), "LSCCR No")
     add(OutboundShip.objects.filter(Q(ship_id=key) | Q(destination__code__iexact=q) | Q(destination__name__icontains=q)
                                     ).values_list("iw_id", flat=True), "outbound Ship / destination")
     add(VendorConsignment.objects.filter(Q(vendor__code__iexact=up) | Q(po_no__iexact=q) | Q(challan_key__iexact=key)

@@ -29,10 +29,11 @@ def test_actions_follow_the_status(world):  # noqa: F811
 def test_actions_at_erp_stage(at_erp):
     w = at_erp
     texts = [a.text for a in ops.actions(w["iw"])]
-    assert f"Ship {w['link'].ship_id}: record the LSCRR status" in texts
-    erp.set_lscrr(w["clerk"], w["link"].pk, False)
-    texts = [a.text for a in ops.actions(Iw.objects.get(pk=w["iw"].pk))]
     assert any("enter the Stock Receipt No" in t for t in texts)
+    assert f"Ship {w['link'].ship_id}: record the LSCCR No" in texts
+    erp.set_lscrr(w["clerk"], w["link"].pk, "LSC1")
+    texts = [a.text for a in ops.actions(Iw.objects.get(pk=w["iw"].pk))]
+    assert any(t.endswith("created by LSCCR LSC1") for t in texts)
 
 
 def test_progress_strip(at_erp):
@@ -58,7 +59,6 @@ def test_search_by_any_reference(at_erp):
                      (EASYCLEAN, "SKU on Ship"), ("XG9991", "SKU on Ship"), ("hindupur", "Ship / origin")]:
         kind, hits = search.search(q)
         assert hits and hits[0].iw == iw and label in hits[0].matched, q
-    erp.set_lscrr(w["clerk"], w["link"].pk, False)
     erp.add_receipt(w["clerk"], iw.pk, f"SHIP:{w['link'].pk}", "NORMAL", "42637")
     kind, hits = search.search("42637")
     assert kind == "Receipt No" and "ERP receipt" in hits[0].matched
@@ -71,7 +71,7 @@ def test_screens(client, at_erp):
     c = verified_client(client, w["clerk"])
     page = c.get(reverse("web:home")).content.decode()
     assert "Operations Control Centre" in page and w["iw"].iw_no in page and "SED approval board" in page
-    assert "record the LSCRR status" in c.get(reverse("iw:actions")).content.decode()
+    assert "record the LSCCR No" in c.get(reverse("iw:actions")).content.decode()
     page = c.get(reverse("iw:search"), {"q": "TN60E8139"}).content.decode()
     assert w["iw"].iw_no in page and "looks like: Vehicle" in page
 

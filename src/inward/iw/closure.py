@@ -1,7 +1,7 @@
 """Screen 05 part C - final documents, closure gate, reopen (SoT 8.7, 9, table 11).
 
 Closure needs: Screen 04 complete; every inbound Ship (normal + excess receipts), vendor PO receipt and SED memo
-reconciled (or LSCRR-covered) against the IRR at the moment of closing; the mandatory mails SENT (also after a
+reconciled against the IRR at the moment of closing; the mandatory mails SENT (also after a
 Mail-Pending Release); the signed MRA scan; the transporter LR scan (not for Others (Non-Stock) without an LR);
 no unresolved critical exception. Closing generates the Final IRR Reconciliation Report (PDF) and freezes a
 closure snapshot. A closed IW is read-only; reopening is requested with a reason and approved by the CFA
@@ -82,7 +82,7 @@ def gates(iw: Iw, results=None) -> list[Gate]:
     out = [Gate("Screen 04 complete (MRA issued)", iw.status in erp.ERP_STAGES or iw.status == Iw.Status.CLOSED)]
     groups = [("Inbound Ships (normal + excess receipts) fully reconciled", ("SHIP", "EXCESS")),
               ("Vendor PO receipts fully reconciled", ("PO",)),
-              ("SED memos reconciled or LSCRR-covered", ("SED",))]
+              ("SED memos reconciled", ("SED",))]
     for label, kinds in groups:
         items = [r for r in results if r.kind in kinds]
         if items:

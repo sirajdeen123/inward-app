@@ -32,10 +32,10 @@
   <h2>2. SED memos, Oracle transactions and IRR result</h2>
   {% for m in memos %}
   <table class="grid fixed" style="margin-bottom:6px"><colgroup><col class="c-full"><col><col class="c-q"><col class="c-val"><col class="c-rem"></colgroup>
-    <thead><tr><th colspan="5">{{ m.title }}{% if m.lscrr %} · LSCRR-covered (no separate TRX){% endif %}</th></tr>
+    <thead><tr><th colspan="5">{{ m.title }}{% if m.direct %} · Direct Factory - posted by the LSCCR request set {{ m.lsccr|default:"(LSCCR No not recorded)" }}{% endif %}</th></tr>
       <tr><th>SKU</th><th>Description</th><th class="num">Pcs</th><th class="num">Value Rs</th><th>Remarks</th></tr></thead>
     <tbody>{% for ln in m.lines %}<tr><td class="mono">{{ ln.sku }}<div class="small">{{ ln.floor }}</div></td><td>{{ ln.desc }}<div class="small">recorded by {{ ln.by }} {{ ln.at }}</div></td><td class="num">{{ ln.qty }}</td><td class="num">{% if m.kind != 'EXCESS' %}{{ ln.value }}{% endif %}</td><td>{{ ln.remarks }}</td></tr>{% endfor %}
-      <tr><td colspan="5" class="small"><b>Oracle TRX:</b> {% for t in m.trx %}{{ t.no }} (entered by {{ t.by }} {{ t.at }}){% if not forloop.last %}; {% endif %}{% empty %}{% if m.lscrr %}not required{% else %}not entered yet{% endif %}{% endfor %}
+      <tr><td colspan="5" class="small"><b>Oracle TRX:</b> {% for t in m.trx %}{{ t.no }} (entered by {{ t.by }} {{ t.at }}){% if not forloop.last %}; {% endif %}{% empty %}not entered yet{% endfor %}
         · <b>IRR:</b> {{ m.irr }}{% for n in m.irr_notes %} · {{ n }}{% endfor %}</td></tr></tbody></table>
   {% endfor %}
   <p class="small">IRR reconciliation as of {{ recon_at }}.</p>

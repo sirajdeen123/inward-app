@@ -28,7 +28,7 @@ def reconciled(at_erp):
     for purpose in ("MRA", "SED_NOTIFY"):
         MailMessage.objects.create(iw=w["iw"], mra=rev, purpose=purpose, stamp=f"x {purpose}", subject="s",
                                    html_body="", status=MailMessage.Status.SENT, created_by=clerk)
-    erp.set_lscrr(clerk, w["link"].pk, False)
+    erp.set_lscrr(clerk, w["link"].pk, "LSC617983")
     erp.add_receipt(clerk, w["iw"].pk, f"SHIP:{w['link'].pk}", "NORMAL", "42637")
     full_receipt()
     memos = {m.kind: m for m in erp.memos(w["iw"])}
@@ -47,7 +47,7 @@ def test_gates_and_close(reconciled):
     w, clerk = reconciled, reconciled["clerk"]
     g = _gates(w["iw"])
     assert g["Inbound Ships (normal + excess receipts) fully reconciled"].ok
-    assert g["SED memos reconciled or LSCRR-covered"].ok and g["Mandatory mails SENT"].ok
+    assert g["SED memos reconciled"].ok and g["Mandatory mails SENT"].ok
     assert not g["Signed MRA scan"].ok and not g["Transporter LR scan"].ok
     with pytest.raises(IwError, match="Signed MRA scan"):
         closure.close(clerk, w["iw"].pk)
@@ -71,7 +71,7 @@ def test_unsent_mail_and_unreconciled_block(reconciled):
     erp.remove_sed_trx(clerk, w["iw"].sed_trx.get(kind="SHORT").pk)
     g = _gates(w["iw"])
     assert not g["Mandatory mails SENT"].ok and "Internal SED notification" in g["Mandatory mails SENT"].detail
-    assert not g["SED memos reconciled or LSCRR-covered"].ok
+    assert not g["SED memos reconciled"].ok
 
 
 def test_reopen_needs_cfa_approval(reconciled, make_user):

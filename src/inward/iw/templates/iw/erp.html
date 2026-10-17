@@ -11,18 +11,15 @@
   <h2>Ship {{ link.ship_id }} <span class="muted">{{ link.ship.from_org_code }} {{ link.ship.from_org_name }}</span></h2>
   {% if iw.load_type.is_direct_factory %}
   <form method="post" action="{% url 'iw:lscrr_set' iw.pk link.pk %}" class="form-grid">{% csrf_token %}
-    <div class="field"><label>LSCRR applied in Oracle? *</label>
-      <label class="check"><input type="radio" name="applied" value="yes"{% if link.lscrr_applied %} checked{% endif %}> Yes</label>
-      <label class="check"><input type="radio" name="applied" value="no"{% if link.lscrr_applied is False %} checked{% endif %}> No / not updated</label></div>
-    <div class="field"><label for="ls-{{ link.pk }}">LSCRR No</label><input id="ls-{{ link.pk }}" name="lscrr_no" value="{{ link.lscrr_no }}"></div>
-    {% if link.receipts.all %}<div class="field"><label for="lr-{{ link.pk }}">Reason (change after receipt - System Supervisor)</label><input id="lr-{{ link.pk }}" name="reason"></div>{% endif %}
-    <div class="span-all">{% if link.lscrr_applied is None %}<span class="chip chip-warn">LSCRR status needed before the receipt</span>{% endif %} <button type="submit" class="btn btn-sm">Save LSCRR</button></div>
+    <div class="field"><label for="ls-{{ link.pk }}">LSCCR No</label><input id="ls-{{ link.pk }}" name="lscrr_no" value="{{ link.lscrr_no }}" class="caps"></div>
+    {% if link.lscrr_no %}<div class="field"><label for="lr-{{ link.pk }}">Reason for a change (System Supervisor, once a TRX is entered)</label><input id="lr-{{ link.pk }}" name="reason"></div>{% endif %}
+    <div class="span-all">{% if not link.lscrr_no and link.sed_lines.exists %}<span class="chip chip-warn">LSCCR No needed before the SED TRX Nos</span>{% endif %} <button type="submit" class="btn btn-sm">Save LSCCR No</button></div>
   </form>
   {% endif %}
   <table class="tbl"><tbody>{% for r in link.receipts.all %}<tr><td>{{ r.get_kind_display }}</td><td class="mono"><b>{{ r.receipt_no }}</b></td><td class="muted">{{ r.entered_at|date:"d-M-Y H:i" }}</td>
     <td>{% if open %}<form method="post" action="{% url 'iw:receipt_remove' iw.pk r.pk %}" class="inline-form">{% csrf_token %}<button type="submit" class="btn btn-sm">Remove</button></form>{% endif %}</td></tr>{% empty %}<tr><td class="muted">No receipt entered.</td></tr>{% endfor %}</tbody></table>
   {% if open %}<form method="post" action="{% url 'iw:receipt_add' iw.pk %}" class="inline">{% csrf_token %}<input type="hidden" name="ref" value="SHIP:{{ link.pk }}">
-    <select name="kind" aria-label="Receipt kind"><option value="NORMAL">Stock Receipt</option>{% if iw.load_type.is_direct_factory and link.lscrr_applied %}<option value="EXCESS">Excess Receipt</option>{% endif %}</select>
+    <input type="hidden" name="kind" value="NORMAL">
     <input name="receipt_no" placeholder="e.g. 42637" aria-label="Receipt No for Ship {{ link.ship_id }}" class="input-inline" required><button type="submit" class="btn btn-sm btn-primary">Add receipt</button></form>{% endif %}
 </div>
 {% endfor %}
@@ -40,11 +37,12 @@
 {% if memos %}
 <div class="card">
   <h2>SED memos - Oracle TRX numbers</h2>
+  {% if iw.load_type.is_direct_factory %}<div class="alert alert-warning"><b>Direct Factory - LSCCR request set.</b> Short, excess and damage on these Ships are posted in Oracle by the LSCCR request set, not manually. Before entering: make sure the request set has run for the LSCCR No shown, then enter the TRX Nos it created (Miscellaneous Issue for short and damage, Miscellaneous Receipt for excess - reason 08 / Depot-Short Stock Receipt).</div>{% endif %}
   <table class="tbl stack"><thead><tr><th>Memo</th><th>SKUs / pcs</th><th>TRX No(s)</th><th></th></tr></thead>
-    <tbody>{% for m in memos %}<tr><td data-label="Memo">{{ m.source_label }} · <b>{{ m.kind|title }}</b></td>
+    <tbody>{% for m in memos %}<tr><td data-label="Memo">{{ m.source_label }} · <b>{{ m.kind|title }}</b>{% if m.direct %}<div>{% if m.lsccr_no %}<span class="chip">LSCCR {{ m.lsccr_no }}</span>{% else %}<span class="chip chip-warn">LSCCR No not recorded</span>{% endif %}</div>{% endif %}</td>
       <td data-label="SKUs / pcs">{% for ln, q in m.lines %}<div>{{ ln.floor_sku }} · {{ q|floatformat:"-3" }}</div>{% endfor %}</td>
-      <td data-label="TRX No(s)">{% if m.lscrr_covered %}<span class="chip chip-ok">LSCRR-covered</span>{% else %}{% for t in m.trx %}<span class="mono">{{ t.trx_no }}</span>{% if open %}<form method="post" action="{% url 'iw:trx_remove' iw.pk t.pk %}" class="inline-form">{% csrf_token %}<button type="submit" class="btn btn-sm" aria-label="Remove TRX {{ t.trx_no }}">&times;</button></form>{% endif %}<br>{% empty %}<span class="warn-text">not entered</span>{% endfor %}{% endif %}</td>
-      <td data-label="">{% if open and not m.lscrr_covered %}<form method="post" action="{% url 'iw:trx_add' iw.pk %}" class="inline">{% csrf_token %}<input type="hidden" name="memo" value="{{ m.key }}"><input name="trx_no" placeholder="TRX No" aria-label="TRX No for {{ m.source_label }} {{ m.kind }}" class="input-inline" required><button type="submit" class="btn btn-sm">Add</button></form>{% endif %}</td></tr>{% endfor %}</tbody></table>
+      <td data-label="TRX No(s)">{% for t in m.trx %}<span class="mono">{{ t.trx_no }}</span>{% if open %}<form method="post" action="{% url 'iw:trx_remove' iw.pk t.pk %}" class="inline-form">{% csrf_token %}<button type="submit" class="btn btn-sm" aria-label="Remove TRX {{ t.trx_no }}">&times;</button></form>{% endif %}<br>{% empty %}<span class="warn-text">not entered</span>{% endfor %}</td>
+      <td data-label="">{% if open %}<form method="post" action="{% url 'iw:trx_add' iw.pk %}" class="inline">{% csrf_token %}<input type="hidden" name="memo" value="{{ m.key }}"><input name="trx_no" placeholder="TRX No" aria-label="TRX No for {{ m.source_label }} {{ m.kind }}" class="input-inline" required><button type="submit" class="btn btn-sm">Add</button></form>{% endif %}</td></tr>{% endfor %}</tbody></table>
 </div>
 {% endif %}
 

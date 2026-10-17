@@ -1,4 +1,4 @@
-"""Screen 05 views - receipts, LSCRR, SED TRX and IRR reconciliation (thin; rules in erp.py / recon.py)."""
+"""Screen 05 views - receipts, LSCCR No, SED TRX and IRR reconciliation (thin; rules in erp.py / recon.py)."""
 from __future__ import annotations
 
 from django.contrib import messages
@@ -64,9 +64,8 @@ def receipt_remove(request, pk, receipt_pk):
 def lscrr_set(request, pk, link_pk):
     get_object_or_404(ShipLink, pk=link_pk, iw_id=pk)
     try:
-        link = erp.set_lscrr(request.user, link_pk, request.POST.get("applied") == "yes",
-                             request.POST.get("lscrr_no", ""), request.POST.get("reason", ""))
-        messages.success(request, f"Ship {link.ship_id}: LSCRR {'applied ' + link.lscrr_no if link.lscrr_applied else 'not applied'}.")
+        link = erp.set_lscrr(request.user, link_pk, request.POST.get("lscrr_no", ""), request.POST.get("reason", ""))
+        messages.success(request, f"Ship {link.ship_id}: LSCCR {link.lscrr_no} recorded.")
     except (IwError, PermissionDenied) as exc:
         messages.error(request, str(exc))
     return _back(pk)

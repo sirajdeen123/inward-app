@@ -51,9 +51,8 @@ def test_content_and_revisions(verified):
     assert pk["Drums"] == "49" and "package_counts" not in c and "rate" not in c["unloading"]   # rate never printed
     kinds = {m["kind"]: m for m in c["memos"]}
     assert set(kinds) == {"SHORT", "DAMAGE"}
-    assert kinds["SHORT"]["rows"][0]["action"] == "Issue TRX"       # LSCRR not declared
-    assert "not yet declared" in kinds["SHORT"]["rows"][0]["note"]
-    assert kinds["DAMAGE"]["rows"][0]["action"] == "Subinventory transfer to DMG"
+    assert kinds["SHORT"]["rows"][0]["action"] == "By LSCCR request set"       # Direct Factory
+    assert "LSCCR No to be recorded" in kinds["SHORT"]["rows"][0]["note"]
     assert mra.issue(clerk, w["iw"].pk, reconfirm=True) == (rev, False)               # unchanged: no new revision
     # a change needs a reason and makes R02
     unloading.record(clerk, w["iw"].pk, unloading.UnloadingInput(tonnage="13.2", status="PAID", payment_mode="CASH"))
@@ -64,13 +63,13 @@ def test_content_and_revisions(verified):
     assert created and rev2.label == "R02" and rev2.content["unloading"]["outstanding"] == "0.00"
 
 
-def test_lscrr_applied_memo(verified):
+def test_lsccr_memo(verified):
     w = verified
     ShipLink.objects.filter(iw=w["iw"]).update(lscrr_applied=True, lscrr_no="LS-77")
     c = mra.build(Iw.objects.get(pk=w["iw"].pk))
     memo = {m["kind"]: m for m in c["memos"]}
-    assert memo["SHORT"]["rows"][0]["action"] == "LSCRR-covered" and memo["SHORT"]["all_lscrr"]
-    assert "LS-77" in memo["DAMAGE"]["rows"][0]["note"]
+    assert memo["SHORT"]["rows"][0]["action"] == "By LSCCR request set" and "all_lscrr" not in memo["SHORT"]
+    assert "LSCCR LS-77" in memo["DAMAGE"]["rows"][0]["note"]
 
 
 def test_missing_value_blocks(verified):

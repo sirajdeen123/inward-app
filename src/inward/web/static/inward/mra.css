@@ -33,7 +33,7 @@ h2{font-size:10.5pt;margin:10px 0 4px;padding:2px 6px;background:#e8e8e8;border-
 .note{font-weight:700}
 .trx{width:22mm}
 .grid.fixed{table-layout:fixed}.grid.fixed td,.grid.fixed th{overflow-wrap:anywhere}
-.c-ref{width:25mm}.c-sku{width:30mm}.c-full{width:37mm}.c-q{width:13mm}.c-dq{width:20mm}.c-val{width:21mm}.c-rem{width:30mm}.c-act{width:28mm}
+.c-ref{width:25mm}.c-sku{width:30mm}.c-full{width:37mm}.c-q{width:13mm}.c-dq{width:20mm}.c-val{width:21mm}.c-rem{width:30mm}.c-act{width:28mm}.c-loc{width:45mm}
 .grid thead th{font-size:8.5pt}
 .memo .c-ref{width:22mm}.memo .c-full{width:35mm}.memo .c-q{width:11mm}.memo .c-val{width:19mm}.memo .c-act{width:26mm}.memo .c-rem{width:24mm}.memo .trx{width:18mm}
 tr{page-break-inside:avoid}

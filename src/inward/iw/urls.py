@@ -60,6 +60,7 @@ urlpatterns = [
     path("<int:pk>/erp/trx/add/", views_erp.trx_add, name="trx_add"),
     path("<int:pk>/erp/trx/<int:trx_pk>/remove/", views_erp.trx_remove, name="trx_remove"),
     path("<int:pk>/erp/reconcile/", views_erp.recon_run, name="recon_run"),
+    path("<int:pk>/erp/reconcile/detail/", views_erp.recon_detail, name="recon_detail"),
     path("<int:pk>/erp/scans/add/", views_erp.scan_add, name="scan_add"),
     path("<int:pk>/erp/scans/<uuid:doc_pk>/", views_erp.scan_file, name="scan_file"),
     path("<int:pk>/close/", views_erp.close, name="close"),

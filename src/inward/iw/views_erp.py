@@ -3,13 +3,14 @@ from __future__ import annotations
 
 from django.contrib import messages
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from inward.accounts.services import PermissionDenied
 from inward.iw import closure, erp, recon
 from inward.iw.models import ErpReceipt, Iw, SedTrx, ShipLink
 from inward.iw.services import IwError
-from inward.web.views import needs
+from inward.web.views import needs, upload_done
 
 
 @needs("RECEIPT_ENTRY")
@@ -17,7 +18,7 @@ def erp_page(request, pk):
     iw = get_object_or_404(Iw.objects.select_related("load_type"), pk=pk)
     from inward.accounts.services import modes_for
     run = iw.recon_runs.select_related("run_by").first()
-    live = recon.reconcile(iw) if iw.status in erp.ERP_STAGES else []
+    live = recon.reconcile(iw) if iw.status in erp.ERP_STAGES or iw.status == Iw.Status.CLOSED else []
     close_gates = closure.gates(iw, live) if iw.status in erp.ERP_STAGES else []
     sc = closure.scans(iw)
     return render(request, "iw/erp.html", {
@@ -112,15 +113,13 @@ def recon_run(request, pk):
 @needs("IW_CLOSE")
 def scan_add(request, pk):
     files = request.FILES.getlist("file")
-    if not files:
-        messages.error(request, "Choose a scan, photo or PDF.")
-    for f in files:
-        try:
-            closure.add_scan(request.user, pk, request.POST.get("role", ""), f.read(), f.name, f.content_type)
-            messages.success(request, f"{f.name} uploaded.")
-        except (IwError, PermissionDenied) as exc:
-            messages.error(request, str(exc))
-    return _back(pk)
+    try:
+        docs = closure.add_scans(request.user, pk, request.POST.get("role", ""),
+                                 [(f.read(), f.name, f.content_type) for f in files])
+        messages.success(request, "Saved as PDF: " + ", ".join(d.original_filename for d in docs) + ".")
+    except (IwError, PermissionDenied) as exc:
+        messages.error(request, str(exc))
+    return upload_done(request, reverse("iw:erp", args=[pk]))
 
 
 @needs("SEARCH_REPORTS")
@@ -173,3 +172,27 @@ def reopen_request(request, pk):
     except (IwError, PermissionDenied) as exc:
         messages.error(request, str(exc))
     return _back(pk)
+
+
+@needs("SEARCH_REPORTS")
+def recon_detail(request, pk):
+    """Detailed reconciliation report - every SKU with its put-away locator; open or closed IW; ?pdf=1 on the server."""
+    from django.http import HttpResponse
+    from django.utils import timezone
+
+    from inward.core import branding, pdf
+    iw = get_object_or_404(Iw.objects.select_related("load_type", "source_org"), pk=pk)
+    if iw.status not in erp.ERP_STAGES and iw.status != Iw.Status.CLOSED:
+        messages.error(request, "The reconciliation starts after the MRA is issued.")
+        return _back(pk)
+    mra = iw.mras.first()
+    ctx = {"iw": iw, "d": recon.detail(iw), "c": (mra.content if mra else {}) or {}, "logo": branding.logo_data_uri(),
+           "closure": iw.closures.select_related("closed_by").first(), "run": iw.recon_runs.select_related("run_by").first(),
+           "generated": timezone.localtime(timezone.now()), "by": request.user.username,
+           "pdf_available": pdf.available()}
+    if request.GET.get("pdf") and pdf.available():
+        data = pdf.html_to_pdf(pdf.render_html("iw/recon_detail.html", ctx | {"for_pdf": True}), "inward/recon.css")
+        resp = HttpResponse(data, content_type="application/pdf")
+        resp["Content-Disposition"] = f'inline; filename="Reconciliation detail {iw.iw_no or iw.pk}.pdf"'
+        return resp
+    return render(request, "iw/recon_detail.html", ctx)

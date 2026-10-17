@@ -24,6 +24,7 @@ from inward.accounts.models import User
 from inward.accounts.services import require
 from inward.core import audit
 from inward.core.models import FeatureFlag
+from inward.domain.normalize import floor_sku
 from inward.irr.models import IrrTransaction
 from inward.iw import erp
 from inward.iw.models import ErpReceipt, Iw, ReconRun
@@ -54,12 +55,18 @@ class SkuLine:
     exp_measure: Decimal | None = None
     act_measure: Decimal = ZERO
     description: str = ""
+    floor: str = ""
+    # where the IRR rows put the stock: (sub-inventory, locator, lot, receipt / TRX no) -> pieces
+    places: dict = field(default_factory=lambda: defaultdict(lambda: ZERO))
 
     def as_dict(self) -> dict:
-        return {"sku": self.sku, "description": self.description, "expected": _f(self.expected),
-                "actual": _f(self.actual), "family": self.family,
+        return {"sku": self.sku, "floor": self.floor or floor_sku(self.sku), "description": self.description,
+                "expected": _f(self.expected), "actual": _f(self.actual), "diff": _f(self.actual - self.expected),
+                "family": self.family,
                 "exp_measure": None if self.exp_measure is None else _f(self.exp_measure.quantize(Decimal("0.001"))),
-                "act_measure": _f(self.act_measure.quantize(Decimal("0.001")))}
+                "act_measure": _f(self.act_measure.quantize(Decimal("0.001"))),
+                "places": [{"subinv": s, "locator": loc, "lot": lot, "no": no, "qty": _f(q)}
+                           for (s, loc, lot, no), q in sorted(self.places.items())]}
 
 
 @dataclass
@@ -92,6 +99,7 @@ def _classify(res: Result, expected: dict[str, SkuLine], rows, tol: Decimal) -> 
             ln = expected[r.sku] = SkuLine(r.sku, description=r.item_description)
         ln.actual += r.no_of_pack
         ln.act_measure += _measure(r, ln.family)
+        ln.places[(r.source_subinv, r.source_locator.strip("' "), r.lot_number, r.receipt_no or r.trx_number)] += r.no_of_pack
     res.lines = sorted(expected.values(), key=lambda x: x.sku)
     over = [ln for ln in res.lines if ln.actual > ln.expected]
     under = [ln for ln in res.lines if ln.actual < ln.expected]
@@ -116,7 +124,7 @@ def _ship_expected(link) -> dict[str, SkuLine]:
     for ln in link.lines.all():
         fam = "" if ln.is_empty_packing else ln.measure_family
         out[ln.sku] = SkuLine(ln.sku, ln.quantity, family=fam, exp_measure=ln.measure if fam else None,
-                              description=ln.description)
+                              description=ln.description, floor=ln.floor_sku)
     return out
 
 
@@ -192,7 +200,7 @@ def vendor_results(iw: Iw, tol: Decimal) -> list[Result]:
             expected = {}
             for ln in cons.lines.all():
                 e = expected.setdefault(ln.sku, SkuLine(ln.sku, family=ln.measure_family, exp_measure=ZERO,
-                                                        description=ln.description))
+                                                        description=ln.description, floor=ln.floor_sku))
                 e.expected += ln.nop
                 e.exp_measure += ln.ltr if ln.measure_family == "LTR" else ln.kg
             _classify(res, expected, rows, tol)
@@ -259,13 +267,25 @@ def sed_results(iw: Iw, tol: Decimal) -> list[Result]:
         else:
             expected = {}
             for ln, qty in m.lines:
-                e = expected.setdefault(ln.sku, SkuLine(ln.sku, description=ln.description))
+                e = expected.setdefault(ln.sku, SkuLine(ln.sku, description=ln.description, floor=ln.floor_sku))
                 e.expected += qty
             _classify(res, expected, rows, tol)
             if review:
                 res.status = REVIEW
         out.append(res)
     return out
+
+
+def detail(iw: Iw) -> dict:
+    """The detailed reconciliation report (screen / PDF): every track with every SKU and where the IRR rows put
+    the stock (sub-inventory + source locator = the put-away place on the floor, lot, receipt / TRX no)."""
+    results = [r.as_dict() for r in reconcile(iw)]
+    for r in results:
+        r["ok"] = r["status"] in (FULL, COVERED)
+        r["expected"] = _f(sum((Decimal(ln["expected"]) for ln in r["lines"]), ZERO))
+        r["actual"] = _f(sum((Decimal(ln["actual"]) for ln in r["lines"]), ZERO))
+    return {"results": results, "all_ok": bool(results) and all(r["ok"] for r in results),
+            "skus": sum(len(r["lines"]) for r in results)}
 
 
 def reconcile(iw: Iw) -> list[Result]:

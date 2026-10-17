@@ -31,3 +31,32 @@ def html_to_pdf(html: str, stylesheet: str = "inward/mra.css") -> bytes | None:
     import weasyprint
     css = finders.find(stylesheet)
     return weasyprint.HTML(string=html).write_pdf(stylesheets=[weasyprint.CSS(filename=css)] if css else None)
+
+
+class ImageError(ValueError):
+    pass
+
+
+SCAN_PX = 2400   # long side; an A4 page at about 200 dpi - plenty for a signed MRA or an LR
+
+
+def images_to_pdf(images: list[bytes]) -> bytes:
+    """Camera photos / scanned images -> one PDF, one page per image (works without WeasyPrint).
+    The photo is turned upright (EXIF), reduced to SCAN_PX on the long side and kept as JPEG inside the PDF."""
+    import io
+
+    from PIL import Image, ImageOps, UnidentifiedImageError
+    pages = []
+    for data in images:
+        try:
+            with Image.open(io.BytesIO(data)) as img:
+                page = ImageOps.exif_transpose(img).convert("RGB")
+        except (UnidentifiedImageError, OSError, SyntaxError) as exc:
+            raise ImageError("The photo could not be read - take it again or upload a PDF.") from exc
+        page.thumbnail((SCAN_PX, SCAN_PX))
+        pages.append(page)
+    if not pages:
+        raise ImageError("No photo.")
+    out = io.BytesIO()
+    pages[0].save(out, "PDF", save_all=True, append_images=pages[1:], resolution=200.0, quality=85)
+    return out.getvalue()

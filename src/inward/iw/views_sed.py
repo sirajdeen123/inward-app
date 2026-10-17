@@ -4,6 +4,7 @@ from __future__ import annotations
 from django.contrib import messages
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from inward.accounts.services import PermissionDenied, modes_for
@@ -12,7 +13,7 @@ from inward.iw import checklist, sed
 from inward.iw.models import Iw, SedLine, SedPhoto
 from inward.iw.services import IwError
 from inward.domain.normalize import clean_code
-from inward.web.views import needs
+from inward.web.views import needs, upload_done
 
 FIELDS = ("short_qty", "excess_qty", "damage_qty", "damage_kind", "damage_pct", "container_type", "container_count",
           "short_value", "damage_value", "short_remarks", "excess_remarks", "damage_remarks")
@@ -146,7 +147,7 @@ def sed_photo_add(request, line_pk):
             messages.error(request, str(exc))
     if added:
         messages.success(request, f"{added} photo(s) added to {line.floor_sku}.")
-    return redirect("iw:unloading", pk=line.iw_id)
+    return upload_done(request, reverse("iw:unloading", args=[line.iw_id]))
 
 
 @require_POST

@@ -182,3 +182,13 @@ def health(request):
     problems = stuck.filter(status__in=[MailMessage.Status.FAILED, MailMessage.Status.FAILED_UNCONFIRMED]
                             ).select_related("iw").order_by("-id")[:10]
     return render(request, "web/health.html", {"checks": checks, "latest": latest, "mail_problems": problems})
+
+
+def upload_done(request, url: str):
+    """After an upload: the phone script (upload.js, sends X-Requested-With) gets the next page as JSON so the
+    messages are shown there; a plain form post is redirected as usual."""
+    from django.http import JsonResponse
+    from django.shortcuts import redirect
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return JsonResponse({"redirect": url})
+    return redirect(url)

@@ -1,0 +1,51 @@
+/* Detailed reconciliation report: screen, browser print and WeasyPrint PDF (A4 landscape, header on every page). */
+@page {
+  size: A4 landscape; margin: 30mm 9mm 12mm 9mm;
+  @top-center { content: element(runhead); width: 100%; vertical-align: bottom; }
+  @bottom-left { content: element(runfoot); }
+  @bottom-right { content: "Page " counter(page) " of " counter(pages); font-size: 8pt; color: #333; }
+}
+* { box-sizing: border-box }
+body { font-family: "DejaVu Sans", Arial, sans-serif; font-size: 9pt; color: #000; background: #fff; margin: 0 }
+.runhead { position: running(runhead); width: 100% }
+.runfoot { position: running(runfoot); font-size: 7.5pt; color: #444 }
+.rh { width: 100%; border-collapse: collapse; border-bottom: 2px solid #000 }
+.rh td { vertical-align: bottom; padding: 0 4px 3px 0; font-size: 8.5pt }
+.rh-logo { width: 22mm } .rh-logo img { width: 20mm; height: auto }
+.co { font-size: 11.5pt; font-weight: 700 } .doc { font-weight: 700; margin-top: 2px }
+.rh-iw { text-align: right; width: 45% } .iwno { font-size: 11pt; font-weight: 700 }
+h2 { font-size: 10.5pt; margin: 10px 0 4px }
+.tbl { border-collapse: collapse; width: 100% }
+.tbl thead { display: table-header-group }
+.tbl th, .tbl td { border: 1px solid #666; padding: 2px 4px; vertical-align: top }
+.tbl th { background: #eee; text-align: left; font-size: 8pt }
+.detail td { font-size: 8pt }
+tr { page-break-inside: avoid }
+.track { page-break-inside: auto }
+.num { text-align: right } .mono { font-family: "DejaVu Sans Mono", monospace } .b { font-weight: 700 }
+.small { font-size: 7.5pt; color: #333 } .muted { color: #666 }
+.off td { background: #fff4e5 }
+.badge { display: inline-block; padding: 0 6px; border-radius: 8px; font-size: 8pt; font-weight: 700; border: 1px solid }
+.badge.ok { color: #13612e; border-color: #13612e } .badge.bad { color: #9a3b00; border-color: #9a3b00 }
+.note { font-size: 8pt; margin: 2px 0; padding: 2px 6px; border-left: 3px solid #9a3b00; background: #fff4e5 }
+.signs { display: flex; gap: 20mm; margin-top: 12mm }
+.toolbar { display: none }
+
+@media screen {
+  body { padding: 12px 16px; max-width: 1400px; margin: 0 auto }
+  .runhead, .runfoot { position: static }
+  .runfoot { margin: 4px 0 8px }
+  .toolbar { display: flex; gap: 12px; align-items: center; margin-bottom: 10px }
+  .toolbar .grow { flex: 1 }
+  .toolbar button, .toolbar .btnlink { font: inherit; padding: 6px 14px; border: 1px solid #333; border-radius: 6px; background: #fff; color: #000; text-decoration: none; cursor: pointer }
+  .scroll { overflow-x: auto }
+  .detail { min-width: 980px }
+}
+@media screen and (max-width: 700px) {
+  body { padding: 10px 16px; font-size: 10pt }
+  .rh-logo { display: none }
+  .rh td { display: block; width: auto; text-align: left }
+}
+@media print {
+  .toolbar { display: none }
+}

@@ -31,11 +31,12 @@
 
   <h2>Reconciliation with the IRR</h2>
   {% for r in results %}
-  <table class="grid fixed" style="margin-bottom:6px"><colgroup><col><col class="c-val"><col class="c-val"><col class="c-dq"></colgroup>
-    <thead><tr><th colspan="3">{{ r.track }}{% if r.numbers %} · {{ r.numbers|join:", " }}{% endif %}</th><th>{{ r.status }}</th></tr>
-      {% if r.lines %}<tr><th>SKU</th><th class="num">Expected</th><th class="num">IRR</th><th class="num">Measure</th></tr>{% endif %}</thead>
-    <tbody>{% for ln in r.lines %}<tr><td class="mono">{{ ln.sku }} <span class="small">{{ ln.description }}</span></td><td class="num">{{ ln.expected }}</td><td class="num">{{ ln.actual }}</td><td class="num">{% if ln.family %}{{ ln.act_measure }} {{ ln.family }}{% endif %}</td></tr>{% endfor %}
-      {% for n in r.notes %}<tr><td colspan="4" class="small">{{ n }}</td></tr>{% endfor %}</tbody></table>
+  <table class="grid fixed" style="margin-bottom:6px"><colgroup><col><col class="c-val"><col class="c-val"><col class="c-dq"><col class="c-loc"></colgroup>
+    <thead><tr><th colspan="4">{{ r.track }}{% if r.numbers %} · {{ r.numbers|join:", " }}{% endif %}</th><th>{{ r.status }}</th></tr>
+      {% if r.lines %}<tr><th>SKU</th><th class="num">Expected</th><th class="num">IRR</th><th class="num">Measure</th><th>Put-away location (IRR)</th></tr>{% endif %}</thead>
+    <tbody>{% for ln in r.lines %}<tr><td class="mono">{{ ln.sku }} <span class="small">{{ ln.description }}</span></td><td class="num">{{ ln.expected }}</td><td class="num">{{ ln.actual }}</td><td class="num">{% if ln.family %}{{ ln.act_measure }} {{ ln.family }}{% endif %}</td>
+      <td class="small">{% for p in ln.places %}{{ p.subinv }} {{ p.locator }} &times; {{ p.qty }}{% if not forloop.last %}<br>{% endif %}{% endfor %}</td></tr>{% endfor %}
+      {% for n in r.notes %}<tr><td colspan="5" class="small">{{ n }}</td></tr>{% endfor %}</tbody></table>
   {% empty %}<p>Nothing to reconcile - this IW ends at the MRA.</p>{% endfor %}
 
   <h2>Closure checks</h2>

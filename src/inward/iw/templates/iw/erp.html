@@ -1,4 +1,5 @@
 {% extends "web/base.html" %}
+{% load static %}
 {% block title %}ERP &amp; IRR · {{ iw }}{% endblock %}
 {% block content %}
 <p><a href="{% url 'iw:detail' iw.pk %}">&larr; {{ iw }}</a></p>
@@ -49,6 +50,7 @@
 <div class="card">
   <div class="bar"><h2>Reconciliation with the IRR</h2><div class="grow"></div>
     {% if open %}<form method="post" action="{% url 'iw:recon_run' iw.pk %}" class="inline-form">{% csrf_token %}<button type="submit" class="btn btn-primary">Run reconciliation</button></form>{% endif %}
+    {% if live %}<a class="btn" href="{% url 'iw:recon_detail' iw.pk %}" target="_blank" rel="noopener">Detailed report (SKUs &amp; locators)</a>{% endif %}
     <a class="btn" href="{% url 'irr:home' %}">IRR import</a></div>
   {% if run %}<p class="muted">Last saved run {{ run.run_at|date:"d-M-Y H:i" }} by {{ run.run_by.username }} · {% if run.all_ok %}<span class="chip chip-ok">all reconciled</span>{% else %}<span class="chip chip-warn">not complete</span>{% endif %}. Live view below.</p>{% endif %}
   {% if live %}
@@ -61,4 +63,5 @@
   {% else %}<p class="muted">Nothing to reconcile on this IW (outbound, Colour Bank and Non-Stock end at the MRA).</p>{% endif %}
 </div>
 {% include "iw/_closure.html" %}
+<script src="{% static 'inward/upload.js' %}" defer></script>
 {% endblock %}

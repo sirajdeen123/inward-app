@@ -49,7 +49,9 @@ def lr_required(iw: Iw) -> bool:
 
 
 @transaction.atomic
-def add_scan(user: User, iw_pk: int, role: str, data: bytes, filename: str, content_type: str):
+def add_scans(user: User, iw_pk: int, role: str, files: list[tuple[bytes, str, str]]) -> list:
+    """files: (data, filename, content type). A PDF is stored as it is; the photos of one upload are converted
+    into ONE PDF (one page per photo, decision 17-Oct-2026), so every final document on file is a PDF."""
     require(user, "IW_CLOSE")
     iw = Iw.objects.get(pk=iw_pk)
     if role not in SCAN_ROLES:
@@ -58,17 +60,40 @@ def add_scan(user: User, iw_pk: int, role: str, data: bytes, filename: str, cont
         raise IwError("The IW is closed - reopen it to add documents.")
     if iw.status not in erp.ERP_STAGES:
         raise IwError("Scans are added after the MRA is issued.")
-    ctype = (content_type or "").split(";")[0].lower()
-    if ctype not in SCAN_TYPES or not data:
-        raise IwError("Upload a PDF or a photo (JPEG / PNG).")
-    if len(data) > 20 * 1024 * 1024:
-        raise IwError("The file is larger than 20 MB.")
-    doc = documents.store(data, filename=filename or f"{role}{SCAN_TYPES[ctype]}", content_type=ctype,
-                          doc_type=role.upper(), user=user, links=[("iw", iw.pk, role)])
-    audit.record("SCAN_ADDED", "iw", iw.pk, user=user, iw_id=iw.pk, after={"role": role, "document": str(doc.pk),
-                                                                          "sha256": doc.sha256})
+    pdfs, photos = [], []
+    for data, filename, content_type in files:
+        ctype = (content_type or "").split(";")[0].lower()
+        if ctype not in SCAN_TYPES or not data:
+            raise IwError(f"{filename or 'File'}: upload a PDF or a photo (JPEG / PNG).")
+        if len(data) > 20 * 1024 * 1024:
+            raise IwError(f"{filename or 'File'} is larger than 20 MB.")
+        (pdfs if ctype == "application/pdf" else photos).append((data, filename))
+    if not pdfs and not photos:
+        raise IwError("Choose a scan, photo or PDF.")
+    stamp = timezone.localtime(timezone.now()).strftime("%Y%m%d-%H%M%S")
+    stored = []
+    for data, filename in pdfs:
+        stored.append((data, filename or f"{role}.pdf", [filename]))
+    if photos:
+        try:
+            data = pdf.images_to_pdf([d for d, _ in photos])
+        except pdf.ImageError as exc:
+            raise IwError(str(exc)) from exc
+        stored.append((data, f"{iw.iw_no or iw.pk} {SCAN_ROLES[role]} {stamp}.pdf", [n for _, n in photos]))
+    docs = []
+    for data, filename, originals in stored:
+        doc = documents.store(data, filename=filename, content_type="application/pdf", doc_type=role.upper(),
+                              user=user, links=[("iw", iw.pk, role)])
+        audit.record("SCAN_ADDED", "iw", iw.pk, user=user, iw_id=iw.pk,
+                     after={"role": role, "document": str(doc.pk), "sha256": doc.sha256, "uploaded": originals,
+                            "converted_to_pdf": filename not in originals})
+        docs.append(doc)
     _refresh(iw)
-    return doc
+    return docs
+
+
+def add_scan(user: User, iw_pk: int, role: str, data: bytes, filename: str, content_type: str):
+    return add_scans(user, iw_pk, role, [(data, filename, content_type)])[0]
 
 
 def _critical(iw: Iw) -> list[ExceptionEvent]:

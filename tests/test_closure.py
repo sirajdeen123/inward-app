@@ -10,7 +10,7 @@ from tests.helpers import verified_client
 from tests.test_checklist import world  # noqa: F401  (fixture)
 from tests.test_erp_recon import at_erp, full_receipt, irr_rows  # noqa: F401  (fixture)
 from tests.test_mra import verified  # noqa: F401  (fixture)
-from tests.test_sed import EASYCLEAN, WEATHERCOAT
+from tests.test_sed import EASYCLEAN, WEATHERCOAT, _jpeg
 from tests.test_sed import unloading as unloading_iw  # noqa: F401  (fixture)
 from tests.test_unloading import ready  # noqa: F401  (fixture)
 
@@ -54,7 +54,8 @@ def test_gates_and_close(reconciled):
     with pytest.raises(IwError, match="PDF or a photo"):
         closure.add_scan(clerk, w["iw"].pk, "signed_mra", b"x", "mra.txt", "text/plain")
     closure.add_scan(clerk, w["iw"].pk, "signed_mra", PDF, "mra signed.pdf", "application/pdf")
-    closure.add_scan(clerk, w["iw"].pk, "lr_scan", b"\xff\xd8 jpeg", "lr.jpg", "image/jpeg")
+    lr = closure.add_scan(clerk, w["iw"].pk, "lr_scan", _jpeg(), "lr.jpg", "image/jpeg")
+    assert lr.content_type == "application/pdf" and lr.original_filename.endswith(".pdf")
     snap = closure.close(clerk, w["iw"].pk)
     iw = Iw.objects.get(pk=w["iw"].pk)
     assert iw.status == Iw.Status.CLOSED and snap.number == 1 and all(x["ok"] for x in snap.gates)
@@ -99,6 +100,51 @@ def test_screens(client, reconciled):
     resp = c.post(reverse("iw:scan_add", args=[w["iw"].pk]),
                   {"role": "signed_mra", "file": SimpleUploadedFile("mra.pdf", PDF, content_type="application/pdf")},
                   follow=True)
-    assert "mra.pdf uploaded" in resp.content.decode()
+    assert "Saved as PDF: mra.pdf" in resp.content.decode()
     resp = c.post(reverse("iw:close", args=[w["iw"].pk]), follow=True)
     assert "Not ready to close" in resp.content.decode() and "Transporter LR scan" in resp.content.decode()
+
+
+def test_photos_become_one_pdf(reconciled):
+    w, clerk = reconciled, reconciled["clerk"]
+    docs = closure.add_scans(clerk, w["iw"].pk, "lr_scan", [(_jpeg("red"), "p1.jpg", "image/jpeg"),
+                                                          (_jpeg("blue"), "p2.png", "image/png"),
+                                                          (PDF, "lr.pdf", "application/pdf")])
+    assert [d.original_filename for d in docs][0] == "lr.pdf" and len(docs) == 2
+    photo_pdf = docs[1]
+    from inward.core import documents
+    data = documents.read(photo_pdf)
+    assert data.startswith(b"%PDF") and data.count(b"/Type /Page\n") + data.count(b"/Type /Page ") >= 2
+    assert photo_pdf.original_filename.startswith(f"{w['iw'].iw_no} Transporter LR")
+    with pytest.raises(IwError, match="could not be read"):
+        closure.add_scan(clerk, w["iw"].pk, "lr_scan", b"\xff\xd8 not a photo", "x.jpg", "image/jpeg")
+
+
+def test_phone_upload_gets_json(client, reconciled):
+    w = reconciled
+    c = verified_client(client, w["clerk"])
+    from django.core.files.uploadedfile import SimpleUploadedFile
+    resp = c.post(reverse("iw:scan_add", args=[w["iw"].pk]),
+                  {"role": "signed_mra", "file": SimpleUploadedFile("cam.jpg", _jpeg(), content_type="image/jpeg")},
+                  HTTP_X_REQUESTED_WITH="XMLHttpRequest")
+    assert resp.json() == {"redirect": reverse("iw:erp", args=[w["iw"].pk])}
+    page = c.get(reverse("iw:erp", args=[w["iw"].pk])).content.decode()
+    assert "Saved as PDF" in page and "upload.js" in page
+
+
+def test_detailed_report_with_locators(client, reconciled):
+    w = reconciled
+    from inward.irr.models import IrrTransaction
+    from inward.iw import recon
+    IrrTransaction.objects.filter(receipt_no="42637").update(source_subinv="035RCK", source_locator="WH1.R2.C4.2'",
+                                                             lot_number="330/334078/08-2026")
+    d = recon.detail(Iw.objects.get(pk=w["iw"].pk))
+    ship = d["results"][0]
+    ln = next(x for x in ship["lines"] if x["sku"] == EASYCLEAN)
+    assert ln["places"] == [{"subinv": "035RCK", "locator": "WH1.R2.C4.2", "lot": "330/334078/08-2026",
+                             "no": "42637", "qty": "97"}]
+    assert ln["floor"] and ln["diff"] == "0" and d["all_ok"]
+    c = verified_client(client, w["clerk"])
+    page = c.get(reverse("iw:recon_detail", args=[w["iw"].pk])).content.decode()
+    assert "DETAILED RECONCILIATION REPORT" in page and "035RCK WH1.R2.C4.2" in page and "All reconciled" in page
+    assert "Detailed report (SKUs &amp; locators)" in c.get(reverse("iw:erp", args=[w["iw"].pk])).content.decode()

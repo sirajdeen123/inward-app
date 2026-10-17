@@ -1,0 +1,60 @@
+{% load static %}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reconciliation detail {{ iw.iw_no }}</title>
+{% if not for_pdf %}<link rel="stylesheet" href="{% static 'inward/recon.css' %}">{% endif %}
+</head>
+<body>
+{% if not for_pdf %}<div class="toolbar"><a href="{% url 'iw:erp' iw.pk %}">&larr; ERP &amp; IRR · {{ iw }}</a>
+  <span class="grow"></span><button type="button" id="print-btn">Print</button>
+  {% if pdf_available %}<a class="btnlink" href="?pdf=1" target="_blank" rel="noopener">PDF</a>{% endif %}</div>{% endif %}
+
+<div class="runhead">
+  <table class="rh"><tr>
+    <td class="rh-logo">{% if logo %}<img src="{{ logo }}" alt="logo">{% endif %}</td>
+    <td class="rh-co">{% if c.depot.company %}<div class="co">{{ c.depot.company }}</div>{% endif %}
+      <div>Depot {{ c.depot.code }} · {{ c.depot.name }}{% if c.depot.cfa %} · Operated by: {{ c.depot.cfa }} (CFA){% endif %}</div>
+      <div class="doc">DETAILED RECONCILIATION REPORT</div></td>
+    <td class="rh-iw"><div class="iwno">{{ iw.iw_no }}</div>
+      <div>Vehicle <b>{{ iw.vehicle_no }}</b> · arrived {{ iw.arrival_at|date:"d-M-Y h:i A" }}</div>
+      <div>{{ iw.load_type }}{% if iw.source_org %} · from {{ iw.source_org }}{% endif %}</div>
+      <div>{% if closure and iw.status == 'CLOSED' %}Closed C{{ closure.number }} {{ closure.closed_at|date:"d-M-Y h:i A" }} by {{ closure.closed_by.username }}{% else %}Status: {{ iw.get_status_display }}{% endif %}</div></td>
+  </tr></table>
+</div>
+<div class="runfoot">Generated {{ generated|date:"d-M-Y h:i A" }} by {{ by }} from the IRR in the app{% if run %} · last saved run {{ run.run_at|date:"d-M-Y h:i A" }} by {{ run.run_by.username }}{% endif %} · {{ iw.iw_no }}</div>
+
+<main>
+  <h2>Summary <span class="badge {% if d.all_ok %}ok{% else %}bad{% endif %}">{% if d.all_ok %}All reconciled{% else %}Not fully reconciled{% endif %}</span></h2>
+  <table class="tbl"><thead><tr><th>Item</th><th>Receipt / TRX No</th><th class="num">SKUs</th><th class="num">Expected pcs</th><th class="num">IRR pcs</th><th>Result</th></tr></thead>
+    <tbody>{% for r in d.results %}<tr><td>{{ r.track }}</td><td class="mono">{{ r.numbers|join:", "|default:"-" }}</td><td class="num">{{ r.lines|length }}</td>
+      <td class="num">{{ r.expected }}</td><td class="num">{{ r.actual }}</td><td><span class="badge {% if r.ok %}ok{% else %}bad{% endif %}">{{ r.status }}</span></td></tr>
+      {% empty %}<tr><td colspan="6">Nothing to reconcile - this IW ends at the MRA.</td></tr>{% endfor %}</tbody></table>
+  <p class="small">Put-away location = Source SUB INV and Source Locator of the IRR row (where the floor supervisor placed the stock in Oracle). One SKU may be on several locators or lots.</p>
+
+  {% for r in d.results %}{% if r.lines or r.notes %}
+  <section class="track">
+    <h2>{{ r.track }}{% if r.numbers %} · <span class="mono">{{ r.numbers|join:", " }}</span>{% endif %} <span class="badge {% if r.ok %}ok{% else %}bad{% endif %}">{{ r.status }}</span></h2>
+    {% for n in r.notes %}<div class="note">{{ n }}</div>{% endfor %}
+    {% if r.lines %}<div class="scroll"><table class="tbl detail">
+      <thead><tr><th class="num">Sl</th><th>Floor SKU</th><th>Full SKU / description</th><th class="num">Expected</th><th class="num">IRR</th><th class="num">Diff</th><th class="num">LTR / KG exp · IRR</th>
+        <th>Put-away location</th><th>Lot</th><th>Receipt / TRX</th><th class="num">Pcs</th></tr></thead>
+      <tbody>{% for ln in r.lines %}{% with n=ln.places|length %}
+        <tr class="sku{% if ln.diff != '0' %} off{% endif %}"><td class="num" rowspan="{{ n|default:1 }}">{{ forloop.counter }}</td><td class="mono b" rowspan="{{ n|default:1 }}">{{ ln.floor }}</td>
+          <td rowspan="{{ n|default:1 }}"><span class="mono">{{ ln.sku }}</span><div class="small">{{ ln.description }}</div></td>
+          <td class="num" rowspan="{{ n|default:1 }}">{{ ln.expected }}</td><td class="num" rowspan="{{ n|default:1 }}">{{ ln.actual }}</td>
+          <td class="num b" rowspan="{{ n|default:1 }}">{% if ln.diff != '0' %}{{ ln.diff }}{% else %}-{% endif %}</td>
+          <td class="num" rowspan="{{ n|default:1 }}">{% if ln.family %}{{ ln.exp_measure|default:"-" }} · {{ ln.act_measure }} {{ ln.family }}{% endif %}</td>
+          {% if n %}{% with p=ln.places.0 %}<td class="mono">{{ p.subinv }} {{ p.locator }}</td><td class="mono small">{{ p.lot }}</td><td class="mono">{{ p.no }}</td><td class="num">{{ p.qty }}</td>{% endwith %}
+          {% else %}<td colspan="4" class="muted">not in the IRR</td>{% endif %}</tr>
+        {% for p in ln.places|slice:"1:" %}<tr><td class="mono">{{ p.subinv }} {{ p.locator }}</td><td class="mono small">{{ p.lot }}</td><td class="mono">{{ p.no }}</td><td class="num">{{ p.qty }}</td></tr>{% endfor %}
+      {% endwith %}{% endfor %}</tbody></table></div>{% endif %}
+  </section>
+  {% endif %}{% endfor %}
+
+  <div class="signs"><div>Prepared by (clerk): ____________________</div><div>Checked by (System Supervisor): ____________________</div></div>
+</main>
+{% if not for_pdf %}<script src="{% static 'inward/print.js' %}" defer></script>{% endif %}
+</body>
+</html>

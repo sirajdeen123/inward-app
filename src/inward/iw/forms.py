@@ -57,7 +57,8 @@ class IwForm(forms.Form):
     driver_mobile = forms.CharField(label="Driver mobile", required=False, max_length=15,
                                     widget=forms.TextInput(attrs={"inputmode": "tel"}))
     transporter = forms.CharField(label="Transporter", required=False, max_length=160,
-                                  widget=forms.TextInput(attrs={"list": "transporter-list"}))
+                                  widget=forms.TextInput(attrs={"list": "transporter-list", "class": "caps",
+                                                                "autocapitalize": "characters"}))
     lr_no = forms.CharField(label="LR number", required=False, max_length=40,
                             widget=forms.TextInput(attrs={"class": "caps"}))
     gate_register_no = forms.CharField(label="Security gate register No (needed before the MRA)", required=False,

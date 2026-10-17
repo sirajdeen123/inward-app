@@ -40,7 +40,7 @@ def _iw(clerk, code="DIRECT_FACTORY", vehicle="TN60E8139"):
 
 def test_link_freezes_baseline_and_sets_status(world):
     iw = _iw(world["clerk"])
-    link = linking.link_ship(world["clerk"], iw.pk, "52497520", lscrr_no="lsc-77")
+    link = linking.link_ship(world["clerk"], iw.pk, "52497520", lscrr_no="lsc-77", gross_kg="11500")
     lines = {ln.sku: ln for ln in link.lines.all()}
     assert lines["F002980000020000"].quantity == 49 and lines["F002980000020000"].measure == 980
     assert lines["F00B470633002001"].measure == 140 and lines["F00B470633002001"].measure_family == "KG"
@@ -57,14 +57,14 @@ def test_link_freezes_baseline_and_sets_status(world):
 def test_second_vehicle_needs_split_and_cannot_exceed_sit(world):
     first, second = _iw(world["clerk"]), _iw(world["clerk"], vehicle="TN52AC1171")
     linking.link_ship(world["clerk"], first.pk, "52497520", split=True, split_reason="two trucks",
-                      allocations={"F002980000020000": "30", "F00B470633002001": "70"})
+                      allocations={"F002980000020000": "30", "F00B470633002001": "70"}, gross_kg="6000")
     with pytest.raises(IwError, match="already linked to IW-2627-000001"):
         linking.link_ship(world["clerk"], second.pk, "52497520")
     with pytest.raises(IwError, match="more than the 19"):
         linking.link_ship(world["clerk"], second.pk, "52497520", split=True, split_reason="two trucks",
-                          allocations={"F002980000020000": "20"})
+                          allocations={"F002980000020000": "20"}, gross_kg="4000")
     link = linking.link_ship(world["clerk"], second.pk, "52497520", split=True, split_reason="two trucks",
-                             allocations={"F002980000020000": "19", "2010370991BULKPC": "25"})
+                             allocations={"F002980000020000": "19", "2010370991BULKPC": "25"}, gross_kg="4000")
     assert {ln.sku: ln.quantity for ln in link.lines.all()} == {"F002980000020000": 19, "2010370991BULKPC": 25}
     cand = linking.ship_candidate(_iw(world["clerk"], vehicle="KA01AB1234"), "52497520")
     assert "already allocated" in " ".join(cand.blockers)
@@ -84,6 +84,15 @@ def test_blockers(world, setup, message):
         linking.link_ship(world["clerk"], iw.pk, ship)
 
 
+def test_gross_weight_is_mandatory(world):
+    iw = _iw(world["clerk"])
+    with pytest.raises(IwError, match="gross weight"):
+        linking.link_ship(world["clerk"], iw.pk, "52497520")
+    with pytest.raises(IwError, match="not a number"):
+        linking.link_ship(world["clerk"], iw.pk, "52497520", gross_kg="abc")
+    assert not iw.ship_links.exists()
+
+
 def test_draft_and_void_rules(world, make_user):
     draft = services.save_draft(world["clerk"], services.IwData(
         arrival_at=datetime(2026, 9, 25, 9, 40, tzinfo=IST), load_type=LoadType.objects.get(code="RDC"),
@@ -91,10 +100,10 @@ def test_draft_and_void_rules(world, make_user):
     with pytest.raises(IwError, match="Create the IW"):
         linking.link_ship(world["clerk"], draft.pk, "52497520")
     iw = _iw(world["clerk"])
-    linking.link_ship(world["clerk"], iw.pk, "52497520")
+    linking.link_ship(world["clerk"], iw.pk, "52497520", gross_kg="11500")
     Iw.objects.filter(pk=iw.pk).update(status=Iw.Status.VOID)
     assert linking.ship_link_state()[0] == set()  # a VOID IW releases its Ships
-    assert linking.link_ship(world["clerk"], _iw(world["clerk"], vehicle="NEW1").pk, "52497520")
+    assert linking.link_ship(world["clerk"], _iw(world["clerk"], vehicle="NEW1").pk, "52497520", gross_kg="11500")
 
 
 @pytest.fixture
@@ -104,7 +113,7 @@ def live(settings):
 
 def test_sit_removal_of_linked_ship_is_not_critical(live, world):
     iw = _iw(world["clerk"])
-    linking.link_ship(world["clerk"], iw.pk, "52497520")
+    linking.link_ship(world["clerk"], iw.pk, "52497520", gross_kg="11500")
     imp = sit.import_sit_file(sit_html(world["tmp"] / "s2.xls", [
         (*OTHER, "F00AQR0000020000", "PLATINA WEATHERCOAT WC300 WHITE 20 L", "RETAIL", "L", "20", "50"),
     ], system_date="27-JUN-2026"), source="MANUAL")
@@ -134,7 +143,7 @@ def test_screens(client, world):
     page = c.get(reverse("iw:link_ship", args=[iw.pk]) + "?ship=52497520").content.decode()
     assert "298 000" in page and "Link Ship 52497520" in page
     resp = c.post(reverse("iw:link_ship", args=[iw.pk]), {"ship_id": "52497520", "confirm": "1",
-                                                          "lscrr_no": "L-1"}, follow=True)
+                                                          "lscrr_no": "L-1", "gross_kg": "11,500"}, follow=True)
     html = resp.content.decode()
     assert "Ship 52497520 linked" in html and "980 LTR" in html and "LSCCR L-1" in html
     link = ShipLink.objects.get(iw=iw)

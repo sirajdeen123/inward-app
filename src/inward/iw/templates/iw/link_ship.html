@@ -21,7 +21,7 @@
   <form method="post" class="form-wide">{% csrf_token %}
     <input type="hidden" name="ship_id" value="{{ cand.ship.ship_id }}">
     <input type="hidden" name="confirm" value="1">
-    <div class="inline"><label for="gross_kg">Gross weight on the Ship document (kg)</label><input id="gross_kg" name="gross_kg" class="input-inline" inputmode="decimal" placeholder="e.g. 6420" value="{{ post.gross_kg|default:'' }}"><span class="muted">Adds up to the unloading tonnage.</span></div>
+    <div class="inline"><label for="gross_kg">Gross weight on the Ship document (kg) *</label><input id="gross_kg" name="gross_kg" class="input-inline" inputmode="decimal" placeholder="e.g. 6420" required value="{{ post.gross_kg|default:'' }}"><span class="muted">Mandatory - adds up to the unloading tonnage.</span></div>
     <label class="check"><input type="checkbox" name="split" value="1"{% if cand.needs_split or split_requested %} checked{% endif %}> Split vehicle - this Ship is carried on more than one vehicle; I enter the quantity on this vehicle</label>
     <div><label for="split_reason">Reason for split (mandatory when split)</label><input id="split_reason" name="split_reason" class="input-inline" value="{{ post.split_reason|default:'' }}"></div>
     {% if iw.load_type.is_direct_factory %}

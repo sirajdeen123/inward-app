@@ -138,10 +138,14 @@ def link_ship(user: User, iw_pk: int, ship_id: str, *, split: bool = False, spli
                       "the quantity on this vehicle.")
     if split and not split_reason.strip():
         raise IwError("A reason is mandatory for a split vehicle.")
+    kg = parse_kg(gross_kg)
+    if kg is None:   # UAT 17-Oct-2026: the unloading tonnage is built from these weights
+        raise IwError(f"Enter the gross weight (kg) of Ship {cand.ship.ship_id} from its document before linking"
+                      + (" - the weight carried on this vehicle." if split else "."))
     link = ShipLink.objects.create(iw=iw, ship=cand.ship, baseline_import=cand.ship.last_seen, is_split=split,
                                    split_reason=split_reason.strip(), lscrr_no=clean_text(lscrr_no).upper(),
                                    lscrr_applied=True if iw.load_type.is_direct_factory and lscrr_no.strip() else None,
-                                   gross_kg=parse_kg(gross_kg), linked_by=user)
+                                   gross_kg=kg, linked_by=user)
     total = Decimal(0)
     for ln in cand.lines:
         qty = _qty((allocations or {}).get(ln.sku, "0")) if split else ln.available

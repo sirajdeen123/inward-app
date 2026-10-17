@@ -1,4 +1,4 @@
-{% if sheet.key == "OTHER" %}
+{% load iw_ui %}{% if sheet.key == "OTHER" %}
   {% if sheet.other.colour_bank %}<h3>Colour Bank machines</h3>
   <table class="tbl cl"><thead><tr><th class="num">Sl.</th><th>Direction</th><th>Challan</th><th>Description</th><th>Serial</th><th>Asset</th><th class="num">Qty</th><th class="count">Counted</th><th class="rem">Remarks</th></tr></thead>
   <tbody>{% for c in sheet.other.colour_bank %}<tr><td class="num">{{ forloop.counter }}</td><td>{{ c.direction }}</td><td class="mono">{{ c.challan }}</td><td>{{ c.description }}</td><td>{{ c.serial }}</td><td>{{ c.asset }}</td><td class="num">{{ c.quantity }}</td><td class="count"></td><td class="rem"></td></tr>{% endfor %}</tbody></table>{% endif %}
@@ -8,14 +8,14 @@
 {% else %}
   <p class="sheet-sum">{{ sheet.lines }} line(s) · {{ sheet.pieces }} pieces{% if sheet.ltr != "0" %} · {{ sheet.ltr }} LTR{% endif %}{% if sheet.kg != "0" %} · {{ sheet.kg }} KG{% endif %}{% if sheet.keep_separate %} · <b>KEEP SEPARATE - NOT FOR THIS DEPOT</b>{% endif %}</p>
   {% for g in sheet.groups %}
-  <h3>{{ g.name }}{% if g.code != "EMPTY_PACKING" and g.code != "NOT_SET" and g.code != "SHOTS" %} · {{ g.full }} package(s){% if g.loose != "0" %} + {{ g.loose }} loose{% endif %}{% else %} · {{ g.pieces }} pieces{% endif %}</h3>
+  <h3>{{ g.name }}{% if g.code != "EMPTY_PACKING" and g.code != "NOT_SET" and g.code != "SHOTS" %} · {{ g.full|packages:g.code }}{% if g.loose != "0" %} + {{ g.loose }} loose{% endif %}{% else %} · {{ g.pieces }} pieces{% endif %}</h3>
   <table class="tbl cl">
     <thead><tr><th class="num">Sl.</th><th>Floor SKU</th><th>Description</th><th>From</th><th class="num">Pack</th><th class="num">Doc pcs</th><th class="num">Packages</th><th class="count">Counted</th><th class="rem">Remarks</th></tr></thead>
     <tbody>{% for ln in g.lines %}
       <tr><td class="num">{{ forloop.counter }}</td><td class="floor">{{ ln.floor_sku }}<div class="sku">{{ ln.sku }}</div></td>
       <td>{{ ln.description }}{% if ln.verify_note %}<div class="flag">&#9888; VERIFY PHYSICALLY: {{ ln.units }} per package in the list</div>{% endif %}{% if ln.packaging_missing %}<div class="flag">&#9888; packaging not set - count pieces</div>{% endif %}</td>
       <td class="src">{{ ln.source }}</td><td class="num">{{ ln.pack_size }}{% if ln.uom %} {{ ln.uom }}{% endif %}</td><td class="num">{{ ln.pieces }}</td>
-      <td class="num pk">{% if ln.pieces_only %}{{ ln.pieces }} pcs{% else %}{{ ln.full }}{% if ln.units and ln.units > 1 %} × {{ ln.units }} pcs{% endif %}{% if ln.loose != "0" %} + {{ ln.loose }} loose{% endif %}{% endif %}</td>
+      <td class="num pk">{% if ln.pieces_only %}{{ ln.pieces }} pcs{% else %}{% if ln.full %}{{ ln.full|packages:ln.group }}{% if ln.loose != "0" %} + {% endif %}{% endif %}{% if ln.loose != "0" %}{{ ln.loose }} loose{% endif %}{% endif %}</td>
       <td class="count"></td><td class="rem"></td></tr>
     {% endfor %}</tbody>
   </table>

@@ -40,7 +40,7 @@ def world(seeded, tmp_path, settings, make_user):
     iw = services.create(clerk, services.IwData(
         arrival_at=datetime(2026, 9, 25, 9, 40, tzinfo=IST), source_org=Organisation.objects.get(code="390"),
         load_type=LoadType.objects.get(code="DIRECT_FACTORY_OUTBOUND_TS"), vehicle_no="TN60E8139"))
-    linking.link_ship(clerk, iw.pk, "52497520")
+    linking.link_ship(clerk, iw.pk, "52497520", gross_kg="11500")
     path = tmp_path / "d.xlsx"
     shutil.copy(sample("Outbound SIT sample.xlsx"), path)
     outbound.upload_report(clerk, iw.pk, path, "Outbound SIT sample.xlsx")
@@ -111,3 +111,4 @@ def test_screens(client, world):
     page = c.get(reverse("iw:checklist_print", args=[world["iw"].pk, 1])).content.decode()
     assert "RETAIL WAREHOUSE" in page and "Operated by: RAINBOW LOGISTICS (CFA)" in page and "BERGER PAINTS INDIA LTD" in page and "XG9 991" in page
     assert "KEEP SEPARATE" in page and "print.js" in page
+    assert "24 Boxes + 1 loose" in page and "× 4 pcs" not in page                 # what the team counts

@@ -1,0 +1,19 @@
+{% extends "web/base.html" %}
+{% block title %}Notification e-mails{% endblock %}
+{% block content %}
+<h1>Notification e-mails</h1>
+<p class="muted">Internal recipients of the SED mails and the reports. Enter one address per person; it is used for every mail listed under that person. In UAT (TEST mode) every mail still goes only to the test mailbox, marked [TEST].</p>
+{% if missing %}<div class="alert alert-error">No e-mail yet for: {{ missing|join:", " }}. Mandatory mails cannot be sent until it is entered.</div>{% endif %}
+<form method="post" class="card">{% csrf_token %}
+  <table class="tbl stack">
+    <thead><tr><th>Person</th><th>E-mail</th><th>Receives</th></tr></thead>
+    <tbody>{% for i, role, email, uses in people %}
+      <tr><td data-label="Person"><b>{{ role }}</b></td>
+        <td data-label="E-mail"><input id="role-{{ i }}" name="role_{{ i }}" type="email" value="{{ email }}" class="input-inline" aria-label="E-mail for {{ role }}" placeholder="name@example.com"></td>
+        <td data-label="Receives">{% for label, kind, mandatory in uses %}<div>{{ label }} <span class="muted">({{ kind }}{% if mandatory %}, mandatory{% endif %})</span></div>{% endfor %}</td></tr>
+    {% endfor %}</tbody>
+  </table>
+  <p><button type="submit" class="btn btn-primary">Save e-mails</button></p>
+</form>
+<p class="muted">Source organisation, vendor and sender e-mails (who receives the MRA) are entered on the MRA page when missing, or under Masters &amp; users → Organisations.</p>
+{% endblock %}

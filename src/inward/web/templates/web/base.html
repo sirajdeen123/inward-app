@@ -22,11 +22,12 @@
     <a href="{% url 'iw:search' %}" class="nav{% if request.resolver_match.url_name == 'search' %} active{% endif %}">Search</a>
     <a href="{% url 'sit:home' %}" class="nav{% if request.resolver_match.app_name == 'sit' %} active{% endif %}">01 SIT import</a>
     <a href="{% url 'iw:list' %}" class="nav{% if request.resolver_match.app_name == 'iw' and 'ledger' not in request.resolver_match.url_name %} active{% endif %}">02 IW vehicles</a>
+    {% if can_notify %}<a href="{% url 'core:notifications' %}" class="nav{% if request.resolver_match.url_name == 'notifications' %} active{% endif %}">Notification e-mails</a>{% endif %}
     {% if emails_unverified %}<a href="{% url 'iw:email_verify' %}" class="nav">Verify e-mails <span class="badge">{{ emails_unverified }}</span></a>{% endif %}
     <a href="{% url 'iw:reports' %}" class="nav{% if request.resolver_match.url_name == 'reports' %} active{% endif %}">Reports</a>
     <a href="{% url 'irr:home' %}" class="nav{% if request.resolver_match.app_name == 'irr' %} active{% endif %}">05 IRR import</a>
     <a href="{% url 'iw:ledger' %}" class="nav{% if request.resolver_match.url_name == 'ledger' or request.resolver_match.url_name == 'ledger_detail' %} active{% endif %}">Transporter ledger</a>
-    <a href="{% url 'core:packaging' %}" class="nav{% if request.resolver_match.app_name == 'core' %} active{% endif %}">SKU packaging{% if packaging_review_pending %} <span class="badge">{{ packaging_review_pending }}</span>{% endif %}</a>
+    <a href="{% url 'core:packaging' %}" class="nav{% if request.resolver_match.app_name == 'core' and request.resolver_match.url_name != 'notifications' %} active{% endif %}">SKU packaging{% if packaging_review_pending %} <span class="badge">{{ packaging_review_pending }}</span>{% endif %}</a>
     <a href="{% url 'accounts:approvals' %}" class="nav{% if request.resolver_match.url_name == 'approvals' %} active{% endif %}">Approvals{% if approvals_pending %} <span class="badge">{{ approvals_pending }}</span>{% endif %}</a>
     <a href="{% url 'web:import_preview' %}" class="nav{% if request.resolver_match.url_name == 'import_preview' %} active{% endif %}">Import preview</a>
     <a href="{% url 'web:health' %}" class="nav{% if request.resolver_match.url_name == 'health' %} active{% endif %}">System health</a>

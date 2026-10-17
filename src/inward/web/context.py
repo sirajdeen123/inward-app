@@ -39,6 +39,7 @@ def depot(request) -> dict:
                 from inward.iw.ops import mail_banner
                 ctx["mail_banner"] = mail_banner()
             if "GRANT" in modes_for(user, "EMAIL_VERIFY"):
+                ctx["can_notify"] = True
                 from inward.iw.comms import unverified_emails
                 ctx["emails_unverified"] = len(unverified_emails())
         except Exception:  # noqa: BLE001

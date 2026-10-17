@@ -262,3 +262,20 @@ def test_audit_memo_screens(client, sent):
     page = c.get(reverse("iw:mra", args=[sent["iw"].pk])).content.decode()
     assert "SED Audit Memo" in page
     assert "SED AUDIT MEMO" in c.get(reverse("iw:audit_memo_view", args=[sent["iw"].pk])).content.decode()
+
+
+def test_notification_emails_screen(client, seeded, make_user):
+    cfa = verified_client(client, make_user("cfa_notif", "CFA_MANAGER"))
+    page = cfa.get(reverse("core:notifications")).content.decode()
+    assert "Notification e-mails" in page and "Depot Manager" in page and "No e-mail yet for" in page
+    roles = sorted(set(NotificationRecipient.objects.values_list("role_label", flat=True)))
+    data = {f"role_{i}": f"{r.split()[0].lower()}@example.com" for i, r in enumerate(roles)}
+    resp = cfa.post(reverse("core:notifications"), data, follow=True)
+    assert "Notification e-mails saved" in resp.content.decode()
+    assert set(NotificationRecipient.objects.filter(role_label="Depot Manager").values_list("email", flat=True)) == {"depot@example.com"}
+    assert comms.internal("SED_APPROVAL")[0] == ["depot@example.com"]
+    bad = cfa.post(reverse("core:notifications"), {**data, "role_0": "not-an-email"}, follow=True)
+    assert "is not a valid e-mail" in bad.content.decode()
+    clerk = make_user("clerk_notif", "DEPOT_CLERK")
+    client.logout()
+    assert verified_client(client, clerk).get(reverse("core:notifications")).status_code == 403

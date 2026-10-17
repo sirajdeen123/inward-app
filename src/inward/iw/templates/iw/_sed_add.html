@@ -1,0 +1,59 @@
+{% load static %}
+<div class="card" id="add">
+  <h2>Record a Short, Excess or Damage</h2>
+  <div class="kindbar" role="group" aria-label="What to record">
+    <a class="btn kind kind-short{% if add == 'short' %} on{% endif %}" href="?add=short#add">SHORT</a>
+    <a class="btn kind kind-excess{% if add == 'excess' %} on{% endif %}" href="?add=excess#add">EXCESS</a>
+    <a class="btn kind kind-damage{% if add == 'damage' %} on{% endif %}" href="?add=damage#add">DAMAGE</a>
+  </div>
+
+  {% if add == 'short' or add == 'damage' %}
+  <form method="post" class="form-grid">{% csrf_token %}
+    <input type="hidden" name="kind" value="{{ add|upper }}">
+    <div class="field span-all"><label for="f-pick">SKU from the documents *</label>
+      <select id="f-pick" name="pick" required><option value="">Select the SKU...</option>
+        {% regroup options by source_label as groups %}{% for g in groups %}<optgroup label="{{ g.grouper }}">{% for o in g.list %}<option value="{{ o.key }}"{% if post.pick == o.key %} selected{% endif %}>{{ o.floor_sku }} · {{ o.description|truncatechars:48 }} · {{ o.doc_pieces|floatformat:"-3" }} pcs</option>{% endfor %}</optgroup>{% endfor %}
+      </select></div>
+    {% if add == 'short' %}
+      <div class="field"><label for="f-short">Short (pieces) *</label><input id="f-short" name="short_qty" inputmode="numeric" required value="{{ post.short_qty }}"></div>
+      {% if can_value %}<div class="field"><label for="f-sval">Short value (Rs)</label><input id="f-sval" name="short_value" inputmode="decimal" value="{{ post.short_value }}"></div>{% endif %}
+      <div class="field"><label for="f-srem">Remarks</label><input id="f-srem" name="short_remarks" value="{{ post.short_remarks }}" placeholder="Short received - n pcs"></div>
+    {% else %}
+      <div class="field"><label for="f-damage">Damaged (pieces) *</label><input id="f-damage" name="damage_qty" inputmode="numeric" required value="{{ post.damage_qty }}"></div>
+      <div class="field span-all"><label>What is damaged? *</label>
+        {% for value, label in kinds %}<label class="check"><input type="radio" name="damage_kind" value="{{ value }}" required{% if post.damage_kind == value %} checked{% endif %}> {{ label }}</label>{% endfor %}</div>
+      <div class="field"><label for="f-ctype">Container (only for container damage)</label><select id="f-ctype" name="container_type"><option value="">-</option><option value="CARTON"{% if post.container_type == 'CARTON' %} selected{% endif %}>Carton</option><option value="DRUM"{% if post.container_type == 'DRUM' %} selected{% endif %}>Drum</option></select></div>
+      <div class="field"><label for="f-ccount">Damaged containers</label><input id="f-ccount" name="container_count" inputmode="numeric" value="{{ post.container_count }}"></div>
+      <div class="field"><label for="f-pct">Damage % (optional)</label><input id="f-pct" name="damage_pct" inputmode="decimal" value="{{ post.damage_pct }}"></div>
+      {% if can_value %}<div class="field"><label for="f-dval">Damage value (Rs)</label><input id="f-dval" name="damage_value" inputmode="decimal" value="{{ post.damage_value }}" placeholder="blank = container charge"></div>{% endif %}
+      <div class="field span-all"><label for="f-drem">Damage remarks *</label><input id="f-drem" name="damage_remarks" required value="{{ post.damage_remarks }}" placeholder="e.g. 2 tins dented and leaking, carton wet"></div>
+      <p class="muted span-all">After saving, take the damage photo(s) on the line above.</p>
+    {% endif %}
+    <div class="span-all"><button type="submit" class="btn btn-primary">Save {{ add|upper }}</button> <a class="btn" href="?#add">Cancel</a></div>
+  </form>
+
+  {% elif add == 'excess' %}
+  <form method="post" class="form-grid">{% csrf_token %}
+    <input type="hidden" name="kind" value="EXCESS">
+    <div class="field"><label for="x-src">Came with *</label><select id="x-src" name="came_with" required><option value="">Select...</option>{% for key, label in sources %}<option value="{{ key }}"{% if post.came_with == key %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+    <div class="field span-all"><label for="x-sku">SKU code * <span class="muted">(type the code or a word of the description)</span></label>
+      <input id="x-sku" name="sku" class="caps" maxlength="16" list="sku-options" autocomplete="off" required value="{{ post.sku|default:new_sku }}" data-search="{% url 'iw:sku_search' %}" placeholder="F00XG90991003600">
+      <datalist id="sku-options"></datalist>
+      <div id="x-desc" class="muted" aria-live="polite"></div></div>
+    <div class="field"><label for="x-qty">Excess (pieces) *</label><input id="x-qty" name="excess_qty" inputmode="numeric" required value="{{ post.excess_qty }}"></div>
+    <div class="field span-all"><label for="x-rem">Remarks</label><input id="x-rem" name="excess_remarks" value="{{ post.excess_remarks }}" placeholder="Excess received - n pcs / wrong item received"></div>
+    <div class="span-all"><button type="submit" class="btn btn-primary">Save EXCESS</button> <a class="btn" href="?#add">Cancel</a></div>
+  </form>
+  {% if can_add_sku %}
+  <details class="addsku"{% if post.new_description is not None and error %} open{% endif %}><summary>SKU not in the packaging list? Add it</summary>
+    <form method="post" action="{% url 'iw:sku_quick_add' iw.pk %}" class="form-grid">{% csrf_token %}
+      <div class="field"><label for="n-sku">SKU code (16 characters) *</label><input id="n-sku" name="sku" class="caps" maxlength="16" required></div>
+      <div class="field span-all"><label for="n-desc">Description *</label><input id="n-desc" name="description" class="caps" required maxlength="200"></div>
+      <div class="span-all"><button type="submit" class="btn">Add SKU</button> <span class="muted">Added with packaging "not set"; complete it later under SKU packaging.</span></div>
+    </form></details>
+  {% endif %}
+  {% else %}
+  <p class="muted">Choose what to record. Short and Damage pick from the SKUs on the documents; Excess searches the SKU packaging list.</p>
+  {% endif %}
+</div>
+<script src="{% static 'inward/sku_search.js' %}" defer></script>

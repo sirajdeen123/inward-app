@@ -2,12 +2,14 @@
 from __future__ import annotations
 
 from django.contrib import messages
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.http import urlencode
 from django.views.decorators.http import require_POST
 
 from inward.accounts.services import PermissionDenied, modes_for
+from inward.core import branding, pdf
 from inward.iw import checklist
 from inward.iw.models import Iw
 from inward.iw.services import IwError
@@ -46,4 +48,12 @@ def checklist_generate(request, pk):
 def checklist_print(request, pk, revision):
     iw = get_object_or_404(Iw.objects.select_related("load_type", "source_org", "transporter"), pk=pk)
     snap = get_object_or_404(iw.checklists, revision=revision)
-    return render(request, "iw/checklist_print.html", {"iw": iw, "snap": snap, "depot": depot_info()})
+    ctx = {"iw": iw, "snap": snap, "depot": depot_info()}
+    if request.GET.get("html") or not pdf.available():
+        return render(request, "iw/checklist_print.html", ctx)
+    # PDF: vehicle details repeated at the top of every page, "Page x of y" (UAT feedback 17-Oct-2026)
+    data = pdf.html_to_pdf(pdf.render_html("iw/checklist_pdf.html", {**ctx, "logo": branding.logo_data_uri()}),
+                           stylesheet="inward/checklist.css")
+    resp = HttpResponse(data, content_type="application/pdf")
+    resp["Content-Disposition"] = f'inline; filename="Checklist {iw.iw_no} R{snap.revision}.pdf"'
+    return resp

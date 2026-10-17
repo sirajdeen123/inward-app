@@ -121,6 +121,59 @@ def save_counts(user: User, iw_pk: int, values: dict[str, str], reload: bool = F
                  changed_from_checklist=[f"{p.warehouse}|{p.group}" for p in proposal if p.count != p.checklist_count])
     return proposal
 
+# ---------------------------------------------------------------- gross weights -> tonnage (UAT feedback 17-Oct-2026)
+
+
+@dataclass
+class Weight:
+    kind: str     # SHIP / OUTBOUND / VENDOR
+    pk: int
+    label: str
+    kg: Decimal | None
+
+
+def weights(iw: Iw) -> list[Weight]:
+    out = [Weight("SHIP", l.pk, f"Ship {l.ship_id}", l.gross_kg) for l in iw.ship_links.order_by("linked_at")]
+    out += [Weight("OUTBOUND", s.pk, f"Outbound Ship {s.ship_id}", s.gross_kg) for s in iw.outbound_ships.order_by("linked_at")]
+    out += [Weight("VENDOR", c.pk, f"Vendor {c.vendor_id} challan {c.challan_no}", c.gross_kg)
+            for c in iw.vendor_consignments.all()]
+    return out
+
+
+def suggested_tonnage(iw: Iw) -> tuple[Decimal | None, Decimal]:
+    """(tonnes as the clerks write them - total kg / 1000 cut to one decimal, e.g. 13,256 kg -> 13.2; total kg)."""
+    ws = weights(iw)
+    total = sum((w.kg for w in ws if w.kg), Decimal(0))
+    if not total:
+        return None, Decimal(0)
+    return (total / 1000).quantize(Decimal("0.1"), rounding="ROUND_DOWN"), total
+
+
+@transaction.atomic
+def save_weights(user: User, iw_pk: int, values: dict[str, str]) -> None:
+    """values: '<KIND>:<pk>' -> kg as typed (blank clears)."""
+    from inward.iw.linking import parse_kg
+    from inward.iw.models import OutboundShip, ShipLink, VendorConsignment
+    require(user, "UNLOADING_RECORD")
+    iw = Iw.objects.select_for_update().get(pk=iw_pk)
+    _require_before_mra(iw)
+    model = {"SHIP": ShipLink, "OUTBOUND": OutboundShip, "VENDOR": VendorConsignment}
+    changed = {}
+    for key, raw in values.items():
+        kind, _, pk = key.partition(":")
+        if kind not in model or not pk.isdigit():
+            continue
+        obj = model[kind].objects.filter(iw=iw, pk=int(pk)).first()
+        if obj is None:
+            continue
+        kg = parse_kg(raw)
+        if kg != obj.gross_kg:
+            changed[key] = {"before": obj.gross_kg, "after": kg}
+            obj.gross_kg = kg
+            obj.save(update_fields=["gross_kg"])
+    if changed:
+        audit.record("GROSS_WEIGHTS_SAVED", "iw", iw.pk, user=user, iw_id=iw.pk, after=changed)
+
 # ---------------------------------------------------------------- unloading charge and settlement
 
 
@@ -154,6 +207,7 @@ def record(user: User, iw_pk: int, data: UnloadingInput, version: int | None = N
     iw = Iw.objects.select_for_update(of=("self",)).select_related("transporter").get(pk=iw_pk)
     _require_before_mra(iw)
     rec = UnloadingRecord.objects.select_for_update().filter(iw=iw).first()
+    suggested, _ = suggested_tonnage(iw)
     if rec and version is not None and int(version) != rec.version:
         raise IwError("The unloading record was changed by someone else. Reload the page.")
     tonnage = _dec(data.tonnage, "Tonnage (tonnes)")
@@ -206,7 +260,8 @@ def record(user: User, iw_pk: int, data: UnloadingInput, version: int | None = N
         exempt_req.save(update_fields=["status"])
 
     before = _snap(rec) if rec else None
-    values = dict(tonnage=tonnage, rate=rate, rate_effective_from=eff, charge=charge, status=status, paid_amount=paid,
+    values = dict(tonnage=tonnage, tonnage_from_weights=suggested, rate=rate, rate_effective_from=eff, charge=charge,
+                  status=status, paid_amount=paid,
                   payment_mode=mode, payment_ref=ref if status in (S.PAID, S.PART_PAID) else "",
                   exempt_reason=reason if status in (S.EXEMPT, S.EXEMPT_REQUESTED) else "", exempt_request=exempt_req)
     if rec is None:
@@ -222,7 +277,8 @@ def record(user: User, iw_pk: int, data: UnloadingInput, version: int | None = N
 
 
 def _snap(rec: UnloadingRecord) -> dict:
-    return {"tonnage": rec.tonnage, "rate": rec.rate, "charge": rec.charge, "status": rec.status,
+    return {"tonnage": rec.tonnage, "from_weights": rec.tonnage_from_weights, "rate": rec.rate, "charge": rec.charge,
+            "status": rec.status,
             "paid": rec.paid_amount, "mode": rec.payment_mode, "outstanding": rec.outstanding}
 
 

@@ -126,10 +126,12 @@ def test_screens(client, unloading):
     c = verified_client(client, w["clerk"])
     url = reverse("iw:unloading", args=[w["iw"].pk])
     page = c.get(url).content.decode()
-    assert "XG9 991" in page and "Extra SKU" in page and "Confirm physical verification" in page
+    assert "SHORT" in page and "EXCESS" in page and "DAMAGE" in page and "Confirm physical verification" in page
+    assert "XG9 991" in c.get(url + "?add=damage").content.decode()
+    assert "XG9 991" in c.get(url + "?add=damage").content.decode()
     resp = c.post(url, {"pick": f"{w['ship_key']}|{EASYCLEAN}", "damage_qty": "2", "damage_kind": "MATERIAL",
                         "damage_remarks": "leaking", "damage_value": "450"}, follow=True)
-    assert "Now add the damage photo" in resp.content.decode() and "photo needed" in resp.content.decode()
+    assert "Now take the damage photo" in resp.content.decode() and "photo needed" in resp.content.decode()
     line = w["iw"].sed_lines.get()
     resp = c.post(reverse("iw:sed_photo_add", args=[line.pk]),
                   {"photo": _upload()}, follow=True)
@@ -171,3 +173,38 @@ def test_sed_declaration_records_photos(unloading):
         sed.confirm_verification(w["clerk"], w["iw"].pk, {"nil_short_excess", "nil_damage"})
     iw = sed.confirm_verification(w["clerk"], w["iw"].pk, {"sed_complete", "sed_photos"})
     assert iw.sed_declaration["kind"] == "SED" and iw.sed_declaration["photos"] == 1
+
+
+def test_three_buttons_merge_into_one_line(client, unloading):
+    w = unloading
+    c = verified_client(client, w["clerk"])
+    url = reverse("iw:unloading", args=[w["iw"].pk])
+    assert "SHORT" in c.get(url + "?add=short").content.decode()
+    pick = f"{w['ship_key']}|{EASYCLEAN}"
+    resp = c.post(url, {"kind": "SHORT", "pick": pick, "short_qty": "3", "short_value": "150"}, follow=True)
+    assert "Short saved for XG9 991" in resp.content.decode()
+    c.post(url, {"kind": "DAMAGE", "pick": pick, "damage_qty": "2", "damage_kind": "MATERIAL",
+                 "damage_remarks": "leaking", "damage_value": "90"})
+    line = w["iw"].sed_lines.get()
+    assert (line.short_qty, line.damage_qty, line.short_value) == (3, 2, 150)
+    resp = c.post(url, {"kind": "EXCESS", "came_with": w["ship_key"], "sku": EASYCLEAN.lower(), "excess_qty": "1"},
+                  follow=True)
+    assert "both short and excess" in resp.content.decode()
+
+
+def test_excess_search_and_quick_add(client, unloading):
+    w = unloading
+    c = verified_client(client, w["clerk"])
+    items = c.get(reverse("iw:sku_search"), {"q": "luxol"}).json()["items"]
+    assert {"F000000134001000", "F000000160001000"} <= {i["sku"] for i in items}
+    assert c.get(reverse("iw:sku_search"), {"q": "000134"}).json()["items"][0]["floor"] == "000 134"
+    resp = c.post(reverse("iw:sku_quick_add", args=[w["iw"].pk]),
+                  {"sku": "f00zz10991001000", "description": "test wrong item 1 l"}, follow=True)
+    assert "SKU F00ZZ10991001000 added" in resp.content.decode()
+    from inward.core.models import SkuPackaging
+    p = SkuPackaging.objects.get(sku="F00ZZ10991001000")
+    assert p.description == "TEST WRONG ITEM 1 L" and p.units_per_package is None
+    url = reverse("iw:unloading", args=[w["iw"].pk])
+    c.post(url, {"kind": "EXCESS", "came_with": w["ship_key"], "sku": "f00zz10991001000", "excess_qty": "4"})
+    line = w["iw"].sed_lines.get(sku="F00ZZ10991001000")
+    assert line.is_extra and line.excess_qty == 4 and line.description == "TEST WRONG ITEM 1 L"

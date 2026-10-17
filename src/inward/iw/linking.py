@@ -107,10 +107,25 @@ def _qty(value) -> Decimal:
     return q
 
 
+def parse_kg(value):
+    """Gross weight in kg from a Ship / challan document; blank = not entered."""
+    from decimal import Decimal, InvalidOperation
+    text = str(value or "").strip().replace(",", "")
+    if not text:
+        return None
+    try:
+        kg = Decimal(text)
+    except InvalidOperation as exc:
+        raise IwError(f"Gross weight: '{value}' is not a number of kg.") from exc
+    if kg <= 0 or kg > 60000:
+        raise IwError("Gross weight must be in kg, between 1 and 60,000.")
+    return kg.quantize(Decimal("0.001"))
+
+
 @transaction.atomic
 def link_ship(user: User, iw_pk: int, ship_id: str, *, split: bool = False, split_reason: str = "",
-              allocations: dict[str, str] | None = None, lscrr_no: str = "", lscrr_applied: bool | None = None
-              ) -> ShipLink:
+              allocations: dict[str, str] | None = None, lscrr_no: str = "", lscrr_applied: bool | None = None,
+              gross_kg="") -> ShipLink:
     require(user, "MATERIAL_LINK")
     iw = Iw.objects.select_for_update().select_related("load_type").get(pk=iw_pk)
     _require_open(iw)
@@ -126,7 +141,7 @@ def link_ship(user: User, iw_pk: int, ship_id: str, *, split: bool = False, spli
     link = ShipLink.objects.create(iw=iw, ship=cand.ship, baseline_import=cand.ship.last_seen, is_split=split,
                                    split_reason=split_reason.strip(), lscrr_no=clean_text(lscrr_no).upper(),
                                    lscrr_applied=lscrr_applied if iw.load_type.is_direct_factory else None,
-                                   linked_by=user)
+                                   gross_kg=parse_kg(gross_kg), linked_by=user)
     total = Decimal(0)
     for ln in cand.lines:
         qty = _qty((allocations or {}).get(ln.sku, "0")) if split else ln.available

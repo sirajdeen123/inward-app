@@ -22,7 +22,7 @@ S = UnloadingRecord.Status
 @pytest.fixture
 def ready(unloading_iw):  # noqa: F811
     t = Transporter.objects.create(name="SRI MURUGAN TRANSPORT", search_key="SRIMURUGANTRANSPORT")
-    Iw.objects.filter(pk=unloading_iw["iw"].pk).update(transporter=t)
+    Iw.objects.filter(pk=unloading_iw["iw"].pk).update(transporter=t, gate_register_no="GR-0001")
     unloading_iw["iw"].refresh_from_db()
     unloading_iw["transporter"] = t
     return unloading_iw
@@ -130,3 +130,19 @@ def test_screens(client, ready):
                   {"amount": "960", "payment_mode": "CASH", "entry_date": ""}, follow=True)
     page = resp.content.decode()
     assert "Receipt of Rs 960.00" in page and "Rs 3000.00 due" in page
+
+
+def test_gross_weights_suggest_tonnage(client, ready):
+    w = ready
+    link = w["iw"].ship_links.get()
+    ob = w["iw"].outbound_ships.get()
+    unloading.save_weights(w["clerk"], w["iw"].pk, {f"SHIP:{link.pk}": "11,500", f"OUTBOUND:{ob.pk}": "1756"})
+    assert unloading.suggested_tonnage(w["iw"]) == (Decimal("13.2"), Decimal("13256.000"))   # cut to one decimal
+    with pytest.raises(IwError, match="kg"):
+        unloading.save_weights(w["clerk"], w["iw"].pk, {f"SHIP:{link.pk}": "abc"})
+    c = verified_client(client, w["clerk"])
+    page = c.get(reverse("iw:charges", args=[w["iw"].pk])).content.decode()
+    assert 'value="13.2"' in page and "13256 kg = 13.2 t" in page
+    rec = _rec(w, tonnage="13.5")
+    assert rec.tonnage_from_weights == Decimal("13.2") and rec.tonnage == Decimal("13.5")
+    assert "Edited" in c.get(reverse("iw:charges", args=[w["iw"].pk])).content.decode()

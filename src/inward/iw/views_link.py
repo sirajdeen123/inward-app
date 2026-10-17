@@ -52,7 +52,8 @@ def link_ship(request, pk):
             link = linking.link_ship(request.user, iw.pk, ship_id, split=split,
                                      split_reason=request.POST.get("split_reason", ""), allocations=allocations,
                                      lscrr_no=request.POST.get("lscrr_no", ""),
-                                     lscrr_applied=_bool(request.POST.get("lscrr_applied", "")))
+                                     lscrr_applied=_bool(request.POST.get("lscrr_applied", "")),
+                                     gross_kg=request.POST.get("gross_kg", ""))
             messages.success(request, f"Ship {link.ship_id} linked to {iw}"
                                       f"{' as a split vehicle' if link.is_split else ''}.")
             for w in cand.warnings:

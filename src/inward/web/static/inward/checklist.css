@@ -1,0 +1,31 @@
+/* Unloading checklist PDF (WeasyPrint): the vehicle header repeats on every page, page x of y in the footer. */
+@page {
+  size: A4; margin: 34mm 9mm 13mm 9mm;
+  @top-center { content: element(runhead); width: 100%; vertical-align: bottom; }
+  @bottom-left { content: element(runfoot); }
+  @bottom-right { content: "Page " counter(page) " of " counter(pages); font-size: 8pt; color: #333; }
+}
+* { box-sizing: border-box }
+body { font-family: "DejaVu Sans", Arial, sans-serif; font-size: 9pt; color: #000; margin: 0 }
+.runhead { position: running(runhead); width: 100% }
+.runfoot { position: running(runfoot); font-size: 7.5pt; color: #444 }
+.rh { width: 100%; border-collapse: collapse; border-bottom: 2px solid #000 }
+.rh td { vertical-align: bottom; padding: 0 4px 3px 0; font-size: 8.5pt }
+.rh-logo { width: 22mm } .rh-logo img { width: 20mm; height: auto }
+.co { font-size: 11.5pt; font-weight: 700 } .doc { font-weight: 700; margin-top: 2px }
+.rh-iw { text-align: right } .iwno { font-size: 11pt; font-weight: 700 }
+.sheetname::before { content: string(sheet) }
+.sheet { page-break-after: always } .sheet:last-child { page-break-after: auto }
+.sheet-title { string-set: sheet content(); font-size: 12pt; margin: 2px 0 6px; padding: 3px 8px; background: #e9e9e9; border-left: 5px solid #000 }
+.sheet-sum { margin: 2px 0 6px }
+h3 { font-size: 10pt; margin: 8px 0 3px }
+.tbl { border-collapse: collapse; width: 100% }
+.tbl thead { display: table-header-group }
+.tbl th, .tbl td { border: 1px solid #555; padding: 3px 4px; vertical-align: top }
+.tbl th { background: #f1f1f1; text-align: left }
+tr { page-break-inside: avoid }
+.num { text-align: right }
+.floor { font-family: "DejaVu Sans Mono", monospace; font-size: 12pt; font-weight: 700; white-space: nowrap }
+.sku { font-size: 7pt; font-weight: 400 } .src { font-size: 8pt } .pk { font-weight: 700; white-space: nowrap }
+.count { width: 18mm } .rem { width: 30mm } .flag { font-weight: 700; font-size: 8pt } .mono { font-family: "DejaVu Sans Mono", monospace }
+.signs { display: flex; gap: 20mm; margin-top: 10mm }

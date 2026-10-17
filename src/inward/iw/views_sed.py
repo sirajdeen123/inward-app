@@ -11,10 +11,39 @@ from inward.core import documents
 from inward.iw import checklist, sed
 from inward.iw.models import Iw, SedLine, SedPhoto
 from inward.iw.services import IwError
+from inward.domain.normalize import clean_code
 from inward.web.views import needs
 
 FIELDS = ("short_qty", "excess_qty", "damage_qty", "damage_kind", "damage_pct", "container_type", "container_count",
           "short_value", "damage_value", "short_remarks", "excess_remarks", "damage_remarks")
+
+
+KIND_FIELDS = {
+    "SHORT": ("short_qty", "short_value", "short_remarks"),
+    "EXCESS": ("excess_qty", "excess_remarks"),
+    "DAMAGE": ("damage_qty", "damage_kind", "damage_pct", "container_type", "container_count", "damage_value",
+               "damage_remarks"),
+}
+
+
+def _kind_input(iw: Iw, post) -> tuple[sed.SedInput, SedLine | None]:
+    """One of the three buttons (SHORT / EXCESS / DAMAGE): its fields are merged into the SKU's existing line."""
+    kind = post.get("kind", "")
+    if kind not in KIND_FIELDS:
+        raise IwError("Choose Short, Excess or Damage.")
+    if kind == "EXCESS":
+        source_key, sku = post.get("came_with", ""), clean_code(post.get("sku", ""))
+        if not source_key:
+            raise IwError("Choose the Ship / challan the excess came with.")
+    else:
+        source_key, _, sku = post.get("pick", "").partition("|")
+        if not sku:
+            raise IwError("Select the SKU from the documents.")
+    line = SedLine.objects.filter(iw=iw, source_key=source_key, sku=sku).first()
+    values = {f: _fmt(getattr(line, f)) for f in FIELDS} if line else {f: "" for f in FIELDS}
+    for f in KIND_FIELDS[kind]:
+        values[f] = post.get(f, "")
+    return sed.SedInput(source_key=source_key, sku=sku, **values), line
 
 
 def _input(post) -> sed.SedInput:
@@ -36,7 +65,10 @@ def _context(request, iw: Iw, **extra) -> dict:
             "can_value": "GRANT" in modes_for(request.user, "SED_VALUE"),
             "editable": iw.status == Iw.Status.UNLOADING_IN_PROGRESS,
             "declarations": sed.DECLARATIONS[sed.declaration_kind(iw)], "declaration_kind": sed.declaration_kind(iw),
-            "kinds": SedLine.DamageKind.choices, **extra}
+            "kinds": SedLine.DamageKind.choices, "add": request.GET.get("add") or (
+                (request.POST.get("kind") or "").lower() if request.method == "POST" else ""),
+            "new_sku": request.GET.get("sku", ""),
+            "can_add_sku": "GRANT" in modes_for(request.user, "SKU_PACKAGING_EDIT"), **extra}
 
 
 @needs("PHYSICAL_SED_QTY")
@@ -45,9 +77,15 @@ def unloading_page(request, pk):
     error, post = None, None
     if request.method == "POST":
         try:
-            line = sed.save_line(request.user, iw.pk, _input(request.POST))
-            messages.success(request, f"SED saved for {line.floor_sku} ({line.source_label})."
-                             + (" Now add the damage photo(s)." if line.damage_qty else ""))
+            if request.POST.get("kind"):
+                data, existing = _kind_input(iw, request.POST)
+                line = sed.save_line(request.user, iw.pk, data, line_pk=existing.pk if existing else None,
+                                     version=existing.version if existing else None)
+            else:
+                line = sed.save_line(request.user, iw.pk, _input(request.POST))
+            messages.success(request, f"{request.POST.get('kind', 'SED').title()} saved for {line.floor_sku} "
+                                      f"({line.source_label})." + (" Now take the damage photo(s) on the line."
+                                                                     if line.damage_qty and not line.photos.exists() else ""))
             return redirect("iw:unloading", pk=iw.pk)
         except (IwError, PermissionDenied) as exc:
             error, post = str(exc), request.POST
@@ -153,3 +191,36 @@ def verification_reopen(request, pk):
     except IwError as exc:
         messages.error(request, str(exc))
     return redirect("iw:unloading", pk=pk)
+
+
+@needs("PHYSICAL_SED_QTY")
+def sku_search(request):
+    """Suggestions for the Excess SKU box: code prefix or description words, from the SKU packaging list."""
+    from django.db.models import Q
+    from django.http import JsonResponse
+
+    from inward.core.models import SkuPackaging
+    q = (request.GET.get("q") or "").strip().upper()
+    if len(q) < 3:
+        return JsonResponse({"items": []})
+    cond = Q(sku__startswith=q) | Q(description__icontains=q)
+    key = q.replace(" ", "")
+    if len(key) == 6:  # a Floor SKU typed as XG9991 or XG9 991
+        cond |= Q(floor_sku=f"{key[:3]} {key[3:]}")
+    qs = SkuPackaging.objects.filter(cond).order_by("sku")[:20]
+    return JsonResponse({"items": [{"sku": p.sku, "floor": p.floor_sku, "description": p.description} for p in qs]})
+
+
+@require_POST
+@needs("SKU_PACKAGING_EDIT")
+def sku_quick_add(request, pk):
+    from django.urls import reverse
+
+    from inward.core import packaging
+    try:
+        p = packaging.quick_add(request.user, request.POST.get("sku", ""), request.POST.get("description", ""))
+        messages.success(request, f"SKU {p.sku} added to the packaging list (packaging not set yet).")
+        return redirect(f"{reverse('iw:unloading', args=[pk])}?add=excess&sku={p.sku}#add")
+    except packaging.PackagingError as exc:
+        messages.error(request, str(exc))
+    return redirect(f"{reverse('iw:unloading', args=[pk])}?add=excess#add")

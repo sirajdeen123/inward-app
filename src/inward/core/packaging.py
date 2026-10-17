@@ -336,3 +336,24 @@ def to_packages(pieces: Decimal, packaging: SkuPackaging | None) -> Packages:
     u = packaging.units_per_package
     whole = int(pieces // u)
     return Packages(group=packaging.package_type_id, full=whole, loose=pieces - whole * u, units=u)
+
+
+@transaction.atomic
+def quick_add(user: User, sku: str, description: str) -> SkuPackaging:
+    """A SKU met at unloading (e.g. a wrong item received) that is not in the list yet: added with packaging
+    "not set" so it can be recorded now and completed later on the SKU packaging screen."""
+    require(user, "SKU_PACKAGING_EDIT")
+    sku = clean_code(sku)
+    if not is_valid_sku(sku):
+        raise PackagingError(f"'{sku}' is not a 16-character SKU.")
+    desc = clean_text(description).upper()
+    if not desc:
+        raise PackagingError("Enter the description.")
+    existing = SkuPackaging.objects.filter(sku=sku).first()
+    if existing:
+        return existing
+    p = SkuPackaging.objects.create(sku=sku, floor_sku=floor_sku(sku), description=desc[:200],
+                                    package_type=PackageType.objects.get(code="OTHER"), units_per_package=None,
+                                    source=SkuPackaging.Source.CLERK, updated_by=user)
+    audit.record("SKU_PACKAGING_QUICK_ADD", "sku_packaging", sku, user=user, after={"description": desc})
+    return p

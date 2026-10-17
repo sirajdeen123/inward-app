@@ -41,6 +41,7 @@ class Iw(models.Model):
     transporter = models.ForeignKey(Transporter, null=True, blank=True, on_delete=models.PROTECT, related_name="+")
     lr_no = models.CharField(max_length=40, blank=True)
     lr_key = models.CharField(max_length=40, blank=True, db_index=True)
+    gate_register_no = models.CharField(max_length=30, blank=True, db_index=True)  # security gate register (before MRA)
     remarks = models.TextField(blank=True)
     created_by = models.ForeignKey(USER, on_delete=models.PROTECT, related_name="+")
     created_at = models.DateTimeField(auto_now_add=True)
@@ -91,6 +92,7 @@ class ShipLink(models.Model):
     split_reason = models.TextField(blank=True)
     lscrr_no = models.CharField(max_length=40, blank=True)
     lscrr_applied = models.BooleanField(null=True, blank=True)  # Direct Factory: required before Stock Receipt No
+    gross_kg = models.DecimalField(max_digits=12, decimal_places=3, null=True, blank=True)  # from the Ship document
     status = models.CharField(max_length=14, choices=TrackStatus.choices, default=TrackStatus.LINKED)
     linked_by = models.ForeignKey(USER, on_delete=models.PROTECT, related_name="+")
     linked_at = models.DateTimeField(auto_now_add=True)
@@ -173,6 +175,7 @@ class OutboundShip(models.Model):
     doc_nop = models.DecimalField(max_digits=14, decimal_places=3, null=True, blank=True)  # optional extra check
     doc_ltr = models.DecimalField(max_digits=18, decimal_places=3, default=0)
     doc_kg = models.DecimalField(max_digits=18, decimal_places=3, default=0)
+    gross_kg = models.DecimalField(max_digits=12, decimal_places=3, null=True, blank=True)  # from the Ship document
     source = models.CharField(max_length=10, choices=OutboundSource.choices, default=OutboundSource.DESPATCH)
     status = models.CharField(max_length=14, choices=TrackStatus.choices, default=TrackStatus.LINKED)
     tallied_at = models.DateTimeField(null=True, blank=True)  # rows saved and totals matched
@@ -240,6 +243,7 @@ class VendorConsignment(models.Model):
     source = models.CharField(max_length=6, choices=Source.choices)
     warehouse = models.CharField(max_length=12, choices=[("RETAIL", "Retail warehouse"),
                                                         ("INDUSTRIAL", "Industrial warehouse")])  # chosen by the clerk
+    gross_kg = models.DecimalField(max_digits=12, decimal_places=3, null=True, blank=True)  # from the challan
     portal_document = models.ForeignKey("core.Document", null=True, blank=True, on_delete=models.PROTECT,
                                         related_name="+")
     status = models.CharField(max_length=14, choices=TrackStatus.choices, default=TrackStatus.LINKED)
@@ -393,6 +397,7 @@ class UnloadingRecord(models.Model):
 
     iw = models.OneToOneField(Iw, on_delete=models.CASCADE, related_name="unloading")
     tonnage = models.DecimalField(max_digits=10, decimal_places=3)
+    tonnage_from_weights = models.DecimalField(max_digits=10, decimal_places=3, null=True, blank=True)  # suggestion
     rate = models.DecimalField(max_digits=14, decimal_places=2)
     rate_effective_from = models.DateField()
     charge = models.DecimalField(max_digits=14, decimal_places=2)

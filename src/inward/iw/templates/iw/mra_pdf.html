@@ -30,6 +30,7 @@
     <tr><th>Load type</th><td>{{ c.iw.load_type }}</td><th>Source</th><td>{{ c.iw.source_org|default:"-" }}</td></tr>
     <tr><th>Vehicle</th><td>{{ c.iw.vehicle }}</td><th>Transporter / LR</th><td>{{ c.iw.transporter|default:"-" }}{% if c.iw.lr %} · LR {{ c.iw.lr }}{% endif %}</td></tr>
     <tr><th>Driver</th><td>{{ c.iw.driver|default:"-" }}{% if c.iw.driver_mobile %} · {{ c.iw.driver_mobile }}{% endif %}</td><th>Verified</th><td>{{ c.iw.verified }}</td></tr>
+    {% if c.iw.gate_register %}<tr><th>Gate register No</th><td>{{ c.iw.gate_register }}</td><th></th><td></td></tr>{% endif %}
   </table>
 
   <h2>References</h2>
@@ -37,10 +38,14 @@
     <tbody>{% for r in c.references %}<tr><td>{{ r.kind }}</td><td class="mono">{{ r.ref }}</td><td>{{ r.detail }}</td></tr>{% endfor %}</tbody></table>
 
   <h2>Packages received (as per documents)</h2>
+  {% if c.packages %}
+  <table class="grid pk total"><thead><tr><th>Package</th><th class="num">Received</th></tr></thead>
+    <tbody>{% for r in c.packages %}<tr><td>{{ r.label }}</td><td class="num">{{ r.count }}{% if r.unit == 'pieces' %} pcs{% elif r.unit == 'units' %} nos{% endif %}</td></tr>{% endfor %}</tbody></table>
+  {% else %}{# revisions issued before 17-Oct-2026 keep their per-warehouse layout #}
   <div class="cols">{% for wh, rows in c.package_counts.items %}
     <table class="grid pk"><thead><tr><th colspan="2">{{ wh }}</th></tr></thead>
       <tbody>{% for r in rows %}<tr><td>{{ r.label }}</td><td class="num">{{ r.count }}{% if r.unit == 'pieces' %} pcs{% elif r.unit == 'units' %} nos{% endif %}</td></tr>{% endfor %}</tbody></table>
-  {% endfor %}</div>
+  {% endfor %}</div>{% endif %}
 
   <h2>Short / Excess / Damage</h2>
   {% if c.sed %}

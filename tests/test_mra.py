@@ -47,7 +47,8 @@ def test_content_and_revisions(verified):
     assert c["depot"]["seal"] == {"for": "For BERGER PAINTS INDIA LTD",
                                   "operated": "Operated by RAINBOW LOGISTICS - 035 Coimbatore Depot"}
     assert c["sed_totals"]["claimable"] == "3900.00" and c["unloading"]["outstanding"] == "1960.00"
-    assert "Retail warehouse" in c["package_counts"] and "rate" not in c["unloading"]   # rate never printed
+    pk = {r["label"]: r["count"] for r in c["packages"]}                # one consolidated total, no warehouse split
+    assert pk["Drums"] == "49" and "package_counts" not in c and "rate" not in c["unloading"]   # rate never printed
     kinds = {m["kind"]: m for m in c["memos"]}
     assert set(kinds) == {"SHORT", "DAMAGE"}
     assert kinds["SHORT"]["rows"][0]["action"] == "Issue TRX"       # LSCRR not declared

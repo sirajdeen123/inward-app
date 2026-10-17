@@ -54,6 +54,8 @@ def blockers(iw: Iw) -> list[str]:
         out.append(f"Enter the financial value of {t.values_missing} Short / Damage line(s).")
     if iw.status == Iw.Status.PHYSICALLY_VERIFIED and not iw.sed_declaration:
         out.append("The NIL / SED declaration is missing - reopen physical verification and confirm it again.")
+    if not iw.gate_register_no:
+        out.append("Enter the security gate register No on the IW (Edit IW).")
     if _operator(iw) is None:
         out.append("No operating CFA is set in the Depot master for the arrival date.")
     return out
@@ -96,10 +98,13 @@ def build(iw: Iw) -> dict:
     for ns in iw.non_stock_refs.select_related("sender"):
         refs.append({"kind": "Non-Stock", "ref": ns.document_no, "detail": ns.sender.name})
 
-    counts = {}
-    for pc in unloading.counts(iw):
-        counts.setdefault(unloading.WAREHOUSE_LABEL[pc.warehouse], []).append(
-            {"label": pc.label, "unit": pc.unit, "count": _s(pc.count)})
+    # one consolidated total per package type: the Retail / Industrial split is only for the unloading team
+    # (checklist), not for the driver or the source (UAT feedback 17-Oct-2026)
+    packages: dict[tuple[str, str], dict] = {}
+    for pc in sorted(unloading.counts(iw), key=lambda p: (p.sort_order, p.label)):
+        row = packages.setdefault((pc.label, pc.unit), {"label": pc.label, "unit": pc.unit, "n": Decimal(0)})
+        row["n"] += pc.count
+    package_rows = [{"label": r["label"], "unit": r["unit"], "count": _s(r["n"])} for r in packages.values()]
 
     lines = list(iw.sed_lines.select_related("ship_link", "iw__load_type").order_by("source_key", "floor_sku"))
     t = sed.totals(iw)
@@ -144,8 +149,9 @@ def build(iw: Iw) -> dict:
         "iw": {"no": iw.iw_no, "arrival": arrival.strftime("%d-%b-%Y %H:%M"), "load_type": str(iw.load_type),
                "source_org": str(iw.source_org or ""), "vehicle": iw.vehicle_no, "transporter": str(iw.transporter or ""),
                "lr": iw.lr_no, "driver": iw.driver_name, "driver_mobile": iw.driver_mobile,
+               "gate_register": iw.gate_register_no,
                "verified": timezone.localtime(iw.verified_at).strftime("%d-%b-%Y %H:%M") if iw.verified_at else ""},
-        "references": refs, "package_counts": counts, "sed": sed_rows,
+        "references": refs, "packages": package_rows, "sed": sed_rows,
         "sed_totals": {"lines": t.lines, "short": _s(t.short), "excess": _s(t.excess), "damage": _s(t.damage),
                        "short_value": _money(t.short_value), "damage_value": _money(t.damage_value),
                        "claimable": _money(t.claimable)},

@@ -120,11 +120,18 @@ def test_viewer_cannot_create(org, make_user):
 def test_screens_create_edit_and_approve(client, org, clerk, cfa, seeded):
     c = verified_client(client, clerk)
     lt = LoadType.objects.get(code="DIRECT_FACTORY_OUTBOUND_TS")
-    post = {"arrival_at": "2026-09-25T09:40", "load_type": lt.pk, "source_org": "390 : Hindupur - Mfg",
-            "vehicle_no": "TN60E8139", "driver_mobile": "9876543210", "transporter": "PTC TRANSPORT",
-            "lr_no": "L1", "action": "create"}
+    post = {"arrival_at_0": "2026-09-25", "arrival_at_1": "9", "arrival_at_2": "40", "arrival_at_3": "PM",
+            "load_type": lt.pk, "source_org": "390 : Hindupur - Mfg", "vehicle_no": "tn60e8139",
+            "driver_name": "ravi kumar", "driver_mobile": "9876543210", "transporter": "PTC TRANSPORT",
+            "lr_no": "L1", "gate_register_no": "gr-114", "action": "create"}
     resp = c.post(reverse("iw:new"), post, follow=True)
     assert "IW-2627-000001 created." in resp.content.decode()
+    made = Iw.objects.get(iw_no="IW-2627-000001")
+    assert (made.vehicle_no, made.driver_name, made.gate_register_no) == ("TN60E8139", "RAVI KUMAR", "GR-114")
+    local = timezone.localtime(made.arrival_at)
+    assert (local.hour, local.minute) == (21, 40)                       # 9:40 PM
+    page = c.get(reverse("iw:edit", args=[made.pk])).content.decode()
+    assert 'value="PM" selected' in page and '<option value="9" selected>' in page
     resp = c.post(reverse("iw:new"), post, follow=True)
     assert "already has open IW(s): IW-2627-000001" in resp.content.decode()
     iw = Iw.objects.get(iw_no="IW-2627-000001")

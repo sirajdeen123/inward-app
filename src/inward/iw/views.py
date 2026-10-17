@@ -25,7 +25,8 @@ def _data(form: IwForm) -> services.IwData:
     c = form.cleaned_data
     return services.IwData(arrival_at=c["arrival_at"], load_type=c["load_type"], source_org=c["source_org"],
                            vehicle_no=c["vehicle_no"], driver_name=c["driver_name"], driver_mobile=c["driver_mobile"],
-                           transporter_name=c["transporter"], lr_no=c["lr_no"], remarks=c["remarks"])
+                           transporter_name=c["transporter"], lr_no=c["lr_no"], remarks=c["remarks"],
+                           gate_register_no=c["gate_register_no"])
 
 
 def _lists() -> dict:

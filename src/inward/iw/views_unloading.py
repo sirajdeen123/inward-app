@@ -24,7 +24,11 @@ def charges_page(request, pk):
     if request.method == "POST":
         action = request.POST.get("action")
         try:
-            if action in ("counts", "reload"):
+            if action == "weights":
+                unloading.save_weights(request.user, iw.pk, {k[3:]: val for k, val in request.POST.items()
+                                                             if k.startswith("kg_")})
+                messages.success(request, "Gross weights saved - the tonnage below is updated.")
+            elif action in ("counts", "reload"):
                 values = {k[3:]: v for k, v in request.POST.items() if k.startswith("pc_")}
                 unloading.save_counts(request.user, iw.pk, values, reload=action == "reload")
                 messages.success(request, "Package counts saved." if action == "counts"
@@ -43,12 +47,14 @@ def charges_page(request, pk):
     rows = unloading.counts(iw)
     by_wh = [(unloading.WAREHOUSE_LABEL[wh], [r for r in rows if r.warehouse == wh]) for wh in unloading.WAREHOUSE_ORDER]
     arrival = timezone.localtime(iw.arrival_at).date()
+    suggested, total_kg = unloading.suggested_tonnage(iw)
     return render(request, "iw/charges.html", {
         "iw": iw, "rec": rec, "error": error, "post": request.POST if error else None,
         "warehouses": [(label, r) for label, r in by_wh if r], "counts_saved": iw.package_counts.exists(),
         "snap": iw.checklists.first(), "rate": rate_on("UNLOADING_PER_TON", arrival), "arrival": arrival,
         "statuses": [(s.value, s.label) for s in UnloadingRecord.Status if s != UnloadingRecord.Status.EXEMPT_REQUESTED],
         "modes": UnloadingRecord.Mode.choices, "settled": unloading.is_settled(iw),
+        "weights": unloading.weights(iw), "suggested": suggested, "total_kg": total_kg,
         "exempt_rejected": bool(rec and rec.exempt_request and rec.status == UnloadingRecord.Status.EXEMPT_REQUESTED
                                 and rec.exempt_request.status == ApprovalRequest.Status.REJECTED)})
 

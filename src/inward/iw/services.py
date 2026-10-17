@@ -37,6 +37,7 @@ class IwData:
     transporter_name: str = ""
     lr_no: str = ""
     remarks: str = ""
+    gate_register_no: str = ""
 
 
 def ship_link_state() -> tuple[set[str], set[str]]:
@@ -85,18 +86,20 @@ def _apply(iw: Iw, data: IwData) -> None:
     iw.source_org = data.source_org
     iw.vehicle_no = clean_text(data.vehicle_no).upper()
     iw.vehicle_key = search_key(data.vehicle_no)
-    iw.driver_name = clean_text(data.driver_name)
+    iw.driver_name = clean_text(data.driver_name).upper()
     iw.driver_mobile = normalise_mobile(data.driver_mobile)
     iw.transporter = transporter_for(data.transporter_name)
     iw.lr_no = clean_text(data.lr_no).upper()
     iw.lr_key = search_key(data.lr_no)
     iw.remarks = data.remarks.strip()
+    iw.gate_register_no = clean_text(data.gate_register_no).upper()
 
 
 def _snapshot(iw: Iw) -> dict:
     return {"iw_no": iw.iw_no, "status": iw.status, "arrival_at": iw.arrival_at, "load_type": iw.load_type_id,
             "source_org": iw.source_org_id, "vehicle_no": iw.vehicle_no, "driver_name": iw.driver_name,
-            "driver_mobile": iw.driver_mobile, "transporter": iw.transporter_id, "lr_no": iw.lr_no}
+            "driver_mobile": iw.driver_mobile, "transporter": iw.transporter_id, "lr_no": iw.lr_no,
+            "gate_register_no": iw.gate_register_no}
 
 
 def open_iws_for_vehicle(vehicle_no: str, exclude_pk: int | None = None):

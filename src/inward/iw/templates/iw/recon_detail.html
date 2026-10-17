@@ -39,6 +39,8 @@
       <th class="num">{{ d.total.ltr }}</th><th class="num">{{ d.total.kg }}</th><th></th></tr></tfoot>{% endif %}</table>
   <p class="small">SED memo TRX adjust the same stock and are not added to the total. Location = Source SUB INV + Source Locator of the IRR row (where the floor supervisor placed the stock); a SKU on several locators or lots shows each with its pieces.</p>
 
+  <div class="signs"><div>Prepared by (clerk): ____________________</div><div>Checked by (System Supervisor): ____________________</div></div>
+
   {% for r in d.results %}{% if r.lines or r.notes %}
   <section class="track">
     <h2>{{ r.track }}{% if r.numbers %} · <span class="mono">{{ r.numbers|join:", " }}</span>{% endif %} <span class="badge {% if r.ok %}ok{% else %}bad{% endif %}">{{ r.status }}</span></h2>
@@ -58,7 +60,6 @@
   </section>
   {% endif %}{% endfor %}
 
-  <div class="signs"><div>Prepared by (clerk): ____________________</div><div>Checked by (System Supervisor): ____________________</div></div>
 </main>
 {% if not for_pdf %}<script src="{% static 'inward/print.js' %}" defer></script>{% endif %}
 </body>

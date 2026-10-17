@@ -3,17 +3,17 @@
   size: A4 portrait; margin: 32mm 8mm 12mm 8mm;
   @top-center { content: element(runhead); width: 100%; vertical-align: bottom; }
   @bottom-left { content: element(runfoot); }
-  @bottom-right { content: "Page " counter(page) " of " counter(pages); font-size: 8pt; color: #333; }
+  @bottom-right { content: "Page " counter(page) " of " counter(pages); font-size: 7.5pt; color: #333; width: 22mm; white-space: nowrap; }
 }
 * { box-sizing: border-box }
 body { font-family: "DejaVu Sans", Arial, sans-serif; font-size: 9pt; color: #000; background: #fff; margin: 0 }
 .runhead { position: running(runhead); width: 100% }
 .runfoot { position: running(runfoot); font-size: 7.5pt; color: #444 }
 .rh { width: 100%; border-collapse: collapse; border-bottom: 2px solid #000 }
-.rh td { vertical-align: bottom; padding: 0 4px 3px 0; font-size: 8.5pt }
+.rh td { vertical-align: bottom; padding: 0 4px 3px 0; font-size: 7.8pt; white-space: nowrap }
 .rh-logo { width: 19mm } .rh-logo img { width: 17mm; height: auto }
-.co { font-size: 11.5pt; font-weight: 700 } .doc { font-weight: 700; margin-top: 2px }
-.rh-iw { text-align: right; width: 42% } .iwno { font-size: 11pt; font-weight: 700 }
+.co { font-size: 11pt; font-weight: 700 } .doc { font-weight: 700; margin-top: 2px }
+.rh-iw { text-align: right; width: 40% } .iwno { font-size: 11pt; font-weight: 700 }
 h2 { font-size: 10pt; margin: 8px 0 3px }
 .tbl { border-collapse: collapse; width: 100% }
 .tbl thead { display: table-header-group }
@@ -26,8 +26,8 @@ h2 { font-size: 10pt; margin: 8px 0 3px }
 tfoot th { background: #f4f4f4; text-align: left }
 tfoot th.num { text-align: right }
 .detail .desc { white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
-.c-sl { width: 6mm } .c-floor { width: 14mm } .c-full { width: 27mm } .c-pcs { width: 11mm } .c-meas { width: 17mm }
-.c-loc { width: 37mm } .c-lot { width: 25mm }
+.c-sl { width: 6mm } .c-floor { width: 14mm } .c-full { width: 26mm } .c-pcs { width: 11mm } .c-meas { width: 17mm }
+.c-loc { width: 42mm } .c-lot { width: 24mm }
 tr { page-break-inside: avoid }
 .track { page-break-inside: auto }
 .num { text-align: right } .mono { font-family: "DejaVu Sans Mono", monospace } .b { font-weight: 700 }
@@ -36,7 +36,7 @@ tr { page-break-inside: avoid }
 .badge { display: inline-block; padding: 0 6px; border-radius: 8px; font-size: 8pt; font-weight: 700; border: 1px solid }
 .badge.ok { color: #13612e; border-color: #13612e } .badge.bad { color: #9a3b00; border-color: #9a3b00 }
 .note { font-size: 8pt; margin: 2px 0; padding: 2px 6px; border-left: 3px solid #9a3b00; background: #fff4e5 }
-.signs { display: flex; gap: 20mm; margin-top: 12mm }
+.signs { display: flex; gap: 20mm; margin-top: 7mm; page-break-inside: avoid }
 .toolbar { display: none }
 
 @media screen {

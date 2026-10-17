@@ -23,7 +23,7 @@ h2 { font-size: 10pt; margin: 8px 0 3px }
 .detail td { font-size: 7.5pt; padding: 1px 3px; line-height: 1.25 }
 .detail .desc { white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
 .c-sl { width: 7mm } .c-floor { width: 16mm } .c-full { width: 34mm } .c-pcs { width: 13mm } .c-meas { width: 20mm }
-.c-loc { width: 44mm } .c-lot { width: 33mm }
+.c-loc { width: 52mm } .c-lot { width: 33mm }
 tr { page-break-inside: avoid }
 .track { page-break-inside: auto }
 .num { text-align: right } .mono { font-family: "DejaVu Sans Mono", monospace } .b { font-weight: 700 }

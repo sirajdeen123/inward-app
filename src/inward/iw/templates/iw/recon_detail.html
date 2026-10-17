@@ -34,22 +34,21 @@
       <td class="num">{{ r.lines|length }}</td><td class="num">{{ r.actual }}{% if not r.ok and r.expected != r.actual %} <span class="small">(expected {{ r.expected }})</span>{% endif %}</td>
       <td><span class="badge {% if r.ok %}ok{% else %}bad{% endif %}">{{ r.status }}</span></td></tr>
       {% empty %}<tr><td colspan="6">Nothing to reconcile - this IW ends at the MRA.</td></tr>{% endfor %}</tbody></table>
-  <p class="small">Location = Source SUB INV and Source Locator of the IRR row (where the floor supervisor placed the stock in Oracle). A SKU on several locators or lots shows one line each.</p>
+  <p class="small">Location = Source SUB INV and Source Locator of the IRR row (where the floor supervisor placed the stock in Oracle). A SKU on several locators or lots shows one line each with its pieces.</p>
 
   {% for r in d.results %}{% if r.lines or r.notes %}
   <section class="track">
     <h2>{{ r.track }}{% if r.numbers %} · <span class="mono">{{ r.numbers|join:", " }}</span>{% endif %} <span class="badge {% if r.ok %}ok{% else %}bad{% endif %}">{{ r.status }}</span></h2>
     {% for n in r.notes %}<div class="note">{{ n }}</div>{% endfor %}
     {% if r.lines %}<div class="scroll"><table class="tbl detail">
-      <colgroup><col class="c-sl"><col class="c-floor"><col class="c-full"><col><col class="c-pcs"><col class="c-meas"><col class="c-loc"><col class="c-lot"><col class="c-pcs"></colgroup>
-      <thead><tr><th class="num">Sl</th><th>Floor SKU</th><th>Full SKU</th><th>Description</th><th class="num">IRR pcs</th><th class="num">LTR / KG</th><th>Location</th><th>Lot</th><th class="num">Pcs</th></tr></thead>
+      <colgroup><col class="c-sl"><col class="c-floor"><col class="c-full"><col><col class="c-pcs"><col class="c-meas"><col class="c-loc"><col class="c-lot"></colgroup>
+      <thead><tr><th class="num">Sl</th><th>Floor SKU</th><th>Full SKU</th><th>Description</th><th class="num">IRR pcs</th><th class="num">LTR / KG</th><th>Location</th><th>Lot</th></tr></thead>
       <tbody>{% for ln in r.lines %}
         <tr{% if ln.diff != '0' %} class="off"{% endif %}><td class="num">{{ forloop.counter }}</td><td class="mono b">{{ ln.floor }}</td><td class="mono">{{ ln.sku }}</td><td class="desc">{{ ln.description }}</td>
           <td class="num b">{{ ln.actual }}{% if ln.diff != '0' %}<div class="small">exp {{ ln.expected }}</div>{% endif %}</td>
           <td class="num">{% if ln.family %}{{ ln.act_measure }} {{ ln.family }}{% endif %}</td>
-          <td class="mono">{% for p in ln.places %}<div>{{ p.subinv }} {{ p.locator }}{% if r.many %} <span class="small">· {{ p.no }}</span>{% endif %}</div>{% empty %}<span class="muted">not in the IRR</span>{% endfor %}</td>
-          <td class="mono small">{% for p in ln.places %}<div>{{ p.lot }}</div>{% endfor %}</td>
-          <td class="num">{% if ln.places|length > 1 %}{% for p in ln.places %}<div>{{ p.qty }}</div>{% endfor %}{% else %}{{ ln.places.0.qty }}{% endif %}</td></tr>
+          <td class="mono">{% for p in ln.places %}<div>{{ p.subinv }} {{ p.locator }}{% if ln.places|length > 1 %} <b>&times; {{ p.qty }}</b>{% endif %}{% if r.many %} <span class="small">· {{ p.no }}</span>{% endif %}</div>{% empty %}<span class="muted">not in the IRR</span>{% endfor %}</td>
+          <td class="mono small">{% for p in ln.places %}<div>{{ p.lot }}</div>{% endfor %}</td></tr>
       {% endfor %}</tbody></table></div>{% endif %}
   </section>
   {% endif %}{% endfor %}

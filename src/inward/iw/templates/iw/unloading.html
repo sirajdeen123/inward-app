@@ -5,7 +5,7 @@
 <p><a href="{% url 'iw:detail' iw.pk %}">&larr; {{ iw }}</a></p>
 <h1>Unloading &amp; SED · {{ iw }}</h1>
 <p class="muted">{{ iw.vehicle_no }} · {{ iw.load_type }}{% if iw.source_org %} · from {{ iw.source_org }}{% endif %}. Record only the SKUs that differ from the documents; every other checklist line counts as received as per document.</p>
-{% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
+{% if error %}<div class="alert alert-error"><b>NOT SAVED</b> - {{ error }}</div>{% endif %}
 
 <div class="card bar">
   {% if snap %}<span class="chip chip-ok">Checklist R{{ snap.revision }} · {{ snap.generated_at|date:"d-M-Y H:i" }}</span>
@@ -62,6 +62,10 @@
     <div class="declare {% if declaration_kind == 'NIL' %}declare-nil{% endif %}">
       <p><b>{% if declaration_kind == 'NIL' %}You are declaring NIL SED - the consignment was received in full and in good condition.{% else %}You are declaring {{ totals.lines }} SED line(s): short {{ totals.short|floatformat:"-3" }}, excess {{ totals.excess|floatformat:"-3" }}, damage {{ totals.damage|floatformat:"-3" }} pcs.{% endif %}</b></p>
       {% for key, text in declarations %}<label class="check"><input type="checkbox" name="confirm" value="{{ key }}" required> {{ text }}</label>{% endfor %}
+      {% if rejected %}<div class="alert alert-warning"><b>Entries that were NOT saved:</b>
+        {% for r in rejected %}<div>{{ r.at|date:"H:i" }} · {{ r.kind|title }} · {{ r.sku }} · {{ r.error }}{% if r.by %} ({{ r.by }}){% endif %}</div>{% endfor %}
+        <div>Record them again above. If there is really nothing to record, tick:</div></div>
+        <label class="check"><input type="checkbox" name="confirm" value="rejected_checked" required> {{ rejected_text }}</label>{% endif %}
       <p class="muted">Your name and the time are recorded and printed on the MRA.</p>
     </div>
     <button type="submit" class="btn btn-primary"{% if blockers %} disabled{% endif %}>Confirm physical verification</button></form>

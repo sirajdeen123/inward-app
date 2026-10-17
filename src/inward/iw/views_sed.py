@@ -8,7 +8,7 @@ from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from inward.accounts.services import PermissionDenied, modes_for
-from inward.core import documents
+from inward.core import audit, documents
 from inward.iw import checklist, sed
 from inward.iw.models import Iw, SedLine, SedPhoto
 from inward.iw.services import IwError
@@ -69,7 +69,9 @@ def _context(request, iw: Iw, **extra) -> dict:
             "kinds": SedLine.DamageKind.choices, "add": request.GET.get("add") or (
                 (request.POST.get("kind") or "").lower() if request.method == "POST" else ""),
             "new_sku": request.GET.get("sku", ""),
-            "can_add_sku": "GRANT" in modes_for(request.user, "SKU_PACKAGING_EDIT"), **extra}
+            "can_add_sku": "GRANT" in modes_for(request.user, "SKU_PACKAGING_EDIT"),
+            "rejected": sed.rejected_attempts(iw) if iw.status == Iw.Status.UNLOADING_IN_PROGRESS else [],
+            "rejected_text": sed.REJECTED_TEXT, **extra}
 
 
 @needs("PHYSICAL_SED_QTY")
@@ -90,6 +92,11 @@ def unloading_page(request, pk):
             return redirect("iw:unloading", pk=iw.pk)
         except (IwError, PermissionDenied) as exc:
             error, post = str(exc), request.POST
+            kind = request.POST.get("kind", "")
+            sku = clean_code(request.POST.get("sku", "")) if kind == "EXCESS" else request.POST.get("pick", "").partition("|")[2]
+            audit.record("SED_SAVE_REJECTED", "iw", iw.pk, user=request.user, iw_id=iw.pk,
+                         after={"kind": kind, "sku": sku, "error": error,
+                                "entered": {f: request.POST.get(f, "") for f in FIELDS if request.POST.get(f)}})
     return render(request, "iw/unloading.html", _context(request, iw, error=error, post=post))
 
 

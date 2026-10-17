@@ -208,3 +208,33 @@ def test_excess_search_and_quick_add(client, unloading):
     c.post(url, {"kind": "EXCESS", "came_with": w["ship_key"], "sku": "f00zz10991001000", "excess_qty": "4"})
     line = w["iw"].sed_lines.get(sku="F00ZZ10991001000")
     assert line.is_extra and line.excess_qty == 4 and line.description == "TEST WRONG ITEM 1 L"
+
+
+def test_refused_damage_blocks_silent_nil(client, unloading):
+    """UAT IW-2627-000002: two damage saves were refused, then NIL was confirmed seconds later."""
+    w = unloading
+    c = verified_client(client, w["clerk"])
+    url = reverse("iw:unloading", args=[w["iw"].pk])
+    pick = f"{w['ship_key']}|{EASYCLEAN}"
+    page = c.post(url + "?add=damage", {"kind": "DAMAGE", "pick": pick, "damage_qty": "2", "damage_kind": "CONTAINER",
+                                        "damage_remarks": "carton torn"}).content.decode()
+    assert "NOT SAVED" in page and "choose the damaged container" in page and 'action="?add=damage#add"' in page
+    rejected = sed.rejected_attempts(w["iw"])
+    assert len(rejected) == 1 and rejected[0]["kind"] == "DAMAGE" and rejected[0]["sku"] == "XG9 991"
+    assert "Entries that were NOT saved" in c.get(url).content.decode()
+    with pytest.raises(IwError, match="was NOT saved"):
+        sed.confirm_verification(w["clerk"], w["iw"].pk, {"nil_short_excess", "nil_damage"})
+    iw = sed.confirm_verification(w["clerk"], w["iw"].pk, {"nil_short_excess", "nil_damage", "rejected_checked"})
+    assert sed.REJECTED_TEXT in iw.sed_declaration["statements"] and len(iw.sed_declaration["rejected_attempts"]) == 1
+
+
+def test_refused_entry_saved_later_is_cleared(client, unloading):
+    w = unloading
+    c = verified_client(client, w["clerk"])
+    url = reverse("iw:unloading", args=[w["iw"].pk])
+    pick = f"{w['ship_key']}|{EASYCLEAN}"
+    c.post(url, {"kind": "DAMAGE", "pick": pick, "damage_qty": "2", "damage_kind": "MATERIAL"})   # no remarks
+    assert sed.rejected_attempts(w["iw"])
+    c.post(url, {"kind": "DAMAGE", "pick": pick, "damage_qty": "2", "damage_kind": "MATERIAL",
+                 "damage_remarks": "leaking", "damage_value": "90"})
+    assert sed.rejected_attempts(w["iw"]) == []

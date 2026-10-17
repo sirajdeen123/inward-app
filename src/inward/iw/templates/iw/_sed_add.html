@@ -1,6 +1,7 @@
 {% load static %}
 <div class="card" id="add">
   <h2>Record a Short, Excess or Damage</h2>
+  {% if error %}<div class="alert alert-error"><b>NOT SAVED</b> - {{ error }}<br>Correct it below and save again.</div>{% endif %}
   <div class="kindbar" role="group" aria-label="What to record">
     <a class="btn kind kind-short{% if add == 'short' %} on{% endif %}" href="?add=short#add">SHORT</a>
     <a class="btn kind kind-excess{% if add == 'excess' %} on{% endif %}" href="?add=excess#add">EXCESS</a>
@@ -8,7 +9,7 @@
   </div>
 
   {% if add == 'short' or add == 'damage' %}
-  <form method="post" class="form-grid">{% csrf_token %}
+  <form method="post" action="?add={{ add }}#add" class="form-grid">{% csrf_token %}
     <input type="hidden" name="kind" value="{{ add|upper }}">
     <div class="field span-all"><label for="f-pick">SKU from the documents *</label>
       <select id="f-pick" name="pick" required><option value="">Select the SKU...</option>
@@ -33,7 +34,7 @@
   </form>
 
   {% elif add == 'excess' %}
-  <form method="post" class="form-grid">{% csrf_token %}
+  <form method="post" action="?add=excess#add" class="form-grid">{% csrf_token %}
     <input type="hidden" name="kind" value="EXCESS">
     <div class="field"><label for="x-src">Came with *</label><select id="x-src" name="came_with" required><option value="">Select...</option>{% for key, label in sources %}<option value="{{ key }}"{% if post.came_with == key %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
     <div class="field span-all"><label for="x-sku">SKU code * <span class="muted">(type the code or a word of the description)</span></label>

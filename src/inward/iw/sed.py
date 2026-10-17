@@ -389,6 +389,35 @@ def declaration_kind(iw: Iw) -> str:
     return "SED" if iw.sed_lines.exists() else "NIL"
 
 
+REJECTED_TEXT = ("An entry above was attempted but NOT saved. I have checked again: there is really no short, excess "
+                 "or damage on it.")
+
+
+def rejected_attempts(iw: Iw) -> list[dict]:
+    """Short / Excess / Damage entries that were refused (and so not saved) since the checklist was generated and are
+    still not on an SED line - a NIL declaration must not slip through after a failed entry (UAT 17-Oct-2026)."""
+    from inward.core.models import AuditEvent
+    snap = iw.checklists.first()
+    if snap is None:
+        return []
+    field_of = {"SHORT": "short_qty", "EXCESS": "excess_qty", "DAMAGE": "damage_qty"}
+    out, seen = [], set()
+    for e in (AuditEvent.objects.filter(iw_id=iw.pk, action="SED_SAVE_REJECTED", occurred_at__gte=snap.generated_at)
+              .select_related("user").order_by("-occurred_at")):
+        a = e.after or {}
+        kind, sku = a.get("kind", ""), a.get("sku", "")
+        if (kind, sku) in seen:
+            continue
+        seen.add((kind, sku))
+        f = field_of.get(kind)
+        if f and sku and iw.sed_lines.filter(sku=sku, **{f"{f}__gt": 0}).exists():
+            continue   # saved later
+        out.append({"kind": kind or "SED", "sku": floor_sku(sku) if len(sku) == 16 else sku or "-",
+                    "error": a.get("error", ""), "at": timezone.localtime(e.occurred_at),
+                    "by": e.user.username if e.user else ""})
+    return out
+
+
 @transaction.atomic
 def confirm_verification(user: User, iw_pk: int, confirmations=()) -> Iw:
     require(user, "PHYSICAL_SED_QTY")
@@ -401,6 +430,11 @@ def confirm_verification(user: User, iw_pk: int, confirmations=()) -> Iw:
     missing = [text for key, text in DECLARATIONS[kind] if key not in set(confirmations)]
     if missing:
         raise IwError("Tick both declarations before confirming: " + " / ".join(missing))
+    rejected = rejected_attempts(iw)
+    if rejected and "rejected_checked" not in set(confirmations):
+        r = rejected[0]
+        raise IwError(f"A {r['kind'].lower()} entry for {r['sku']} at {r['at']:%H:%M} was NOT saved ({r['error']}). "
+                      "Record it again, or tick the extra declaration if there is really nothing to record.")
     t = totals(iw)
     photos = SedPhoto.objects.filter(line__iw=iw).count()
     now = timezone.now()
@@ -408,6 +442,10 @@ def confirm_verification(user: User, iw_pk: int, confirmations=()) -> Iw:
                           "by": user.full_name or user.username, "by_id": user.pk, "at": now.isoformat(),
                           "checklist_revision": iw.checklists.first().revision, "lines": t.lines, "photos": photos,
                           "short": str(t.short), "excess": str(t.excess), "damage": str(t.damage)}
+    if rejected:
+        iw.sed_declaration["statements"].append(REJECTED_TEXT)
+        iw.sed_declaration["rejected_attempts"] = [f"{r['at']:%d-%b-%Y %H:%M} {r['kind']} {r['sku']}: {r['error']}"
+                                                   for r in rejected]
     iw.status = Iw.Status.PHYSICALLY_VERIFIED
     iw.verified_at, iw.verified_by = now, user
     iw.version += 1

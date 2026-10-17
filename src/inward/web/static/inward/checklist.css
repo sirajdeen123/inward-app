@@ -13,7 +13,8 @@ body { font-family: "DejaVu Sans", Arial, sans-serif; font-size: 9pt; color: #00
 .rh td { vertical-align: bottom; padding: 0 4px 3px 0; font-size: 8.5pt }
 .rh-logo { width: 22mm } .rh-logo img { width: 20mm; height: auto }
 .co { font-size: 11.5pt; font-weight: 700 } .doc { font-weight: 700; margin-top: 2px }
-.rh-iw { text-align: right } .iwno { font-size: 11pt; font-weight: 700 }
+.rh-iw { text-align: right; width: 50% } .iwno { font-size: 11pt; font-weight: 700 }
+.rh-co { width: 38% }
 .sheetname::before { content: string(sheet) }
 .sheet { page-break-after: always } .sheet:last-child { page-break-after: auto }
 .sheet-title { string-set: sheet content(); font-size: 12pt; margin: 2px 0 6px; padding: 3px 8px; background: #e9e9e9; border-left: 5px solid #000 }

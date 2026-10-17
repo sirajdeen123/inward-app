@@ -27,7 +27,7 @@ tfoot th { background: #f4f4f4; text-align: left }
 tfoot th.num { text-align: right }
 .detail .desc { white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
 .c-sl { width: 6mm } .c-floor { width: 14mm } .c-full { width: 26mm } .c-pcs { width: 11mm } .c-meas { width: 17mm }
-.c-loc { width: 42mm } .c-lot { width: 24mm }
+.c-loc { width: 42mm } .c-memo { width: 34mm } .c-lot { width: 24mm }
 tr { page-break-inside: avoid }
 .track { page-break-inside: auto }
 .num { text-align: right } .mono { font-family: "DejaVu Sans Mono", monospace } .b { font-weight: 700 }

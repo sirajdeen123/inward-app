@@ -297,7 +297,10 @@ def detail(iw: Iw) -> dict:
     stock = [r for r in results if r["kind"] in ("SHIP", "PO")]
     total = {k: _f(sum((Decimal(r[k]) for r in stock), ZERO)) for k in ("actual", "ltr", "kg")}
     total["skus"] = len({ln["sku"] for r in stock for ln in r["lines"]})
-    return {"results": results, "all_ok": bool(results) and all(r["ok"] for r in results),
+    sed = [r for r in results if r["kind"] == "SED"]
+    for r in sed:   # "SED Ship 53481142 short" -> "Ship 53481142 short"
+        r["kind_label"] = r["track"][4:] if r["track"].startswith("SED ") else r["track"]
+    return {"results": results, "sed": sed, "all_ok": bool(results) and all(r["ok"] for r in results),
             "skus": sum(len(r["lines"]) for r in results), "total": total, "receipts": len(stock)}
 
 

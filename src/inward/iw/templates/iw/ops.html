@@ -1,4 +1,5 @@
 {% extends "web/base.html" %}
+{% load iw_ui %}
 {% block title %}Operations{% endblock %}
 {% block content %}
 <div class="bar"><h1>Operations Control Centre</h1><div class="grow"></div>
@@ -16,7 +17,7 @@
   <div class="bar"><h2>Open IWs (oldest first)</h2><div class="grow"></div><a class="btn btn-sm" href="{% url 'iw:actions' %}">My pending actions</a></div>
   {% if open %}
   <table class="tbl stack"><thead><tr><th>IW</th><th>Vehicle / source</th><th>Age</th><th>Progress</th><th>Next action</th></tr></thead>
-    <tbody>{% for r in open %}<tr><td data-label="IW"><a href="{% url 'iw:detail' r.iw.pk %}"><b>{{ r.iw }}</b></a><div class="muted">{{ r.iw.get_status_display }}</div></td>
+    <tbody>{% for r in open %}<tr><td data-label="IW"><a href="{% url 'iw:detail' r.iw.pk %}"><b>{{ r.iw }}</b></a><div>{% iw_status r.iw %}</div></td>
       <td data-label="Vehicle / source">{{ r.iw.vehicle_no }}<div class="muted">{{ r.iw.source_org|default:r.iw.load_type }}</div></td>
       <td data-label="Age"><span class="{% if r.age_hours > 72 %}warn-text{% endif %}">{{ r.age_text }}</span></td>
       <td data-label="Progress"><div class="strip">{% for label, st in r.progress %}<span class="step step-{{ st }}" title="{{ label }}">{{ label }}</span>{% endfor %}</div></td>

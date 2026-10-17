@@ -1,10 +1,12 @@
 {% extends "web/base.html" %}
+{% load iw_ui %}
 {% load static %}
 {% block title %}ERP &amp; IRR · {{ iw }}{% endblock %}
 {% block content %}
 <p><a href="{% url 'iw:detail' iw.pk %}">&larr; {{ iw }}</a></p>
 <h1>ERP receipts &amp; IRR reconciliation · {{ iw }}</h1>
-<p class="muted">{{ iw.vehicle_no }} · {{ iw.load_type }} · <span class="chip">{{ iw.get_status_display }}</span>. Entering a number only records it; the IRR proves it. Import the latest IRR, then run the reconciliation.</p>
+{% next_step iw %}
+<p class="muted">{{ iw.vehicle_no }} · {{ iw.load_type }} · {% iw_status iw %}. Entering a number only records it; the IRR proves it. Import the latest IRR, then run the reconciliation.</p>
 {% if not open %}<div class="alert alert-info">ERP entries start after the MRA is issued (Screen 04 complete or released).</div>{% endif %}
 
 {% for link in ships %}

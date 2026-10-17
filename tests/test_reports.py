@@ -44,16 +44,17 @@ def test_report_content(at_erp):
 def test_schedule_sends_once_after_report_time(at_erp):
     _recipients()
     ExceptionEvent.objects.create(code="SIT_X", severity="CRITICAL", entity_type="ship", entity_id="1", message="m")
-    early = datetime(2026, 10, 16, 9, 0, tzinfo=IST)
-    assert reports.due_reports(early) == []
-    late = datetime(2026, 10, 16, 19, 30, tzinfo=IST)
-    runs = reports.due_reports(late)
-    assert {r.kind for r in runs} == {"DAILY_ESC", "DAILY_UNL"} and all(r.mail for r in runs)
+    assert reports.due_reports(datetime(2026, 10, 16, 8, 59, tzinfo=IST)) == []
+    runs = reports.due_reports(datetime(2026, 10, 16, 9, 0, tzinfo=IST))          # 09:00: yesterday's collection
+    assert [(r.kind, r.period) for r in runs] == [("DAILY_UNL", "2026-10-15")] and runs[0].mail
     m = ReportRun.objects.get(kind="DAILY_UNL").mail
     assert m.to == ["daily_unloading0@example.com"] and m.iw is None and "Daily unloading collection" in m.html_body
+    runs = reports.due_reports(datetime(2026, 10, 16, 9, 30, tzinfo=IST))         # 09:30: incomplete IWs
+    assert [(r.kind, r.period) for r in runs] == [("DAILY_ESC", "2026-10-16")]
+    assert "Daily status of incomplete IWs" in runs[0].mail.subject
     assert ExceptionEvent.objects.get().escalation_count == 1
-    assert reports.due_reports(late) == []                       # once per day
-    first = datetime(2026, 11, 1, 19, 30, tzinfo=IST)
+    assert reports.due_reports(datetime(2026, 10, 16, 19, 30, tzinfo=IST)) == []  # once per day
+    first = datetime(2026, 11, 1, 9, 45, tzinfo=IST)
     kinds = {r.kind for r in reports.due_reports(first)}
     assert {"MONTHLY_MIS", "SED_REPORT"} <= kinds
     assert ReportRun.objects.get(kind="MONTHLY_MIS").period == "2026-10"
@@ -79,7 +80,7 @@ def test_irr_report_mailed_at_closure(reconciled):
 def test_screens(client, at_erp, make_user):
     w = at_erp
     c = verified_client(client, w["clerk"])
-    for kind, text in (("daily", "Daily escalation"), ("unloading", "Daily unloading collection"),
+    for kind, text in (("daily", "Daily status of incomplete IWs"), ("unloading", "Daily unloading collection"),
                        ("sed", "SED report"), ("mis", "Monthly MIS")):
         assert text in c.get(reverse("iw:reports"), {"r": kind}).content.decode()
     resp = c.get(reverse("iw:reports"), {"r": "sed", "xlsx": "1"})

@@ -1,10 +1,10 @@
 """Screen 09 - Reports, escalations and MIS (SoT 13, table 15). Every report can be viewed on screen; scheduled
 ones go through the same mail queue (Sent Mail evidence) to the Notification Master recipients, once per period:
 
-- Daily escalation (Admin Officer, CFA Manager, Clerk): open / aged IWs, SIT partial / abnormal / never-linked
-  Ships, ERP pending, IRR pending / not found / review, open SED, SED approvals pending or rejected, mail-pending
-  releases, key claim values. Exceptions get first / last escalated and a counter (no repeated spam).
-- Daily unloading collection (CFA Manager only).
+- Daily status of incomplete IWs, 09:30 (Admin Officer, CFA Manager): open / aged IWs, SIT partial / abnormal /
+  never-linked Ships, ERP pending, IRR pending / not found / review, open SED, SED approvals pending or rejected,
+  mail-pending releases, key claim values. Exceptions get first / last escalated and a counter (no repeated spam).
+- Yesterday's unloading collection, 09:00 (CFA Manager only).
 - Monthly MIS and SED report (Admin Officer, CFA Manager, Clerk) for the previous month, on the 1st.
 - IRR Reconciliation Report at closure (with the PDF).
 """
@@ -159,18 +159,22 @@ class Spec:
 
 
 SPECS = {
-    "DAILY_ESC": Spec("DAILY_ESC", "DAILY_ESCALATION", "iw/mail/report_daily.html", "Daily escalation report"),
+    "DAILY_ESC": Spec("DAILY_ESC", "DAILY_ESCALATION", "iw/mail/report_daily.html", "Daily status of incomplete IWs"),
     "DAILY_UNL": Spec("DAILY_UNL", "DAILY_UNLOADING", "iw/mail/report_unloading.html", "Daily unloading collection"),
     "MONTHLY_MIS": Spec("MONTHLY_MIS", "MONTHLY_MIS", "iw/mail/report_mis.html", "Monthly MIS"),
     "SED_REPORT": Spec("SED_REPORT", "SED_REPORT", "iw/mail/report_sed.html", "SED report"),
 }
 
 
-def _report_time() -> time:
-    f = FeatureFlag.objects.filter(key="daily_report_time").first()
-    text = str((f.value or {}).get("value") or "19:00") if f else "19:00"
-    h, m = (int(x) for x in text.split(":"))
-    return time(h, m)
+def _time(key: str, default: str) -> time:
+    f = FeatureFlag.objects.filter(key=key).first()
+    text = str((f.value or {}).get("value") or default) if f else default
+    try:
+        h, m = (int(x) for x in text.split(":"))
+        return time(h, m)
+    except ValueError:
+        h, m = (int(x) for x in default.split(":"))
+        return time(h, m)
 
 
 def _system_user():
@@ -200,19 +204,25 @@ def queue_report(kind: str, period: str, context: dict, user=None, attachments=(
 
 
 def due_reports(now=None) -> list[ReportRun]:
-    """Called by the worker every round: queues today's daily reports after the report time, and last month's MIS
-    and SED report on the 1st. Each period is sent once."""
+    """Called by the worker every round (decision 17-Oct-2026):
+    - after 09:00 - yesterday's unloading collection (CFA Manager);
+    - after 09:30 - the status of the incomplete IWs this morning (Admin Officer, CFA Manager), with the
+      exception escalation;
+    - on the 1st after 09:30 - last month's MIS and SED report.
+    Each period is sent once, so a worker restart never sends a report twice."""
     now = timezone.localtime(now or timezone.now())
     out = []
-    if now.time() < _report_time():
-        return out
     day = now.date()
+    if now.time() >= _time("daily_unloading_time", "09:00"):
+        prev = (day - timedelta(days=1)).isoformat()
+        if not ReportRun.objects.filter(kind="DAILY_UNL", period=prev).exists():
+            out.append(queue_report("DAILY_UNL", prev, {"r": daily_unloading(day - timedelta(days=1))}))
+    if now.time() < _time("daily_status_time", "09:30"):
+        return out
     key = day.isoformat()
     if not ReportRun.objects.filter(kind="DAILY_ESC", period=key).exists():
         out.append(queue_report("DAILY_ESC", key, {"r": daily_escalation(day)}))
         escalate_exceptions()
-    if not ReportRun.objects.filter(kind="DAILY_UNL", period=key).exists():
-        out.append(queue_report("DAILY_UNL", key, {"r": daily_unloading(day)}))
     if day.day == 1:
         prev = day - timedelta(days=1)
         month = f"{prev:%Y-%m}"

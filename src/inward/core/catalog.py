@@ -71,6 +71,7 @@ LOAD_TYPES = [
     ("INTER_DEPOT", "Inter Depot Receipt", True, False, False, False, False),
     ("INTER_DEPOT_INBOUND_TS", "Inter Depot + Inbound Transhipment", True, False, False, False, False),
     ("INBOUND_TS", "Inbound Transhipment", True, False, False, False, False),
+    ("OUTBOUND_TS", "Outbound Transhipment only", False, True, False, False, False),   # UAT 17-Oct-2026
     ("RDC", "RDC Receipt", True, False, False, False, False),
     ("RDC_OUTBOUND_TS", "RDC + Outbound Transhipment", True, True, False, False, False),
     ("DIRECT_FACTORY", "Direct Factory Receipt", True, False, True, False, False),
@@ -108,7 +109,8 @@ FEATURE_FLAGS = {
     "outbound_row_reuse_days": (60, "Window for warning about re-use of an identical Despatch row"),
     "measure_tolerance": ("0.001", "LTR/KG tolerance per SKU in reconciliation"),
     "cloud_only_after_months": (12, "Closed IW documents kept on OneDrive only after this many months"),
-    "daily_report_time": ("19:00", "Time (IST) after which the daily escalation and unloading reports are sent"),
+    "daily_unloading_time": ("09:00", "Time (IST) after which yesterday's unloading collection is mailed"),
+    "daily_status_time": ("09:30", "Time (IST) after which the daily status of incomplete IWs is mailed"),
     "packaging_bulk_change_limit": (50, "An upload changing more existing SKUs than this is flagged as a whole"),
 }
 
@@ -116,7 +118,7 @@ FEATURE_FLAGS = {
 NOTIFICATION_PURPOSES = {
     "SED_IMMEDIATE": [("Depot Manager", "TO"), ("Admin Officer", "TO"), ("CFA Manager", "TO")],
     "SED_APPROVAL": [("Depot Manager", "TO"), ("Admin Officer", "CC")],
-    "DAILY_ESCALATION": [("Admin Officer", "TO"), ("CFA Manager", "TO"), ("Clerk", "TO")],
+    "DAILY_ESCALATION": [("Admin Officer", "TO"), ("CFA Manager", "TO")],
     "MONTHLY_MIS": [("Admin Officer", "TO"), ("CFA Manager", "TO"), ("Clerk", "TO")],
     "SED_REPORT": [("Admin Officer", "TO"), ("CFA Manager", "TO"), ("Clerk", "TO")],
     "IRR_RECON_REPORT": [("Admin Officer", "TO"), ("CFA Manager", "TO"), ("Clerk", "TO")],

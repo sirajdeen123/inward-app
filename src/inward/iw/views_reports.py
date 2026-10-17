@@ -15,7 +15,7 @@ from inward.iw import reports
 from inward.iw.models import ReportRun
 from inward.web.views import needs
 
-KINDS = [("daily", "Daily escalation"), ("unloading", "Daily unloading collection"), ("sed", "SED report"),
+KINDS = [("daily", "Daily status of incomplete IWs"), ("unloading", "Daily unloading collection"), ("sed", "SED report"),
          ("mis", "Monthly MIS")]
 
 

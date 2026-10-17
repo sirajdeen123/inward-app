@@ -1,9 +1,11 @@
 {% extends "web/base.html" %}
+{% load iw_ui %}
 {% load static %}
 {% block title %}Unloading &amp; SED · {{ iw }}{% endblock %}
 {% block content %}
 <p><a href="{% url 'iw:detail' iw.pk %}">&larr; {{ iw }}</a></p>
 <h1>Unloading &amp; SED · {{ iw }}</h1>
+{% next_step iw %}
 <p class="muted">{{ iw.vehicle_no }} · {{ iw.load_type }}{% if iw.source_org %} · from {{ iw.source_org }}{% endif %}. Record only the SKUs that differ from the documents; every other checklist line counts as received as per document.</p>
 {% if error %}<div class="alert alert-error"><b>NOT SAVED</b> - {{ error }}</div>{% endif %}
 

@@ -17,8 +17,8 @@ from inward.web.views import needs
 PURPOSES = {
     "SED_IMMEDIATE": "Internal SED notification - with every MRA that has Short / Excess / Damage",
     "SED_APPROVAL": "SED approval request - the Depot Manager approves by replying from this address",
-    "DAILY_ESCALATION": "Daily escalation report (19:00)",
-    "DAILY_UNLOADING": "Daily unloading collection (19:00)",
+    "DAILY_ESCALATION": "Daily status of incomplete IWs (09:30)",
+    "DAILY_UNLOADING": "Yesterday's unloading collection (09:00)",
     "MONTHLY_MIS": "Monthly MIS (1st of the month)",
     "SED_REPORT": "Monthly SED report (1st of the month)",
     "IRR_RECON_REPORT": "IRR Reconciliation Report (when an IW is closed)",

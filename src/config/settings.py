@@ -95,7 +95,8 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # ---------------------------------------------------------------- authentication (SoT 14.5)
 AUTH_USER_MODEL = "accounts.User"
-AUTHENTICATION_BACKENDS = ["axes.backends.AxesStandaloneBackend", "django.contrib.auth.backends.ModelBackend"]
+AUTHENTICATION_BACKENDS = ["axes.backends.AxesStandaloneBackend", "django.contrib.auth.backends.ModelBackend",
+                           "inward.accounts.backends.RoleAdminBackend"]
 PASSWORD_HASHERS = [
     "django.contrib.auth.hashers.Argon2PasswordHasher",
     "django.contrib.auth.hashers.PBKDF2PasswordHasher",

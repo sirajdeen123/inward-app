@@ -1,0 +1,9 @@
+<div class="nextstep{% if iw.status == 'CLOSED' %} nextstep-done{% endif %}" role="status">
+  {% if progress %}<div class="strip">{% for label, st in progress %}<span class="step step-{{ st }}">{{ label }}</span>{% endfor %}</div>{% endif %}
+  {% if first %}
+  <div class="ns-row"><span class="ns-label">Next step</span><b class="ns-text">{{ first.text }}</b>
+    {% if first.url != here %}<a class="btn btn-primary btn-sm" href="{{ first.url }}">Go &rarr;</a>{% else %}<span class="muted">- on this screen</span>{% endif %}</div>
+  {% if more %}<div class="ns-more">Also pending: {% for a in more %}<a href="{{ a.url }}">{{ a.text }}</a>{% if not forloop.last %} · {% endif %}{% endfor %}</div>{% endif %}
+  {% elif iw.status == 'CLOSED' %}<div class="ns-row"><span class="ns-label">Done</span><b class="ns-text">This IW is closed - nothing pending.</b></div>
+  {% endif %}
+</div>

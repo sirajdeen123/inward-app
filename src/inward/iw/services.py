@@ -75,7 +75,7 @@ def _validate(data: IwData) -> None:
         raise IwError("Arrival date-time cannot be in the future.")
     if not search_key(data.vehicle_no):
         raise IwError("Vehicle number is required.")
-    needs_org = data.load_type.has_inbound_sit and not data.load_type.is_vendor
+    needs_org = (data.load_type.has_inbound_sit or data.load_type.has_outbound) and not data.load_type.is_vendor
     if needs_org and data.source_org is None:
         raise IwError("Source of load (organisation) is required for this load type.")
 

@@ -1,4 +1,4 @@
-<h3>Daily escalation - {{ r.day|date:"d-M-Y" }}</h3>
+<h3>Daily status of incomplete IWs - {{ r.day|date:"d-M-Y" }}</h3>
 <p>Open IWs {{ r.open|length }} · aged over 48 h {{ r.aged|length }} · ERP pending {{ r.erp_pending|length }} · open SED value Rs {{ r.claim_open|floatformat:2 }}{% if r.mail.show %} · <b>mail problems: {{ r.mail.failed }} failed, {{ r.mail.late }} late</b>{% endif %}</p>
 
 <h4>Aged open IWs (48 h and more since arrival)</h4>

@@ -1,12 +1,14 @@
 {% extends "web/base.html" %}
+{% load iw_ui %}
 {% block title %}{{ iw }}{% endblock %}
 {% block content %}
 <p><a href="{% url 'iw:list' %}">&larr; All IWs</a></p>
 <div class="bar"><h1>{{ iw }}</h1>
-  <span class="chip {% if iw.status == 'VOID' %}chip-bad{% elif iw.status == 'DRAFT' %}chip-warn{% endif %}">{{ iw.get_status_display }}</span>
+  {% iw_status iw %}
   <div class="grow"></div>
   {% if can_edit %}<a href="{% url 'iw:edit' iw.pk %}" class="btn">{% if iw.status == 'DRAFT' %}Continue draft{% else %}Edit{% endif %}</a>{% endif %}
 </div>
+{% if iw.status != 'VOID' %}{% next_step iw %}{% endif %}
 {% if iw.status == 'VOID' %}<div class="alert alert-error">VOID on {{ iw.voided_at|date:"d-M-Y H:i" }} - {{ iw.void_reason }}. The number is kept and never reused.</div>{% endif %}
 {% if pending_void %}<div class="alert alert-warning">VOID requested by {{ pending_void.requested_by }} on {{ pending_void.created_at|date:"d-M-Y H:i" }}: "{{ pending_void.reason }}" - waiting for CFA Manager approval.</div>{% endif %}
 <div class="card"><dl class="summary">

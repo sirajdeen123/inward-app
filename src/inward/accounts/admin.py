@@ -18,6 +18,9 @@ class InwardUserAdmin(UserAdmin):
     add_fieldsets = ((None, {"fields": ("username", "full_name", "email", "password1", "password2")}),)
     inlines = [UserRoleInline]
 
+    def get_readonly_fields(self, request, obj=None):
+        return () if request.user.is_superuser else ("is_break_glass",)
+
 
 @admin.register(Role)
 class RoleAdmin(admin.ModelAdmin):

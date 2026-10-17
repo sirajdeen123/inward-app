@@ -1,8 +1,11 @@
 {% extends "web/base.html" %}
+{% load iw_ui %}
+{% load static %}
 {% block title %}Packages &amp; unloading · {{ iw }}{% endblock %}
 {% block content %}
 <p><a href="{% url 'iw:detail' iw.pk %}">&larr; {{ iw }}</a></p>
 <h1>Package counts &amp; unloading · {{ iw }}</h1>
+{% next_step iw %}
 <p class="muted">{{ iw.vehicle_no }} · {{ iw.load_type }}{% if iw.transporter %} · {{ iw.transporter }}{% endif %} · arrived {{ iw.arrival_at|date:"d-M-Y H:i" }}</p>
 {% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
 {% with editable=iw.is_editable %}
@@ -27,7 +30,7 @@
   <table class="tbl stack"><thead><tr><th>Reference</th><th class="num">Gross weight kg</th></tr></thead>
     <tbody>{% for w in weights %}<tr><td data-label="Reference">{{ w.label }}</td>
       <td class="num" data-label="Gross weight kg">{% if editable %}<input name="kg_{{ w.kind }}:{{ w.pk }}" class="qty" inputmode="decimal" value="{{ w.kg|floatformat:'-3'|default:'' }}" aria-label="Gross weight kg for {{ w.label }}">{% else %}{{ w.kg|floatformat:"-3"|default:"-" }}{% endif %}</td></tr>{% endfor %}
-      <tr><td data-label="Reference"><b>Total</b></td><td class="num" data-label="Gross weight kg"><b>{{ total_kg|floatformat:"-3" }} kg</b>{% if suggested %} = <b>{{ suggested }} t</b>{% endif %}</td></tr></tbody></table>
+      <tr><td data-label="Reference"><b>Total</b></td><td class="num" data-label="Gross weight kg"><b>{{ total_kg|floatformat:"-3" }} kg</b>{% if suggested %} = <b>{{ suggested }} t</b>{% if estimate %} &rarr; unloading <b>Rs {{ estimate|floatformat:2 }}</b>{% endif %}{% endif %}</td></tr></tbody></table>
   {% if editable %}<p><button type="submit" name="action" value="weights" class="btn">Save weights</button></p>{% endif %}
 </form>
 
@@ -44,10 +47,10 @@
   </div>{% endif %}
   {% if editable %}
   <input type="hidden" name="action" value="unloading">{% if rec %}<input type="hidden" name="version" value="{{ rec.version }}">{% endif %}
-  <div class="field"><label for="u-ton">Tonnage (tonnes) *</label><input id="u-ton" name="tonnage" inputmode="decimal" placeholder="e.g. 13.2" value="{% if post %}{{ post.tonnage }}{% elif rec %}{{ rec.tonnage|floatformat:'-3' }}{% elif suggested %}{{ suggested }}{% endif %}">
+  <div class="field"><label for="u-ton">Tonnage (tonnes) *</label><input id="u-ton" name="tonnage" inputmode="decimal" data-rate="{{ rate|default:'' }}" placeholder="e.g. 13.2" value="{% if post %}{{ post.tonnage }}{% elif rec %}{{ rec.tonnage|floatformat:'-3' }}{% elif suggested %}{{ suggested }}{% endif %}">
     <span class="muted">{% if suggested %}From the gross weights: {{ total_kg|floatformat:"-3" }} kg = {{ suggested }} t. You may change it.{% else %}Enter the gross weights above, or type the tonnage.{% endif %}{% if rec and rec.tonnage_from_weights and rec.tonnage != rec.tonnage_from_weights %} <b>Edited</b> (weights gave {{ rec.tonnage_from_weights }} t).{% endif %}</span></div>
   <div class="field"><label>Rate on {{ arrival|date:"d-M-Y" }}</label><div class="kpi-value">{% if rate %}Rs {{ rate|floatformat:2 }} per ton{% else %}<span class="warn-text">not set</span>{% endif %}</div></div>
-  <div class="field"></div>
+  <div class="field"><label>Unloading amount</label><div class="amount" id="u-amount" aria-live="polite">{% if rec %}Rs {{ rec.charge|floatformat:2 }}{% elif estimate %}Rs {{ estimate|floatformat:2 }} <small>{{ suggested }} t &times; Rs {{ rate|floatformat:2 }}</small>{% else %}-{% endif %}</div></div>
   <div class="field span-all"><label>Payment position *</label>
     {% for value, label in statuses %}<label class="check"><input type="radio" name="status" value="{{ value }}"{% if post and post.status == value %} checked{% elif not post and rec and rec.status == value %} checked{% elif not post and rec.status == 'EXEMPT_REQ' and value == 'EXEMPT' %} checked{% endif %}> {{ label }}{% if value == 'EXEMPT' %} (needs CFA Manager approval){% endif %}</label>{% endfor %}</div>
   <div class="field"><label for="u-paid">Amount paid (Rs) - Part paid</label><input id="u-paid" name="paid_amount" inputmode="decimal" placeholder="Paid = full charge" value="{% if post %}{{ post.paid_amount }}{% elif rec and rec.status == 'PART_PAID' %}{{ rec.paid_amount }}{% endif %}"></div>
@@ -59,4 +62,5 @@
   {% endif %}
 </form>
 {% endwith %}
+<script src="{% static 'inward/charge.js' %}" defer></script>
 {% endblock %}

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from datetime import date
+from decimal import Decimal
 
 from django.contrib import messages
 from django.shortcuts import get_object_or_404, redirect, render
@@ -48,10 +49,12 @@ def charges_page(request, pk):
     by_wh = [(unloading.WAREHOUSE_LABEL[wh], [r for r in rows if r.warehouse == wh]) for wh in unloading.WAREHOUSE_ORDER]
     arrival = timezone.localtime(iw.arrival_at).date()
     suggested, total_kg = unloading.suggested_tonnage(iw)
+    rate = rate_on("UNLOADING_PER_TON", arrival)
+    estimate = (suggested * rate).quantize(Decimal("0.01")) if suggested and rate else None
     return render(request, "iw/charges.html", {
         "iw": iw, "rec": rec, "error": error, "post": request.POST if error else None,
         "warehouses": [(label, r) for label, r in by_wh if r], "counts_saved": iw.package_counts.exists(),
-        "snap": iw.checklists.first(), "rate": rate_on("UNLOADING_PER_TON", arrival), "arrival": arrival,
+        "snap": iw.checklists.first(), "rate": rate, "estimate": estimate, "arrival": arrival,
         "statuses": [(s.value, s.label) for s in UnloadingRecord.Status if s != UnloadingRecord.Status.EXEMPT_REQUESTED],
         "modes": UnloadingRecord.Mode.choices, "settled": unloading.is_settled(iw),
         "weights": unloading.weights(iw), "suggested": suggested, "total_kg": total_kg,

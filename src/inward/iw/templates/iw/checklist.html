@@ -1,10 +1,12 @@
 {% extends "web/base.html" %}
+{% load iw_ui %}
 {% block title %}Checklist · {{ iw }}{% endblock %}
 {% block content %}
 <p><a href="{% url 'iw:detail' iw.pk %}">&larr; {{ iw }}</a></p>
 <div class="bar"><h1>Unloading checklist · {{ iw }}</h1><div class="grow"></div>
   {% if current %}<a class="btn btn-primary" href="{% url 'iw:checklist_print' iw.pk current.revision %}" target="_blank" rel="noopener">Print revision {{ current.revision }}</a>{% endif %}</div>
-<p class="muted">{{ iw.load_type }} · {{ iw.vehicle_no }} · arrival {{ iw.arrival_at|date:"d-M-Y H:i" }} · {{ iw.get_status_display }}</p>
+{% next_step iw %}
+<p class="muted">{{ iw.load_type }} · {{ iw.vehicle_no }} · arrival {{ iw.arrival_at|date:"d-M-Y H:i" }} · {% iw_status iw %}</p>
 
 {% for b in build.blockers %}<div class="alert alert-error">{{ b }}</div>{% endfor %}
 {% for w in build.warnings %}<div class="alert alert-warning">{{ w }}</div>{% endfor %}

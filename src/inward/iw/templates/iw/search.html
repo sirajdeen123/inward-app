@@ -1,4 +1,5 @@
 {% extends "web/base.html" %}
+{% load iw_ui %}
 {% block title %}Search{% endblock %}
 {% block content %}
 <h1>Search</h1>
@@ -19,7 +20,7 @@
     <tbody>{% for h in hits %}<tr><td data-label="IW"><a href="{% url 'iw:detail' h.iw.pk %}"><b>{{ h.iw }}</b></a></td><td data-label="Arrival">{{ h.iw.arrival_at|date:"d-M-Y H:i" }}</td>
       <td data-label="Vehicle">{{ h.iw.vehicle_no }}{% if h.iw.lr_no %}<div class="muted">LR {{ h.iw.lr_no }}</div>{% endif %}</td>
       <td data-label="Load / source">{{ h.iw.load_type }}<div class="muted">{{ h.iw.source_org|default:"" }}</div></td>
-      <td data-label="Status"><span class="chip">{{ h.iw.get_status_display }}</span></td><td data-label="Matched on">{{ h.matched|join:", " }}</td></tr>{% endfor %}</tbody></table>
+      <td data-label="Status">{% iw_status h.iw %}</td><td data-label="Matched on">{{ h.matched|join:", " }}</td></tr>{% endfor %}</tbody></table>
   {% else %}<p class="muted">No IW found.</p>{% endif %}
 </div>
 {% if irr %}

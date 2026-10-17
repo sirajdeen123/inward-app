@@ -116,3 +116,30 @@ label.check input{margin-top:3px}
 .sidebar{width:auto;flex-direction:row;align-items:center;overflow-x:auto;padding:8px 10px;gap:2px;position:sticky;top:0;z-index:5;border-bottom:1px solid var(--line)}
 .sidebar .depot,.sidebar .who,.sidebar .grow{display:none}.sidebar .brand{font-size:16px;padding:0 8px;white-space:nowrap}
 .sidebar .nav{white-space:nowrap;padding:8px 10px}.sidebar form{flex-shrink:0}}
+/* IW status colours by stage (UAT 17-Oct-2026): grey = not started, blue = at the gate / linking,
+   amber = in the yard, teal = verified, purple = office / ERP, light green = reconciled, solid green = closed,
+   red = reopened, dark grey = void */
+.st{border:1px solid transparent;white-space:nowrap}
+.st-DRAFT{background:#eceef2;color:#4a4d57;border-color:#c9ccd6}
+.st-OPEN,.st-MATERIAL_LINKED{background:#e3eefc;color:#0b4a8f;border-color:#a9c7ef}
+.st-UNLOADING_IN_PROGRESS{background:#fff1d6;color:#7a4a00;border-color:#f0c97a}
+.st-PHYSICALLY_VERIFIED{background:#dff4f2;color:#0b5e57;border-color:#93d3cc}
+.st-MRA_ISSUED,.st-ERP_IN_PROGRESS{background:#efe7fb;color:#4b2a86;border-color:#c8b3ec}
+.st-RECON_COMPLETE,.st-DOCUMENTS_COMPLETE{background:#e2f4e6;color:#145c2a;border-color:#9fd3ab}
+.st-CLOSED{background:#1e7d3a;color:#fff;border-color:#1e7d3a}
+.st-REOPENED_ACTION_REQUIRED{background:#c62828;color:#fff;border-color:#c62828}
+.st-VOID{background:#5b5e6b;color:#fff;border-color:#5b5e6b;text-decoration:line-through}
+/* next step guide */
+.nextstep{border:1px solid #f0c97a;border-left:6px solid #d68a00;background:#fffaf0;border-radius:10px;padding:10px 14px;margin:0 0 16px;display:flex;flex-direction:column;gap:8px}
+.nextstep-done{border-color:#9fd3ab;border-left-color:#1e7d3a;background:#f2faf4}
+.ns-row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.ns-label{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#7a4a00}
+.nextstep-done .ns-label{color:#1e7d3a}
+.ns-text{font-size:16px}.ns-more{font-size:13px;color:var(--muted)}
+/* sidebar groups */
+.navgroup{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#7d808c;padding:12px 12px 2px}
+.navgroup:first-of-type{padding-top:4px}
+.nav .num{display:inline-block;min-width:22px;font-size:12px;color:#7d808c;font-weight:600}
+.nav.active .num{color:var(--red)}
+/* unloading amount preview */
+.amount{font-size:18px;font-weight:700}.amount small{font-size:13px;font-weight:400;color:var(--muted)}

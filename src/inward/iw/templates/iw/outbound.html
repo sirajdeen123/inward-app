@@ -1,8 +1,10 @@
 {% extends "web/base.html" %}
+{% load iw_ui %}
 {% block title %}Outbound · {{ iw }}{% endblock %}
 {% block content %}
 <p><a href="{% url 'iw:detail' iw.pk %}">&larr; {{ iw }}</a></p>
 <h1>Outbound transhipment on {{ iw }}</h1>
+{% next_step iw %}
 <p class="muted">Enter each outbound Ship with the LTR and KG on its document and choose where its SKU rows come from: the Despatch Detail Report (tick rows until they tally), the destination depot's SIT report (rows taken by Ship ID) or manual entry from the Ship document. Every Ship must tally before the unloading checklist.</p>
 
 <div class="card">

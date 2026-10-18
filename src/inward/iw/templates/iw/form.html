@@ -23,7 +23,7 @@
     </details>{% endif %}
   </div>
   {% endif %}{% endfor %}
-  <datalist id="org-list">{% for o in orgs %}<option value="{{ o.code }} : {{ o.name }}"></option>{% endfor %}</datalist>
+  <datalist id="org-list">{% for o in orgs %}<option value="{{ o.code }} : {{ o.name }}">{% if o.mra_to %}MRA to {{ o.mra_to }}{% else %}no MRA e-mail yet - enter one{% endif %}</option>{% endfor %}</datalist>
   <datalist id="transporter-list">{% for t in transporters %}<option value="{{ t.name }}"></option>{% endfor %}</datalist>
   <div class="span-all bar">
     {% if iw and iw.iw_no %}

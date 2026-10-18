@@ -39,6 +39,7 @@ class IwData:
     remarks: str = ""
     gate_register_no: str = ""
     second_trip: bool = False   # the clerk confirmed a genuine second trip of the vehicle on the same day
+    source_email: str = ""      # MRA "To" address of the source, typed when the organisation has none yet
 
 
 def ship_link_state() -> tuple[set[str], set[str]]:
@@ -79,6 +80,32 @@ def _validate(data: IwData) -> None:
     needs_org = (data.load_type.has_inbound_sit or data.load_type.has_outbound) and not data.load_type.is_vendor
     if needs_org and data.source_org is None:
         raise IwError("Source of load (organisation) is required for this load type.")
+
+
+def _source_email(user: User, data: IwData) -> None:
+    """Pre-go-live decision 19-Oct-2026: an IW cannot be created for a source organisation without at least one MRA
+    "To" e-mail. If the organisation has none, the clerk types it here; it is saved on the organisation at once
+    (Unverified, for the CFA Manager to confirm) so the next IW from that source does not ask again."""
+    from django.conf import settings
+
+    from inward.core.models import EmailStatus, OrganisationEmail
+    org = data.source_org
+    if org is None or not settings.INWARD.get("REQUIRE_SOURCE_EMAIL", True):
+        return
+    from inward.iw.comms import _clean_emails
+    typed = _clean_emails(data.source_email)
+    if data.source_email.strip() and not typed:
+        raise IwError(f"'{data.source_email.strip()}' is not a valid e-mail address.")
+    has_to = OrganisationEmail.objects.filter(organisation=org, kind="TO").exists()
+    if not has_to and not typed:
+        raise IwError(f"{org} has no MRA e-mail yet. Enter at least one 'To' address of the source in "
+                      "'Source MRA e-mail (To)' - the MRA is mailed there.")
+    for addr in typed:
+        _, new = OrganisationEmail.objects.get_or_create(organisation=org, email=addr, kind="TO",
+                                                         defaults={"status": EmailStatus.UNVERIFIED, "entered_by": user})
+        if new:
+            audit.record("EMAIL_CAPTURED", "org", org.code, user=user, after={"email": addr, "status": "UNVERIFIED",
+                                                                             "on": "IW create / edit"})
 
 
 def _check_duplicate(data: IwData, exclude_pk=None) -> None:
@@ -151,6 +178,7 @@ def create(user: User, data: IwData, draft: Iw | None = None) -> Iw:
     if iw.pk and iw.status != Iw.Status.DRAFT:
         raise IwError("This IW is already created.")
     _check_duplicate(data, iw.pk)
+    _source_email(user, data)
     _apply(iw, data)
     iw.iw_no = next_iw_number(data.arrival_at)
     iw.fy_code = fy_code(data.arrival_at)
@@ -176,6 +204,7 @@ def update(user: User, iw_pk: int, version: int, data: IwData) -> Iw:
                       "VOID this IW and create a new one instead.")
     before = _snapshot(iw)
     _check_duplicate(data, iw.pk)
+    _source_email(user, data)
     _apply(iw, data)
     iw.version += 1
     iw.save()

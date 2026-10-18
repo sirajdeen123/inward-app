@@ -26,11 +26,16 @@ def _data(form: IwForm) -> services.IwData:
     return services.IwData(arrival_at=c["arrival_at"], load_type=c["load_type"], source_org=c["source_org"],
                            vehicle_no=c["vehicle_no"], driver_name=c["driver_name"], driver_mobile=c["driver_mobile"],
                            transporter_name=c["transporter"], lr_no=c["lr_no"], remarks=c["remarks"],
-                           gate_register_no=c["gate_register_no"], second_trip=c.get("second_trip", False))
+                           gate_register_no=c["gate_register_no"], second_trip=c.get("second_trip", False),
+                           source_email=c.get("source_email", ""))
 
 
 def _lists() -> dict:
-    return {"orgs": Organisation.objects.filter(active=True).order_by("code"),
+    from django.contrib.postgres.aggregates import StringAgg
+    from django.db.models import Q as _Q
+    orgs = (Organisation.objects.filter(active=True).order_by("code")
+            .annotate(mra_to=StringAgg("emails__email", ", ", filter=_Q(emails__kind="TO"), default="")))
+    return {"orgs": orgs,
             "transporters": Transporter.objects.filter(active=True).order_by("-verified", "name")}
 
 

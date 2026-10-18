@@ -176,3 +176,20 @@ def test_sit_import_fills_organisations(tmp_path, settings, seeded):
     org = Organisation.objects.get(code="279")
     assert (org.name, org.org_type) == ("RDC - WB-Sreerampore", "RDC")
     assert Transporter.objects.count() == 0
+
+
+
+def test_source_email_is_required(org, clerk, settings):
+    """Pre-go-live 19-Oct-2026: no IW for a source without an MRA 'To' address; the clerk types it on the IW."""
+    from inward.core.models import OrganisationEmail
+    settings.INWARD = {**settings.INWARD, "REQUIRE_SOURCE_EMAIL": True}
+    with pytest.raises(services.IwError, match="no MRA e-mail yet"):
+        services.create(clerk, _data(org))
+    with pytest.raises(services.IwError, match="not a valid e-mail"):
+        services.create(clerk, _data(org, source_email="depot390-at-berger"))
+    iw = services.create(clerk, _data(org, source_email="Depot390@BergerIndia.com"))
+    e = OrganisationEmail.objects.get(organisation=org)
+    assert iw.iw_no and (e.email, e.kind, e.status, e.entered_by) == ("depot390@bergerindia.com", "TO", "UNVERIFIED", clerk)
+    assert services.create(clerk, _data(org, lr_no="LR-2", vehicle_no="TN01X1")).iw_no      # known now: not asked
+    assert services.create(clerk, _data(org, source_org=None, lr_no="LR-3", vehicle_no="TN01X2",
+                                        load_type=LoadType.objects.get(code="VENDOR"))).iw_no   # vendor: no source

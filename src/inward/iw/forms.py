@@ -50,6 +50,9 @@ class IwForm(forms.Form):
                                        empty_label="Select load type")
     source_org = forms.CharField(label="Source of load (organisation)", required=False, max_length=140,
                                  widget=forms.TextInput(attrs={"list": "org-list", "placeholder": "type code or name, e.g. 390"}))
+    source_email = forms.CharField(label="Source MRA e-mail (To) - needed if the source has none yet", required=False,
+                                   max_length=300, widget=forms.TextInput(attrs={"inputmode": "email",
+                                                                                 "placeholder": "e.g. depot390@bergerindia.com"}))
     vehicle_no = forms.CharField(label="Vehicle number *", max_length=20,
                                  widget=forms.TextInput(attrs={"autocapitalize": "characters", "class": "caps"}))
     driver_name = forms.CharField(label="Driver name", required=False, max_length=80,

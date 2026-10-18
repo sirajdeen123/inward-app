@@ -43,6 +43,12 @@ def make_user(db):
 
 
 @pytest.fixture(autouse=True)
+def _source_email_rule_off(settings):
+    """Most tests create IWs for sources without e-mails; test_source_email_is_required switches the rule on."""
+    settings.INWARD = {**settings.INWARD, "REQUIRE_SOURCE_EMAIL": False}
+
+
+@pytest.fixture(autouse=True)
 def _clear_cache():
     """The depot / CFA banner is cached for 5 minutes; tests must not see each other's values."""
     from django.core.cache import cache

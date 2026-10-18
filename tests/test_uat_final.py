@@ -158,3 +158,18 @@ def test_times_are_12_hour(client, world):  # noqa: F811
     c = verified_client(client, world["clerk"])
     page = c.get(reverse("iw:detail", args=[iw.pk])).content.decode()
     assert " AM" in page or " PM" in page
+
+
+def test_admin_login_sends_to_the_app_sign_in(client, settings):
+    resp = client.get(f"/{settings.INWARD['ADMIN_URL']}login/")
+    assert resp.status_code == 302 and resp.url.startswith("/accounts/login/")
+    resp = client.get(f"/{settings.INWARD['ADMIN_URL']}")
+    assert resp.status_code == 302 and "login" in resp.url
+
+
+def test_cashier_can_sign_in_on_the_app_page(client, make_user, seeded):
+    u = make_user("Vellingiri", "CASHIER")
+    u.set_password("Cash-Register-2026!")
+    u.save()
+    resp = client.post(reverse("accounts:login"), {"username": "VELLINGIRI", "password": "Cash-Register-2026!"})
+    assert resp.status_code == 302 and "two-factor" in resp.url    # next: 2-step code set-up

@@ -238,18 +238,17 @@ def due_reports(now=None) -> list[ReportRun]:
 
 
 def irr_summary(day: date | None = None, fetched: dict | None = None) -> dict:
-    """IRR Reconciliation Summary for yesterday (sent after the day's IRR is imported from Gmail): yesterday's
-    families and exceptions first, then this month, the whole IRR and the older open exceptions."""
+    """IRR Reconciliation Summary of YESTERDAY only (the IRR file may cover the whole month - only yesterday's rows
+    are summarised), by IRR Reason Description, with yesterday's open exceptions (decision 18-Oct-2026)."""
     from inward.irrecon.models import IrrMatch, IrrReconRun
-    from inward.irrecon.summary import summary
+    from inward.irrecon.summary import by_reason, summary
     day = day or timezone.localdate()
     prev = day - timedelta(days=1)
-    open_qs = IrrMatch.objects.filter(status="OPEN").select_related("row").order_by("-row__trx_date", "group")
-    return {"day": day, "yesterday": summary(prev, prev), "prev": prev, "all": summary(),
-            "month": summary(day.replace(day=1), day), "fetched": fetched,
-            "y_open_rows": list(open_qs.filter(row__trx_date=prev)[:200]),
-            "open_rows": list(open_qs.exclude(row__trx_date=prev)[:100]),
-            "older_open_count": open_qs.exclude(row__trx_date=prev).count(), "open_count": open_qs.count(),
+    open_y = IrrMatch.objects.filter(status="OPEN", row__trx_date=prev).select_related("row").order_by(
+        "row__reason_description", "group", "row__trx_number")
+    return {"day": day, "prev": prev, "fetched": fetched, "yesterday": summary(prev, prev),
+            "reasons": by_reason(prev, prev), "y_open_rows": list(open_y[:300]), "y_open_count": open_y.count(),
+            "older_open": IrrMatch.objects.filter(status="OPEN", row__trx_date__lt=prev).count(),
             "run": IrrReconRun.objects.first()}
 
 

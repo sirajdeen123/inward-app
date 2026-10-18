@@ -126,7 +126,12 @@ def test_period_and_summary_mail(client, seeded, make_user):
     page = c.get(reverse("irrecon:home"), {"from": y.isoformat(), "to": y.isoformat(), "status": ""}).content.decode()
     assert "Show period" in page and "Yesterday" in page and "3000" in page and "7000" not in page
     r = reports.irr_summary(today)
-    assert r["yesterday"]["open"] == 1 and r["all"]["total"] == 2 and r["open_count"] == 1
+    assert r["yesterday"]["open"] == 1 and r["y_open_count"] == 1 and r["older_open"] == 0
+    assert [x["reason"] for x in r["reasons"]] == ["Subinventory Transfer"]          # only yesterday's rows
+    assert r["reasons"][0]["pcs_out"] == 1 and r["reasons"][0]["open"] == 1
     from django.template.loader import render_to_string
     html = render_to_string("irrecon/mail_summary.html", {"r": r, "b": {}, "stamp": "x"})
     assert "IRR Reconciliation Summary" in html and "No matching receipt half" in html
+    assert "Reason Description" in html and "RETURN" not in html                     # the 40-day-old return
+    page = c.get(reverse("irrecon:home"), {"from": y.isoformat(), "to": y.isoformat()}).content.decode()
+    assert "By IRR Reason Description" in page

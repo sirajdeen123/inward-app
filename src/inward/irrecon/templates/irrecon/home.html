@@ -30,6 +30,13 @@
     {% empty %}<tr><td colspan="7" class="muted">Import an IRR and run the engine.</td></tr>{% endfor %}</tbody></table>
 </div>
 
+<details class="card"{% if f.from or f.to %} open{% endif %}><summary><b>By IRR Reason Description</b> ({{ reasons|length }})</summary>
+  <table class="tbl stack" style="margin-top:8px"><thead><tr><th>Reason Description</th><th class="num">Rows</th><th class="num">Pcs issued</th><th class="num">Pcs received</th><th class="num">Reconciled</th><th class="num">Open</th></tr></thead>
+    <tbody>{% for x in reasons %}<tr><td data-label="Reason">{{ x.reason }}<div class="muted small">{{ x.types }}</div></td><td class="num" data-label="Rows">{{ x.rows }}</td>
+      <td class="num" data-label="Issued">{{ x.pcs_out|floatformat:"-3"|default:"-" }}</td><td class="num" data-label="Received">{{ x.pcs_in|floatformat:"-3"|default:"-" }}</td>
+      <td class="num" data-label="Reconciled">{{ x.pct }} %</td><td class="num" data-label="Open">{% if x.open %}<a href="?status=OPEN&amp;q={{ x.reason|urlencode }}&amp;from={{ f.from }}&amp;to={{ f.to }}"><b class="warn-text">{{ x.open }}</b></a>{% else %}0{% endif %}</td></tr>{% endfor %}</tbody></table>
+</details>
+
 <form method="get" class="filters card">
   <label for="f-st">Result</label><select id="f-st" name="status"><option value=""{% if not status %} selected{% endif %}>All</option>{% for s, l in statuses %}<option value="{{ s }}"{% if s == status %} selected{% endif %}>{{ l }}</option>{% endfor %}</select>
   <label for="f-fa">Family</label><select id="f-fa" name="family"><option value="">All</option>{% for c, l in families %}<option value="{{ c }}"{% if c == f.family %} selected{% endif %}>{{ l }}</option>{% endfor %}</select>

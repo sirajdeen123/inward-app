@@ -41,7 +41,7 @@ def _time(key: str, default: str) -> time:
 
 
 def settings_now() -> dict:
-    return {"subject": str(_flag("irr_mail_subject", "ISSUE/RECEIPT Register")),
+    return {"subject": str(_flag("irr_mail_subject", "CBPPROD2 : BPIL Issue - Receipt Register")).strip(),
             "fetch_time": _time("irr_fetch_time", "08:30"), "deadline": _time("irr_fetch_deadline", "11:00")}
 
 

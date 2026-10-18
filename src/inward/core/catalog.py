@@ -124,7 +124,7 @@ FEATURE_FLAGS = {
     "daily_status_time": ("09:30", "Time (IST) after which the daily status of incomplete IWs is mailed"),
     "damage_reason_codes": (["63", "68"], "Oracle reason codes accepted for internal damage transfers to DMG; "
                                           "any other code is flagged for the System Supervisor"),
-    "irr_mail_subject": ("ISSUE/RECEIPT Register", "Daily IRR mail: text contained in its subject (partial match)"),
+    "irr_mail_subject": ("CBPPROD2 : BPIL Issue - Receipt Register", "Daily IRR mail: text contained in its subject (partial match)"),
     "irr_fetch_time": ("08:30", "Daily IRR mail: from this time (IST) the worker looks for today's IRR every 10 minutes"),
     "irr_fetch_deadline": ("11:00", "Daily IRR mail: if none has come by this time, the summary says so"),
     "irr_recon_damage_from": ("2026-10-18", "IRR engine: transfers to DMG from this date need an approved internal "

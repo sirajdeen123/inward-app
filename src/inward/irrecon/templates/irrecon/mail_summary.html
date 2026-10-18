@@ -5,31 +5,23 @@
 {% if r.fetched %}<p style="padding:6px 10px;{% if r.fetched.ok %}background:#e7f4ea;color:#145c2a{% else %}background:#fde7e9;color:#8b1e2b{% endif %}">
   {% if r.fetched.ok %}Today's IRR was received and imported: {{ r.fetched.text }}{% else %}<b>{{ r.fetched.text }}</b> - the figures below are from the IRR already in the app.{% endif %}</p>{% endif %}
 
-<p style="margin:12px 0 4px"><b>Yesterday {{ r.prev|date:"d-M-Y" }}: {{ r.yesterday.total }} IRR rows - {{ r.yesterday.pct }} % reconciled - {{ r.yesterday.open }} open</b></p>
-{% if r.yesterday.table %}<table cellpadding="5" cellspacing="0" style="border-collapse:collapse;font-size:12px">
-<tr style="background:#eee"><th style="{{ t }};text-align:left">Family</th><th style="{{ t }}">Rows</th><th style="{{ t }}">Matched</th><th style="{{ t }}">Explained</th><th style="{{ t }}">Information</th><th style="{{ t }}">Open</th></tr>
-{% for f in r.yesterday.table %}<tr><td style="{{ c }}">{{ f.label }}</td><td style="{{ c }};text-align:right">{{ f.total }}</td><td style="{{ c }};text-align:right">{{ f.counts.MATCHED }}</td><td style="{{ c }};text-align:right">{{ f.counts.EXPLAINED }}</td><td style="{{ c }};text-align:right">{{ f.counts.INFO }}</td><td style="{{ c }};text-align:right">{% if f.open %}<b style="color:#b00020">{{ f.open }}</b>{% else %}0{% endif %}</td></tr>{% endfor %}
+<p style="margin:10px 0 4px"><b>{{ r.prev|date:"d-M-Y" }}: {{ r.yesterday.total }} IRR rows - {{ r.yesterday.pct }} % reconciled - {% if r.y_open_count %}<span style="color:#b00020">{{ r.y_open_count }} open</span>{% else %}nothing open{% endif %}</b></p>
+
+{% if r.reasons %}<table cellpadding="5" cellspacing="0" style="border-collapse:collapse;font-size:12px;width:100%">
+<tr style="background:#eee"><th style="{{ t }};text-align:left">Reason Description</th><th style="{{ t }}">Rows</th><th style="{{ t }}">Pcs issued</th><th style="{{ t }}">Pcs received</th><th style="{{ t }}">Reconciled</th><th style="{{ t }}">Open</th></tr>
+{% for x in r.reasons %}<tr><td style="{{ c }}">{{ x.reason }}<br><span style="font-size:10px;color:#666">{{ x.types }}</span></td><td style="{{ c }};text-align:right">{{ x.rows }}</td>
+<td style="{{ c }};text-align:right">{% if x.pcs_out %}{{ x.pcs_out|floatformat:"-3" }}{% else %}-{% endif %}</td><td style="{{ c }};text-align:right">{% if x.pcs_in %}{{ x.pcs_in|floatformat:"-3" }}{% else %}-{% endif %}</td>
+<td style="{{ c }};text-align:right">{{ x.pct }} %</td><td style="{{ c }};text-align:right">{% if x.open %}<b style="color:#b00020">{{ x.open }}</b>{% else %}0{% endif %}</td></tr>{% endfor %}
+<tr style="background:#f6f6f6"><td style="{{ t }}"><b>Total</b></td><td style="{{ t }};text-align:right"><b>{{ r.yesterday.total }}</b></td><td style="{{ t }}"></td><td style="{{ t }}"></td><td style="{{ t }};text-align:right"><b>{{ r.yesterday.pct }} %</b></td><td style="{{ t }};text-align:right"><b>{{ r.y_open_count }}</b></td></tr>
 </table>{% else %}<p>No IRR rows dated {{ r.prev|date:"d-M-Y" }} in the app.</p>{% endif %}
 
 {% if r.y_open_rows %}
-<p style="margin:12px 0 4px"><b>Yesterday's open exceptions ({{ r.y_open_rows|length }})</b> - explain or follow up in the app (IRR reconciliation, period Yesterday)</p>
+<p style="margin:14px 0 4px"><b>Open exceptions of {{ r.prev|date:"d-M-Y" }} ({{ r.y_open_count }})</b> - explain or follow up in the app (IRR reconciliation, period Yesterday)</p>
 <table cellpadding="4" cellspacing="0" style="border-collapse:collapse;font-size:11px;width:100%">
-<tr style="background:#eee"><th style="{{ t }};text-align:left">Type / TRX</th><th style="{{ t }};text-align:left">SKU</th><th style="{{ t }}">Pcs</th><th style="{{ t }};text-align:left">From → To</th><th style="{{ t }};text-align:left">Why</th></tr>
-{% for m in r.y_open_rows %}<tr><td style="{{ c }}">{{ m.row.type }} {{ m.row.transaction_type }}<br>{{ m.row.trx_number }}</td><td style="{{ c }}">{{ m.row.sku }}<br><span style="font-size:10px">{{ m.row.item_description|truncatechars:34 }}</span></td><td style="{{ c }};text-align:right">{{ m.row.no_of_pack|floatformat:"-3" }}</td><td style="{{ c }}">{{ m.row.source_subinv|default:"-" }} → {{ m.row.dest_subinv|default:"-" }}</td><td style="{{ c }}">{{ m.note }}</td></tr>{% endfor %}
-</table>{% elif r.yesterday.total %}<p style="color:#145c2a"><b>Every IRR row of yesterday is matched, explained or information.</b></p>{% endif %}
-
-<p style="margin:16px 0 4px"><b>Overall</b></p>
-<table cellpadding="6" cellspacing="0" style="border-collapse:collapse;font-size:12px">
-<tr style="background:#eee"><th style="{{ t }};text-align:left">Period</th><th style="{{ t }}">IRR rows</th><th style="{{ t }}">Reconciled</th><th style="{{ t }}">Open</th></tr>
-<tr><td style="{{ c }}">This month (from {{ r.month.from|date:"d-M" }})</td><td style="{{ c }};text-align:right">{{ r.month.total }}</td><td style="{{ c }};text-align:right">{{ r.month.pct }} %</td><td style="{{ c }};text-align:right">{{ r.month.open }}</td></tr>
-<tr><td style="{{ c }}">Whole IRR in the app</td><td style="{{ c }};text-align:right">{{ r.all.total }}</td><td style="{{ c }};text-align:right">{{ r.all.pct }} %</td><td style="{{ c }};text-align:right">{{ r.all.open }}</td></tr>
-</table>
-{% if r.open_rows %}
-<p style="margin:12px 0 4px"><b>Older open exceptions ({{ r.older_open_count }}{% if r.older_open_count > r.open_rows|length %}, latest {{ r.open_rows|length }} shown{% endif %})</b></p>
-<table cellpadding="4" cellspacing="0" style="border-collapse:collapse;font-size:11px;width:100%">
-<tr style="background:#eee"><th style="{{ t }};text-align:left">Date</th><th style="{{ t }};text-align:left">Type / TRX</th><th style="{{ t }};text-align:left">SKU</th><th style="{{ t }}">Pcs</th><th style="{{ t }};text-align:left">Why</th></tr>
-{% for m in r.open_rows %}<tr><td style="{{ c }}">{{ m.row.trx_date|date:"d-M-Y" }}</td><td style="{{ c }}">{{ m.row.type }} {{ m.row.transaction_type }}<br>{{ m.row.trx_number }}</td><td style="{{ c }}">{{ m.row.sku }}</td><td style="{{ c }};text-align:right">{{ m.row.no_of_pack|floatformat:"-3" }}</td><td style="{{ c }}">{{ m.note }}</td></tr>{% endfor %}
-</table>{% endif %}
-<p style="font-size:11px;color:#666">Engine last run {% if r.run %}{{ r.run.run_at|date:"d-M-Y h:i A" }}{% else %}-{% endif %}. Matched = both halves / the whole chain found in the IRR; Explained = linked to an IW or internal damage report, or explained by a user; Information = receipts, returns and zero rows that need no pair.</p>
+<tr style="background:#eee"><th style="{{ t }};text-align:left">Reason / TRX</th><th style="{{ t }};text-align:left">SKU</th><th style="{{ t }}">Pcs</th><th style="{{ t }};text-align:left">From → To</th><th style="{{ t }};text-align:left">Why</th></tr>
+{% for m in r.y_open_rows %}<tr><td style="{{ c }}">{{ m.row.reason_description|default:m.row.type }}<br>{{ m.row.transaction_type }} {{ m.row.trx_number }}</td><td style="{{ c }}">{{ m.row.sku }}<br><span style="font-size:10px">{{ m.row.item_description|truncatechars:34 }}</span></td><td style="{{ c }};text-align:right">{{ m.row.no_of_pack|floatformat:"-3" }}</td><td style="{{ c }}">{{ m.row.source_subinv|default:"-" }} → {{ m.row.dest_subinv|default:"-" }}</td><td style="{{ c }}">{{ m.note }}</td></tr>{% endfor %}
+</table>{% if r.y_open_count > r.y_open_rows|length %}<p style="font-size:11px">... {{ r.y_open_count }} in all - see the app.</p>{% endif %}{% endif %}
+{% if r.older_open %}<p style="font-size:12px">Earlier days still have <b>{{ r.older_open }}</b> open exception(s) - see IRR reconciliation in the app.</p>{% endif %}
+<p style="font-size:11px;color:#666">Only rows dated {{ r.prev|date:"d-M-Y" }} are summarised, whatever period the IRR file covers. Reconciled = matched with the other half / chain in the IRR, linked to an IW or internal damage report, explained by a user, or information (receipts, returns, zero rows). Engine run {% if r.run %}{{ r.run.run_at|date:"d-M-Y h:i A" }}{% else %}-{% endif %}.</p>
 {% endwith %}
 {% endblock %}

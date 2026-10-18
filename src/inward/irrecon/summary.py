@@ -3,7 +3,9 @@ from __future__ import annotations
 
 from datetime import date
 
-from django.db.models import Count
+from decimal import Decimal
+
+from django.db.models import Count, Q, Sum
 
 from inward.irrecon.models import IrrMatch
 
@@ -34,3 +36,35 @@ def summary(d1: date | None = None, d2: date | None = None) -> dict:
     return {"from": d1, "to": d2, "table": table, "total": total, "open": open_n,
             "pct": round(100 * (total - open_n) / total, 1) if total else 0,
             "by_status": {s: sum(t["counts"][s] for t in table) for s, _ in STATUSES}}
+
+
+def by_reason(d1: date | None = None, d2: date | None = None) -> list[dict]:
+    """One line per IRR Reason Description (the Type when the IRR has no reason): rows, pieces issued / received,
+    reconciled and open - the way the depot reads the IRR (decision 18-Oct-2026)."""
+    qs = IrrMatch.objects.all()
+    if d1:
+        qs = qs.filter(row__trx_date__gte=d1)
+    if d2:
+        qs = qs.filter(row__trx_date__lte=d2)
+    issue = Q(row__transaction_type__iexact="Issue")
+    receipt = Q(row__transaction_type__iexact="Receipt")
+    rows = (qs.values("row__reason_description", "row__type")
+            .annotate(n=Count("pk"), open=Count("pk", filter=Q(status="OPEN")),
+                      pcs_out=Sum("row__no_of_pack", filter=issue), pcs_in=Sum("row__no_of_pack", filter=receipt)))
+    merged: dict[str, dict] = {}
+    for r in rows:
+        reason = (r["row__reason_description"] or "").strip() or r["row__type"]
+        m = merged.setdefault(reason, {"reason": reason, "types": set(), "rows": 0, "open": 0,
+                                       "pcs_out": Decimal(0), "pcs_in": Decimal(0)})
+        m["types"].add(r["row__type"])
+        m["rows"] += r["n"]
+        m["open"] += r["open"]
+        m["pcs_out"] += r["pcs_out"] or 0
+        m["pcs_in"] += r["pcs_in"] or 0
+    out = []
+    for m in merged.values():
+        m["types"] = ", ".join(sorted(m["types"]))
+        m["done"] = m["rows"] - m["open"]
+        m["pct"] = round(100 * m["done"] / m["rows"], 1) if m["rows"] else 0
+        out.append(m)
+    return sorted(out, key=lambda m: (-m["open"], -m["rows"], m["reason"]))

@@ -47,7 +47,8 @@ def detail(request, pk):
         "blockers": dmg.submit_blockers(r) if r.editable else [], "trx": r.trx.select_related("entered_by"),
         "can_trx": "GRANT" in modes_for(request.user, "DAMAGE_TRX"), "recipients": dmg.recipients()[:2],
         "accepted": sorted(dmg.accepted_codes(r)),
-        "mails": r.request_mail and [r.request_mail]})
+        "mails": r.request_mail and [r.request_mail],
+        "versions": __import__("inward.damage.report", fromlist=["versions"]).versions(r)})
 
 
 def _do(request, pk, fn, ok):
@@ -177,3 +178,26 @@ def category_add(request, pk):
     except ERRORS as exc:
         messages.error(request, str(exc))
     return redirect(f"{reverse('damage:detail', args=[pk])}#add-line")
+
+
+@needs("DAMAGE_REPORT")
+def report_pdf(request, pk):
+    from django.http import Http404
+
+    from inward.core import documents, pdf
+    from inward.damage import report as pdf_report
+    r = get_object_or_404(DamageReport, pk=pk)
+    doc_id = request.GET.get("v")
+    if doc_id:
+        doc = next((d for d in pdf_report.versions(r) if str(d.pk) == doc_id), None)
+        if doc is None:
+            raise Http404("No such version.")
+        resp = HttpResponse(documents.read(doc), content_type="application/pdf")
+        resp["Content-Disposition"] = f'inline; filename="{doc.original_filename}"'
+        return resp
+    if request.GET.get("html") or not pdf.available():
+        return HttpResponse(pdf_report.html(r, for_pdf=False))
+    data = pdf.html_to_pdf(pdf_report.html(r), "inward/recon.css")
+    resp = HttpResponse(data, content_type="application/pdf")
+    resp["Content-Disposition"] = f'inline; filename="{r.number} R{r.revision} {r.get_status_display().split(" -")[0]}.pdf"'
+    return resp

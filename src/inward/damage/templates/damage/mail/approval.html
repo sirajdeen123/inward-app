@@ -8,7 +8,7 @@
 {% for ln in lines %}<tr><td style="border:1px solid #ccc">{{ forloop.counter }}</td><td style="border:1px solid #ccc"><b>{{ ln.floor_sku }}</b><br><span style="font-size:10px">{{ ln.sku }}</span></td><td style="border:1px solid #ccc">{{ ln.description }}</td>
 <td style="border:1px solid #ccc">{{ ln.category.name }}</td><td style="border:1px solid #ccc;text-align:right"><b>{{ ln.quantity|floatformat:"-3" }}</b></td><td style="border:1px solid #ccc">{{ ln.lot_no|default:"-" }}{% if ln.locator %}<br>{{ ln.locator }}{% endif %}</td><td style="border:1px solid #ccc">{{ ln.remarks }}{% if ln.photos.count %} · {{ ln.photos.count }} photo(s) attached{% endif %}</td></tr>{% endfor %}
 </table>
-<p style="font-size:12px">On approval the material is moved to the DMG sub-inventory in Oracle; the transfer is then reconciled with the IRR.</p>
+<p style="font-size:12px">{% if pdf %}The attached PDF <b>{{ pdf.original_filename }}</b> holds this list with every photo under its line.{% else %}The photos are attached.{% endif %} On approval the material is moved to the DMG sub-inventory in Oracle; the transfer is then reconciled with the IRR.</p>
 <div style="border:2px solid #2E2560;padding:10px;margin:14px 0">
 <b>To approve, reply to this e-mail with the first line:</b> APPROVED<br>
 <b>To reject, reply with the first line:</b> REJECTED followed by the reason (e.g. <i>REJECTED recheck the quantity of leakage</i>)<br>

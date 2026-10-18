@@ -166,3 +166,24 @@ def test_supervisor_adds_a_new_reason(client, env):
     c = verified_client(client, env["clerk"])
     c.post(reverse("damage:category_add", args=[r.pk]), {"name": "Forklift hit", "photo": "on"})
     assert "Forklift hit" in c.get(reverse("damage:detail", args=[r.pk])).content.decode()
+
+
+def test_report_pdf_has_the_photos_under_each_line(client, env):
+    from inward.core import pdf
+    from inward.damage import report as pdf_report
+    r, line = _report(env)
+    dmg.add_photo(env["sup"], line.pk, _jpeg(), "dmg.jpg")
+    html = pdf_report.html(DamageReport.objects.get(pk=r.pk))
+    assert "INTERNAL DAMAGE REPORT" in html and "XG9 991 · photo 1" in html and "data:image/jpeg;base64," in html
+    mail = dmg.submit(env["sup"], r.pk)
+    if pdf.available():                                              # server: one PDF instead of the photos
+        assert [d.content_type for d in mail.attachments.all()] == ["application/pdf"]
+        assert pdf_report.versions(DamageReport.objects.get(pk=r.pk))
+    else:                                                            # development PC: the photos
+        assert mail.attachments.count() == 1 and "photos are attached" in mail.html_body
+    c = verified_client(client, env["clerk"])
+    resp = c.get(reverse("damage:pdf", args=[r.pk]) + "?html=1")
+    assert resp.status_code == 200 and b"photo 1" in resp.content
+    from inward.core.mirror import path_for
+    doc = DamageReport.objects.get(pk=r.pk).lines.get().photos.get().original
+    assert path_for(doc).startswith(f"Internal Damage/FY{r.fy_code}/{r.number}/")

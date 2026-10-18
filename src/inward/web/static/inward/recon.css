@@ -57,3 +57,9 @@ tr { page-break-inside: avoid }
 @media print {
   .toolbar { display: none }
 }
+/* internal damage report: photos under each line, two per row */
+.dmg-photos { page-break-inside: auto; margin-top: 4mm }
+.ph-grid { display: flex; flex-wrap: wrap; gap: 4mm }
+.ph { width: 92mm; margin: 0; page-break-inside: avoid }
+.ph img { width: 92mm; max-height: 110mm; object-fit: contain; border: 1px solid #999 }
+.ph figcaption { font-size: 7.5pt; color: #333 }

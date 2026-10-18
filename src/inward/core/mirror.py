@@ -45,6 +45,12 @@ def path_for(doc: Document) -> str:
     when = timezone.localtime(doc.created_at)
     name = f"{when:%Y%m%d-%H%M} {_UNSAFE.sub('_', doc.original_filename)}"
     iw = Iw.objects.filter(pk=int(link.entity_id)).first() if link and link.entity_id.isdigit() else None
+    dlink = DocumentLink.objects.filter(document=doc, entity_type="damage_report").first()
+    if dlink and dlink.entity_id.isdigit():
+        from inward.damage.models import DamageReport
+        r = DamageReport.objects.filter(pk=int(dlink.entity_id)).first()
+        if r:
+            return f"Internal Damage/FY{r.fy_code}/{r.number}/{name}"
     if iw and iw.iw_no:
         return f"FY{iw.fy_code}/{iw.iw_no}/{FOLDERS.get(doc.doc_type, '7 Other')}/{name}"
     return f"_Imports/{doc.doc_type}/{when:%Y-%m}/{name}"

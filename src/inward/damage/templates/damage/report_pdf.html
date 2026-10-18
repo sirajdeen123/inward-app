@@ -1,0 +1,43 @@
+{% load static %}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ r.number }} Internal Damage Report</title>
+{% if not for_pdf %}<link rel="stylesheet" href="{% static 'inward/recon.css' %}">{% endif %}
+</head>
+<body>
+{% if not for_pdf %}<div class="toolbar"><a href="{% url 'damage:detail' r.pk %}">&larr; {{ r.number }}</a><span class="grow"></span><button type="button" id="print-btn">Print</button></div>{% endif %}
+<div class="runhead"><table class="rh"><tr>
+  <td class="rh-logo">{% if logo %}<img src="{{ logo }}" alt="logo">{% endif %}</td>
+  <td class="rh-co">{% if depot.company %}<div class="co">{{ depot.company }}</div>{% endif %}<div>Depot {{ depot.code }} · {{ depot.name }}</div>{% if depot.cfa %}<div>Operated by: {{ depot.cfa }} (CFA)</div>{% endif %}
+    <div class="doc">INTERNAL DAMAGE REPORT</div></td>
+  <td class="rh-iw"><div class="iwno">{{ r.number }} · R{{ r.revision|default:"0" }}</div><div>Found on {{ r.found_on|date:"d-M-Y" }}{% if r.location %} · {{ r.location }}{% endif %}</div>
+    <div>Status: {{ r.get_status_display }}</div></td></tr></table></div>
+<div class="runfoot">{{ r.number }} · generated {{ generated|date:"d-M-Y h:i A" }}</div>
+<main>
+  <p>Reported by <b>{{ r.created_by.full_name|default:r.created_by.username }}</b> on {{ r.created_at|date:"d-M-Y h:i A" }}{% if r.remarks %} · {{ r.remarks }}{% endif %}</p>
+
+  <h2>Damaged material</h2>
+  <table class="tbl"><thead><tr><th class="num">#</th><th>Floor SKU / SKU</th><th>Description</th><th>Reason</th><th class="num">Pcs</th><th>Lot / locator</th><th>Remarks</th><th class="num">Photos</th></tr></thead>
+    <tbody>{% for x in lines %}{% with ln=x.ln %}<tr><td class="num">{{ forloop.counter }}</td><td class="mono b">{{ ln.floor_sku }}<div class="small">{{ ln.sku }}</div></td><td>{{ ln.description }}</td>
+      <td>{{ ln.category.name }}</td><td class="num b">{{ ln.quantity|floatformat:"-3" }}</td><td>{{ ln.lot_no|default:"-" }}{% if ln.locator %}<div class="small">{{ ln.locator }}</div>{% endif %}</td><td>{{ ln.remarks }}</td><td class="num">{{ x.photos|length }}</td></tr>{% endwith %}{% endfor %}</tbody></table>
+
+  <h2>Approval</h2>
+  <table class="tbl"><tbody>
+    <tr><th>Approval request</th><td>{% if r.revision %}R{{ r.revision }}{% if r.request_mail %} · {{ r.request_mail.get_status_display }}{% if r.request_mail.sent_at %} {{ r.request_mail.sent_at|date:"d-M-Y h:i A" }}{% endif %} · to {{ r.request_mail.to|join:", " }}{% if r.request_mail.cc %} · copy {{ r.request_mail.cc|join:", " }}{% endif %}{% endif %}{% else %}not sent yet{% endif %}</td></tr>
+    <tr><th>Decision</th><td>{% if r.decided_at %}<b>{% if r.status == 'REJECTED' %}REJECTED{% else %}APPROVED{% endif %}</b> by {{ r.reply_from }} on {{ r.decided_at|date:"d-M-Y h:i A" }} - "{{ r.decision_text }}"{% if r.reply %} <span class="small">(reply mail kept, SHA-256 {{ r.reply.sha256|slice:":16" }}…)</span>{% endif %}{% else %}awaiting the reply of the Depot Manager / Admin Officer{% endif %}</td></tr>
+    <tr><th>Oracle transfer to DMG</th><td>{% for t in trx %}<span class="mono">{{ t.trx_no }}</span> ({{ t.entered_by }} {{ t.entered_at|date:"d-M-Y" }}){% if not forloop.last %}, {% endif %}{% empty %}-{% endfor %}</td></tr>
+    <tr><th>IRR reconciliation</th><td>{% if r.recon.status %}<b>{{ r.recon.status }}</b>{% if r.status == 'RECONCILED' %} - reconciled{% endif %}{% for f in r.recon.reason_flags %} · reason {{ f.text }}{% endfor %}{% if r.accepted_reasons %} · accepted reason(s) {{ r.accepted_reasons|join:", " }}{% endif %}{% else %}-{% endif %}</td></tr>
+  </tbody></table>
+  <div class="signs"><div>Floor supervisor: ____________________</div><div>CFA Manager: ____________________</div></div>
+
+  {% for x in lines %}{% if x.photos %}
+  <section class="dmg-photos">
+    <h2>{{ forloop.counter }}. {{ x.ln.floor_sku }} · {{ x.ln.description|truncatechars:50 }} · {{ x.ln.category.name }} · {{ x.ln.quantity|floatformat:"-3" }} pcs</h2>
+    <div class="ph-grid">{% for p in x.photos %}<figure class="ph"><img src="{{ p.src }}" alt="Photo {{ p.n }} of {{ x.ln.floor_sku }}"><figcaption>{{ x.ln.floor_sku }} · photo {{ p.n }}</figcaption></figure>{% endfor %}</div>
+  </section>{% endif %}{% endfor %}
+</main>
+{% if not for_pdf %}<script src="{% static 'inward/print.js' %}" defer></script>{% endif %}
+</body>
+</html>

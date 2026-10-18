@@ -20,4 +20,5 @@ urlpatterns = [
     path("<int:pk>/reconcile/", views.recon, name="recon"),
     path("<int:pk>/accept-reason/", views.accept_reason, name="accept_reason"),
     path("<int:pk>/reasons/add/", views.category_add, name="category_add"),
+    path("<int:pk>/report.pdf", views.report_pdf, name="pdf"),
 ]

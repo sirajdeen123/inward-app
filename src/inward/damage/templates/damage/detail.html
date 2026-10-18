@@ -3,7 +3,9 @@
 {% block title %}{{ r.number }}{% endblock %}
 {% block content %}
 <p><a href="{% url 'damage:list' %}">&larr; Internal damage</a></p>
-<div class="bar"><h1>{{ r.number }}</h1><span class="chip dmg dmg-{{ r.status }}">{{ r.get_status_display }}</span></div>
+<div class="bar"><h1>{{ r.number }}</h1><span class="chip dmg dmg-{{ r.status }}">{{ r.get_status_display }}</span><div class="grow"></div>
+  <a class="btn" href="{% url 'damage:pdf' r.pk %}" target="_blank" rel="noopener">Report PDF</a></div>
+{% if versions %}<p class="muted small">Stored versions: {% for d in versions %}<a href="{% url 'damage:pdf' r.pk %}?v={{ d.pk }}" target="_blank" rel="noopener">{{ d.original_filename }}</a>{% if not forloop.last %} · {% endif %}{% endfor %}</p>{% endif %}
 <p class="muted">Found on {{ r.found_on|date:"d-M-Y" }}{% if r.location %} · {{ r.location }}{% endif %} · by {{ r.created_by }} · {{ r.created_at|date:"d-M-Y h:i A" }}{% if r.remarks %} · {{ r.remarks }}{% endif %}</p>
 
 <div class="nextstep{% if r.status == 'RECONCILED' %} nextstep-done{% endif %}"><div class="ns-row"><span class="ns-label">{% if r.status == 'RECONCILED' %}Done{% else %}Next step{% endif %}</span><b class="ns-text">

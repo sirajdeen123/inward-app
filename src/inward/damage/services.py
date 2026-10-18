@@ -239,12 +239,15 @@ def submit(user: User, report_pk: int):
         raise DamageError(" ".join(problems))
     to, cc, _ = recipients()
     report.revision += 1
-    lines = list(report.lines.prefetch_related("photos"))
+    report.save(update_fields=["revision"])
+    lines = list(report.lines.select_related("category").prefetch_related("photos"))
+    from inward.damage import report as pdf_report
+    doc = pdf_report.generate(report, "submitted", user)
     mail = comms._queue(None, MailMessage.Purpose.DAMAGE_APPROVAL, None, report.tag, to, cc,
                         f"Internal damage approval {report.number} R{report.revision} - {len(lines)} SKU(s) - "
                         f"Depot {settings.INWARD['DEPOT_CODE']}",
-                        "damage/mail/approval.html", {"r": report, "lines": lines, "reminder": False},
-                        _attachments(report), user)
+                        "damage/mail/approval.html", {"r": report, "lines": lines, "reminder": False, "pdf": doc},
+                        [doc] if doc else _attachments(report), user)
     report.status, report.request_mail, report.reminded_at = R.SUBMITTED, mail, None
     report.decided_at, report.decision_text, report.reply_from = None, "", ""
     report.save()
@@ -284,6 +287,8 @@ def apply_reply(raw: bytes, msg, sender: str, received, first_line: str, authent
         audit.record("DAMAGE_" + report.status, "damage_report", report.pk,
                      after={"revision": report.revision, "from": sender, "text": report.decision_text,
                             "reply_sha256": doc.sha256})
+        from inward.damage import report as pdf_report
+        pdf_report.generate(report, "decided")
     return report.status.lower(), report
 
 
@@ -461,6 +466,9 @@ def run_recon(user: User | None, report_pk: int) -> DamageReport:
     report.save(update_fields=["recon", "status", "updated_at"])
     audit.record("DAMAGE_RECONCILED" if done else "DAMAGE_RECON_RUN", "damage_report", report.pk, user=user,
                  after={"status": res["status"], "flags": [f["code"] for f in res["reason_flags"]]})
+    if done:
+        from inward.damage import report as pdf_report
+        pdf_report.generate(report, "reconciled", user)
     return report
 
 

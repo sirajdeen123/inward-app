@@ -105,3 +105,28 @@ def test_engine_on_the_sample_irr(seeded, make_user, settings, tmp_path, capsys)
         for m in IrrMatch.objects.filter(status="OPEN").values("family", "note")[:0]:
             print(m)
     assert total == 18261 and open_n < total * 0.05
+
+
+def test_period_and_summary_mail(client, seeded, make_user):
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    from inward.iw import reports
+    b = _batch()
+    today = timezone.localdate()
+    _row(b, "Subinventory Transfer", "3000", A, 1, "Issue", "035FLR", "035RCK", day=today - timedelta(days=1))
+    _row(b, "Rma Receipt", "7000", A, 3, "Receipt", "035RCK", "", "RETURN", day=today - timedelta(days=40))
+    engine.run()
+    from inward.irrecon.summary import summary
+    y = today - timedelta(days=1)
+    assert summary(y, y)["total"] == 1 and summary(y, y)["open"] == 1 and summary()["total"] == 2
+    sup = make_user("sup_p", "SYSTEM_SUPERVISOR")
+    c = verified_client(client, sup)
+    page = c.get(reverse("irrecon:home"), {"from": y.isoformat(), "to": y.isoformat(), "status": ""}).content.decode()
+    assert "Show period" in page and "Yesterday" in page and "3000" in page and "7000" not in page
+    r = reports.irr_summary(today)
+    assert r["yesterday"]["open"] == 1 and r["all"]["total"] == 2 and r["open_count"] == 1
+    from django.template.loader import render_to_string
+    html = render_to_string("irrecon/mail_summary.html", {"r": r, "b": {}, "stamp": "x"})
+    assert "IRR Reconciliation Summary" in html and "No matching receipt half" in html

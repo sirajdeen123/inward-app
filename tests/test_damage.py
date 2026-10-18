@@ -152,3 +152,17 @@ def test_screens(client, env):
     assert "XG9 991" in page and "data-sku-lookup" in page and DM in page
     assert c.post(reverse("damage:trx_add", args=[r.pk]), {"trx_no": "1"}).status_code == 403   # clerk: no TRX
     assert "Internal damage" in c.get(reverse("damage:list")).content.decode()
+
+
+def test_supervisor_adds_a_new_reason(client, env):
+    cat = dmg.add_category(env["sup"], "Rat / pest damage", photo_required=True)
+    assert cat.code == "RAT_PEST_DAMAGE"
+    with pytest.raises(dmg.DamageError, match="already exists"):
+        dmg.add_category(env["clerk"], "rat / PEST damage")
+    r = dmg.create(env["sup"], date.today())
+    line = dmg.add_line(env["sup"], r.pk, sku=SKU, category=cat.code, quantity="1")
+    assert line.category.name == "Rat / pest damage"
+    assert "needs at least one photo" in " ".join(dmg.submit_blockers(r))
+    c = verified_client(client, env["clerk"])
+    c.post(reverse("damage:category_add", args=[r.pk]), {"name": "Forklift hit", "photo": "on"})
+    assert "Forklift hit" in c.get(reverse("damage:detail", args=[r.pk])).content.decode()

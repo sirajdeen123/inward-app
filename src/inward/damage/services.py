@@ -22,7 +22,7 @@ from inward.accounts.models import User
 from inward.accounts.services import PermissionDenied, require
 from inward.core import audit, documents
 from inward.core.models import FeatureFlag, NotificationRecipient, SkuPackaging
-from inward.damage.models import DamageCounter, DamageLine, DamagePhoto, DamageReport, DamageTrx
+from inward.damage.models import DamageCategory, DamageCounter, DamageLine, DamagePhoto, DamageReport, DamageTrx
 from inward.domain.fy import fy_code
 from inward.domain.normalize import clean_code, clean_text, floor_sku, is_valid_sku
 
@@ -105,18 +105,19 @@ def add_line(user: User, report_pk: int, *, sku: str, category: str, quantity, l
     code = clean_code(sku)
     if not is_valid_sku(code):
         raise DamageError(f"'{sku}' - pick the full 16-character SKU from the list.")
-    if category not in DamageLine.Category.values:
-        raise DamageError("Choose the category: handling damage, expiry, leakage or other.")
-    if category == DamageLine.Category.OTHER and not clean_text(remarks):
-        raise DamageError("Write what the damage is (category Other).")
+    cat = DamageCategory.objects.filter(code=category, active=True).first()
+    if cat is None:
+        raise DamageError("Choose the reason (or add a new one).")
+    if cat.remarks_required and not clean_text(remarks):
+        raise DamageError(f"Write what the damage is (reason {cat.name}).")
     pk = SkuPackaging.objects.filter(sku=code).first()
     line = DamageLine.objects.create(report=report, sku=code, floor_sku=floor_sku(code),
-                                     description=pk.description if pk else "", category=category,
+                                     description=pk.description if pk else "", category=cat,
                                      quantity=_qty(quantity), lot_no=clean_text(lot_no).upper()[:40],
                                      locator=clean_text(locator).upper()[:40], remarks=clean_text(remarks)[:300],
                                      created_by=user)
     audit.record("DAMAGE_LINE_ADDED", "damage_report", report.pk, user=user,
-                 after={"sku": code, "category": category, "qty": str(line.quantity), "lot": line.lot_no})
+                 after={"sku": code, "category": cat.name, "qty": str(line.quantity), "lot": line.lot_no})
     return line
 
 
@@ -169,6 +170,28 @@ def remove_photo(user: User, photo_pk: int) -> None:
                  before={"document": str(photo.original_id)})
     photo.delete()   # the stored file stays (evidence)
 
+@transaction.atomic
+def add_category(user: User, name: str, photo_required: bool = True, remarks_required: bool = False) -> DamageCategory:
+    """A new reason added by the supervisor himself; the CFA Manager sees it in the audit trail and can rename or
+    switch it off under Masters & users."""
+    require(user, "DAMAGE_REPORT")
+    name = clean_text(name)[:80]
+    if len(name) < 3:
+        raise DamageError("Write the reason (at least 3 letters).")
+    if DamageCategory.objects.filter(name__iexact=name).exists():
+        raise DamageError(f"The reason '{name}' already exists.")
+    base = re.sub(r"[^A-Z0-9]+", "_", name.upper()).strip("_")[:16] or "REASON"
+    code, n = base, 1
+    while DamageCategory.objects.filter(code=code).exists():
+        n += 1
+        code = f"{base[:14]}_{n}"
+    cat = DamageCategory.objects.create(code=code, name=name, photo_required=photo_required,
+                                        remarks_required=remarks_required, created_by=user)
+    audit.record("DAMAGE_REASON_ADDED", "damage_category", code, user=user,
+                 after={"name": name, "photo_required": photo_required, "remarks_required": remarks_required})
+    return cat
+
+
 # ---------------------------------------------------------------- approval by mail
 
 
@@ -187,12 +210,12 @@ def approver_addresses() -> set[str]:
 
 def submit_blockers(report: DamageReport) -> list[str]:
     out = []
-    lines = list(report.lines.prefetch_related("photos"))
+    lines = list(report.lines.select_related("category").prefetch_related("photos"))
     if not lines:
         out.append("Add at least one damaged SKU.")
     for ln in lines:
-        if ln.category in DamageLine.PHOTO_NEEDED and not ln.photos.all():
-            out.append(f"{ln.floor_sku} ({ln.get_category_display().lower()}) needs at least one photo.")
+        if ln.category.photo_required and not ln.photos.all():
+            out.append(f"{ln.floor_sku} ({ln.category.name.lower()}) needs at least one photo.")
     to, _, missing = recipients()
     if not to:
         out.append("No approver e-mail: the CFA Manager fills the Depot Manager / Admin Officer under "
@@ -227,7 +250,7 @@ def submit(user: User, report_pk: int):
     report.save()
     audit.record("DAMAGE_APPROVAL_REQUESTED", "damage_report", report.pk, user=user,
                  after={"revision": report.revision, "to": to, "cc": cc, "stamp": mail.stamp,
-                        "lines": [(ln.sku, ln.category, str(ln.quantity)) for ln in lines]})
+                        "lines": [(ln.sku, ln.category.name, str(ln.quantity)) for ln in lines]})
     return mail
 
 

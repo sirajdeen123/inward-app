@@ -9,7 +9,7 @@ can be changed only by the Administrator.
 from __future__ import annotations
 
 ADMIN_ROLES = {"CFA_MANAGER", "ADMINISTRATOR"}
-APPS = {"core", "accounts"}
+APPS = {"core", "accounts", "damage"}
 ADMINISTRATOR_ONLY = {"accounts.add_rolepermission", "accounts.change_rolepermission", "accounts.add_role",
                       "accounts.change_role"}
 

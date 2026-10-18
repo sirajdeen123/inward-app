@@ -165,7 +165,7 @@ SPECS = {
     "DAILY_UNL": Spec("DAILY_UNL", "DAILY_UNLOADING", "iw/mail/report_unloading.html", "Daily unloading collection"),
     "MONTHLY_MIS": Spec("MONTHLY_MIS", "MONTHLY_MIS", "iw/mail/report_mis.html", "Monthly MIS"),
     "SED_REPORT": Spec("SED_REPORT", "SED_REPORT", "iw/mail/report_sed.html", "SED report"),
-    "IRR_EXC": Spec("IRR_EXC", "IRR_EXCEPTIONS", "irrecon/mail_exceptions.html", "IRR reconciliation exceptions"),
+    "IRR_EXC": Spec("IRR_EXC", "IRR_EXCEPTIONS", "irrecon/mail_summary.html", "IRR reconciliation summary"),
 }
 
 
@@ -227,11 +227,7 @@ def due_reports(now=None) -> list[ReportRun]:
         out.append(queue_report("DAILY_ESC", key, {"r": daily_escalation(day)}))
         escalate_exceptions()
     if not ReportRun.objects.filter(kind="IRR_EXC", period=key).exists():
-        from inward.irrecon.models import IrrMatch
-        open_rows = list(IrrMatch.objects.filter(status="OPEN").select_related("row").order_by("row__trx_date")[:300])
-        if open_rows:
-            out.append(queue_report("IRR_EXC", key, {"rows": open_rows, "count": IrrMatch.objects.filter(status="OPEN").count(),
-                                                     "day": day}))
+        out.append(queue_report("IRR_EXC", key, {"r": irr_summary(day)}))
     if day.day == 1:
         prev = day - timedelta(days=1)
         month = f"{prev:%Y-%m}"
@@ -241,6 +237,18 @@ def due_reports(now=None) -> list[ReportRun]:
             d1 = prev.replace(day=1)
             out.append(queue_report("SED_REPORT", month, {"r": sed_report(d1, prev)}))
     return out
+
+
+def irr_summary(day: date | None = None) -> dict:
+    """Daily IRR reconciliation summary: yesterday's rows, the whole IRR, and the open exceptions."""
+    from inward.irrecon.models import IrrMatch, IrrReconRun
+    from inward.irrecon.summary import summary
+    day = day or timezone.localdate()
+    prev = day - timedelta(days=1)
+    open_qs = IrrMatch.objects.filter(status="OPEN").select_related("row").order_by("-row__trx_date", "group")
+    return {"day": day, "yesterday": summary(prev, prev), "prev": prev, "all": summary(),
+            "month": summary(day.replace(day=1), day), "open_rows": list(open_qs[:150]), "open_count": open_qs.count(),
+            "run": IrrReconRun.objects.first()}
 
 
 def send_irr_report(snap: IwClosure, user) -> MailMessage | None:

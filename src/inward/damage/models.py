@@ -20,6 +20,26 @@ class DamageCounter(models.Model):
         db_table = "damage_counter"
 
 
+class DamageCategory(models.Model):
+    """Reasons for internal damage - the supervisor adds new ones from the report screen (18-Oct-2026)."""
+    code = models.CharField(max_length=20, primary_key=True)
+    name = models.CharField(max_length=80, unique=True)
+    photo_required = models.BooleanField(default=True)
+    remarks_required = models.BooleanField(default=False)
+    active = models.BooleanField(default=True)
+    sort_order = models.PositiveIntegerField(default=100)
+    created_by = models.ForeignKey(USER, null=True, blank=True, on_delete=models.PROTECT, related_name="+")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "damage_category"
+        ordering = ["sort_order", "name"]
+        verbose_name_plural = "damage categories"
+
+    def __str__(self) -> str:
+        return self.name
+
+
 class DamageReport(models.Model):
     class Status(models.TextChoices):
         DRAFT = "DRAFT", "Draft - being prepared"
@@ -67,19 +87,11 @@ class DamageReport(models.Model):
 
 
 class DamageLine(models.Model):
-    class Category(models.TextChoices):
-        HANDLING = "HANDLING", "Handling damage (labour)"
-        EXPIRY = "EXPIRY", "Expiry"
-        LEAKAGE = "LEAKAGE", "Lid open / leakage"
-        OTHER = "OTHER", "Other"
-
-    PHOTO_NEEDED = (Category.HANDLING, Category.LEAKAGE, Category.OTHER)
-
     report = models.ForeignKey(DamageReport, on_delete=models.CASCADE, related_name="lines")
     sku = models.CharField(max_length=16)
     floor_sku = models.CharField(max_length=8)
     description = models.CharField(max_length=200, blank=True)
-    category = models.CharField(max_length=10, choices=Category.choices)
+    category = models.ForeignKey(DamageCategory, on_delete=models.PROTECT, related_name="+", db_column="category")
     quantity = models.DecimalField(max_digits=12, decimal_places=3)   # pieces
     lot_no = models.CharField(max_length=40, blank=True)
     locator = models.CharField(max_length=40, blank=True)

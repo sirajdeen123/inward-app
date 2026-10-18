@@ -50,7 +50,7 @@ def test_schedule_sends_once_after_report_time(at_erp):
     m = ReportRun.objects.get(kind="DAILY_UNL").mail
     assert m.to == ["daily_unloading0@example.com"] and m.iw is None and "Daily unloading collection" in m.html_body
     runs = reports.due_reports(datetime(2026, 10, 16, 9, 30, tzinfo=IST))         # 09:30: incomplete IWs
-    assert [(r.kind, r.period) for r in runs] == [("DAILY_ESC", "2026-10-16")]
+    assert [(r.kind, r.period) for r in runs] == [("DAILY_ESC", "2026-10-16"), ("IRR_EXC", "2026-10-16")]
     assert "Daily status of incomplete IWs" in runs[0].mail.subject
     assert ExceptionEvent.objects.get().escalation_count == 1
     assert reports.due_reports(datetime(2026, 10, 16, 19, 30, tzinfo=IST)) == []  # once per day

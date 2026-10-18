@@ -6,6 +6,15 @@
   <a class="btn" href="{% url 'irr:home' %}">IRR import</a></div>
 <p class="muted">Every row of the imported IRR is checked: transfers and picks must find their other half, picks must leave in the day's shipments, conversions must tally in litres / kilos, transfers to DMG need an approved internal damage report, LSCCR postings belong to an IW. It runs after every IRR import. Separate from the IW flow.</p>
 
+<form method="get" class="filters card">
+  <b>Period</b>
+  <label for="p-fr">From</label><input id="p-fr" type="date" name="from" value="{{ f.from }}">
+  <label for="p-to">To</label><input id="p-to" type="date" name="to" value="{{ f.to }}">
+  <input type="hidden" name="status" value="{{ status }}">
+  <button type="submit" class="btn btn-sm btn-primary">Show period</button>
+  {% for label, a, b in presets %}<a class="btn btn-sm" href="?from={{ a }}&amp;to={{ b }}&amp;status={{ status }}">{{ label }}</a>{% endfor %}
+</form>
+<p class="muted">{% if sm.from or sm.to %}Figures and list for TRX dates {{ sm.from|date:"d-M-Y"|default:"start" }} to {{ sm.to|date:"d-M-Y"|default:"today" }}.{% else %}Figures and list for all imported IRR dates.{% endif %}</p>
 <div class="kpis">
   <div class="card kpi"><div class="kpi-label">IRR rows checked</div><div class="kpi-value">{{ total }}</div><div class="muted">of {{ irr_rows }} imported</div></div>
   <div class="card kpi"><div class="kpi-label">Reconciled</div><div class="kpi-value">{{ pct }} %</div></div>
@@ -15,8 +24,8 @@
 
 <div class="card"><h2>By family</h2>
   <table class="tbl stack"><thead><tr><th>Family</th>{% for s, l in statuses %}<th class="num">{{ l }}</th>{% endfor %}<th class="num">Total</th><th class="num">Done</th></tr></thead>
-    <tbody>{% for t in table %}<tr><td data-label="Family"><a href="?family={{ t.code }}&amp;status=">{{ t.label }}</a></td>
-      {% for s, l in statuses %}<td class="num" data-label="{{ l }}">{% for k, v in t.counts.items %}{% if k == s %}{% if s == 'OPEN' and v %}<a href="?family={{ t.code }}&amp;status=OPEN"><b class="warn-text">{{ v }}</b></a>{% else %}{{ v }}{% endif %}{% endif %}{% endfor %}</td>{% endfor %}
+    <tbody>{% for t in table %}<tr><td data-label="Family"><a href="?family={{ t.code }}&amp;status=&amp;from={{ f.from }}&amp;to={{ f.to }}">{{ t.label }}</a></td>
+      {% for s, l in statuses %}<td class="num" data-label="{{ l }}">{% for k, v in t.counts.items %}{% if k == s %}{% if s == 'OPEN' and v %}<a href="?family={{ t.code }}&amp;status=OPEN&amp;from={{ f.from }}&amp;to={{ f.to }}"><b class="warn-text">{{ v }}</b></a>{% else %}{{ v }}{% endif %}{% endif %}{% endfor %}</td>{% endfor %}
       <td class="num" data-label="Total">{{ t.total }}</td><td class="num" data-label="Done">{{ t.pct }} %</td></tr>
     {% empty %}<tr><td colspan="7" class="muted">Import an IRR and run the engine.</td></tr>{% endfor %}</tbody></table>
 </div>
@@ -24,8 +33,7 @@
 <form method="get" class="filters card">
   <label for="f-st">Result</label><select id="f-st" name="status"><option value=""{% if not status %} selected{% endif %}>All</option>{% for s, l in statuses %}<option value="{{ s }}"{% if s == status %} selected{% endif %}>{{ l }}</option>{% endfor %}</select>
   <label for="f-fa">Family</label><select id="f-fa" name="family"><option value="">All</option>{% for c, l in families %}<option value="{{ c }}"{% if c == f.family %} selected{% endif %}>{{ l }}</option>{% endfor %}</select>
-  <label for="f-fr">From</label><input id="f-fr" type="date" name="from" value="{{ f.from }}">
-  <label for="f-to">To</label><input id="f-to" type="date" name="to" value="{{ f.to }}">
+  <input type="hidden" name="from" value="{{ f.from }}"><input type="hidden" name="to" value="{{ f.to }}">
   <label for="f-q">TRX / SKU / IW / IDR</label><input id="f-q" name="q" value="{{ f.q }}" class="input-inline">
   <button type="submit" class="btn btn-sm">Show</button>
   <a class="btn btn-sm" href="?{{ request.GET.urlencode }}&amp;xlsx=1">Excel</a>

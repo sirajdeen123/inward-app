@@ -1,0 +1,24 @@
+{% extends "iw/mail/_base.html" %}
+{% block body %}
+{% with t="border:1px solid #bbb" c="border:1px solid #ccc" %}
+<p style="font-size:16px"><b>IRR Reconciliation Summary - {{ r.day|date:"d-M-Y" }}</b></p>
+<table cellpadding="6" cellspacing="0" style="border-collapse:collapse;font-size:13px;margin-bottom:10px">
+<tr style="background:#eee"><th style="{{ t }};text-align:left">Period</th><th style="{{ t }}">IRR rows</th><th style="{{ t }}">Reconciled</th><th style="{{ t }}">Open exceptions</th></tr>
+<tr><td style="{{ c }}">Yesterday ({{ r.prev|date:"d-M-Y" }})</td><td style="{{ c }};text-align:right">{{ r.yesterday.total }}</td><td style="{{ c }};text-align:right">{{ r.yesterday.pct }} %</td><td style="{{ c }};text-align:right"><b>{{ r.yesterday.open }}</b></td></tr>
+<tr><td style="{{ c }}">This month (from {{ r.month.from|date:"d-M" }})</td><td style="{{ c }};text-align:right">{{ r.month.total }}</td><td style="{{ c }};text-align:right">{{ r.month.pct }} %</td><td style="{{ c }};text-align:right"><b>{{ r.month.open }}</b></td></tr>
+<tr><td style="{{ c }}">Whole IRR imported</td><td style="{{ c }};text-align:right">{{ r.all.total }}</td><td style="{{ c }};text-align:right">{{ r.all.pct }} %</td><td style="{{ c }};text-align:right"><b>{{ r.all.open }}</b></td></tr>
+</table>
+<p style="margin:12px 0 4px"><b>By family (whole IRR)</b></p>
+<table cellpadding="5" cellspacing="0" style="border-collapse:collapse;font-size:12px">
+<tr style="background:#eee"><th style="{{ t }};text-align:left">Family</th><th style="{{ t }}">Matched</th><th style="{{ t }}">Explained</th><th style="{{ t }}">Information</th><th style="{{ t }}">Open</th><th style="{{ t }}">Done</th></tr>
+{% for f in r.all.table %}<tr><td style="{{ c }}">{{ f.label }}</td><td style="{{ c }};text-align:right">{{ f.counts.MATCHED }}</td><td style="{{ c }};text-align:right">{{ f.counts.EXPLAINED }}</td><td style="{{ c }};text-align:right">{{ f.counts.INFO }}</td><td style="{{ c }};text-align:right">{% if f.open %}<b style="color:#b00020">{{ f.open }}</b>{% else %}0{% endif %}</td><td style="{{ c }};text-align:right">{{ f.pct }} %</td></tr>{% endfor %}
+</table>
+{% if r.open_rows %}
+<p style="margin:14px 0 4px"><b>Open exceptions ({{ r.open_count }}{% if r.open_count > r.open_rows|length %}, latest {{ r.open_rows|length }} shown{% endif %})</b> - explain or follow up in the app (IRR reconciliation)</p>
+<table cellpadding="4" cellspacing="0" style="border-collapse:collapse;font-size:11px;width:100%">
+<tr style="background:#eee"><th style="{{ t }};text-align:left">Date</th><th style="{{ t }};text-align:left">Type / TRX</th><th style="{{ t }};text-align:left">SKU</th><th style="{{ t }}">Pcs</th><th style="{{ t }};text-align:left">Why</th></tr>
+{% for m in r.open_rows %}<tr><td style="{{ c }}">{{ m.row.trx_date|date:"d-M-Y" }}</td><td style="{{ c }}">{{ m.row.type }} {{ m.row.transaction_type }}<br>{{ m.row.trx_number }}</td><td style="{{ c }}">{{ m.row.sku }}<br><span style="font-size:10px">{{ m.row.item_description|truncatechars:34 }}</span></td><td style="{{ c }};text-align:right">{{ m.row.no_of_pack|floatformat:"-3" }}</td><td style="{{ c }}">{{ m.note }}</td></tr>{% endfor %}
+</table>{% else %}<p style="color:#145c2a"><b>No open exceptions - every IRR row is matched, explained or information.</b></p>{% endif %}
+<p style="font-size:11px;color:#666">Engine last run {% if r.run %}{{ r.run.run_at|date:"d-M-Y h:i A" }}{% else %}-{% endif %}. Matched = both halves / the whole chain found in the IRR; Explained = linked to an IW or internal damage report, or explained by a user; Information = receipts, returns and zero rows that need no pair.</p>
+{% endwith %}
+{% endblock %}

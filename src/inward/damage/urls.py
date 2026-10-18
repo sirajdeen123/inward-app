@@ -19,4 +19,5 @@ urlpatterns = [
     path("<int:pk>/trx/<int:trx_pk>/remove/", views.trx_remove, name="trx_remove"),
     path("<int:pk>/reconcile/", views.recon, name="recon"),
     path("<int:pk>/accept-reason/", views.accept_reason, name="accept_reason"),
+    path("<int:pk>/reasons/add/", views.category_add, name="category_add"),
 ]

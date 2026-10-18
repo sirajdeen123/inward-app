@@ -6,7 +6,7 @@ from datetime import date
 
 from django.contrib import messages
 from django.core.paginator import Paginator
-from django.db.models import Count, Q
+from django.db.models import Q
 from django.http import HttpResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
@@ -20,11 +20,7 @@ from inward.irrecon import engine
 from inward.irrecon.models import IrrMark, IrrMatch, IrrReconRun
 from inward.web.views import needs
 
-FAMILIES = [("SUBINV", "Subinventory transfers"), ("PICK", "Internal order picks"), ("SHIP", "Outbound shipments"),
-            ("CONVERT", "Conversions (tinting, repacking, restencilling)"), ("LSCCR", "LSCCR postings"),
-            ("INBOUND", "Receipts (stock / PO)"), ("RETURN", "Customer returns"), ("RESIDUAL", "Residual rows"),
-            ("MISC", "Other miscellaneous"), ("OTHER", "Unknown types")]
-STATUSES = IrrMatch.Status.choices
+from inward.irrecon.summary import FAMILIES, STATUSES, summary
 
 
 def _d(text):
@@ -58,20 +54,10 @@ def home(request):
     qs, status = _rows(request)
     if request.GET.get("xlsx"):
         return _xlsx(qs)
-    counts = {(c["family"], c["status"]): c["n"] for c in IrrMatch.objects.values("family", "status").annotate(n=Count("pk"))}
-    table = []
-    for code, label in FAMILIES:
-        row = {s: counts.get((code, s), 0) for s, _ in STATUSES}
-        total = sum(row.values())
-        if total:
-            done = row["MATCHED"] + row["EXPLAINED"] + row["INFO"]
-            table.append({"code": code, "label": label, "counts": row, "total": total,
-                          "pct": round(100 * done / total, 1)})
-    total = sum(t["total"] for t in table)
-    open_n = sum(t["counts"]["OPEN"] for t in table)
+    sm = summary(_d(request.GET.get("from")), _d(request.GET.get("to")))
     page = Paginator(qs, 100).get_page(request.GET.get("page"))
     return render(request, "irrecon/home.html", {
-        "table": table, "total": total, "open": open_n, "pct": round(100 * (total - open_n) / total, 1) if total else 0,
+        "sm": sm, "table": sm["table"], "total": sm["total"], "open": sm["open"], "pct": sm["pct"], "presets": _presets(),
         "run": IrrReconRun.objects.select_related("run_by").first(), "page": page, "status": status,
         "families": FAMILIES, "statuses": STATUSES, "f": request.GET,
         "irr_rows": IrrTransaction.objects.count(),
@@ -117,6 +103,18 @@ def unmark(request, row_id):
         engine.run(request.user)
         messages.success(request, "Mark removed - the row is back in the engine's result.")
     return redirect(request.POST.get("back") or "irrecon:home")
+
+
+def _presets() -> list[tuple[str, str, str]]:
+    from datetime import timedelta
+    t = timezone.localdate()
+    y = t - timedelta(days=1)
+    m1 = t.replace(day=1)
+    lm_end = m1 - timedelta(days=1)
+    return [("Yesterday", y.isoformat(), y.isoformat()), ("Today", t.isoformat(), t.isoformat()),
+            ("Last 7 days", (t - timedelta(days=6)).isoformat(), t.isoformat()),
+            ("This month", m1.isoformat(), t.isoformat()),
+            ("Last month", lm_end.replace(day=1).isoformat(), lm_end.isoformat()), ("All", "", "")]
 
 
 def _xlsx(qs) -> HttpResponse:

@@ -9,7 +9,7 @@ from django.views.decorators.http import require_POST
 
 from inward.accounts.services import PermissionDenied, modes_for
 from inward.damage import services as dmg
-from inward.damage.models import DamageLine, DamagePhoto, DamageReport
+from inward.damage.models import DamageCategory, DamageLine, DamagePhoto, DamageReport
 from inward.web.views import needs, upload_done
 
 ERRORS = (dmg.DamageError, PermissionDenied)
@@ -42,7 +42,8 @@ def report_new(request):
 def detail(request, pk):
     r = get_object_or_404(DamageReport.objects.select_related("created_by", "request_mail", "reply"), pk=pk)
     return render(request, "damage/detail.html", {
-        "r": r, "lines": r.lines.prefetch_related("photos"), "categories": DamageLine.Category.choices,
+        "r": r, "lines": r.lines.select_related("category").prefetch_related("photos"),
+        "categories": DamageCategory.objects.filter(active=True),
         "blockers": dmg.submit_blockers(r) if r.editable else [], "trx": r.trx.select_related("entered_by"),
         "can_trx": "GRANT" in modes_for(request.user, "DAMAGE_TRX"), "recipients": dmg.recipients()[:2],
         "accepted": sorted(dmg.accepted_codes(r)),
@@ -162,3 +163,17 @@ def recon(request, pk):
 def accept_reason(request, pk):
     return _do(request, pk, lambda: dmg.accept_reason(request.user, pk, request.POST.get("code", "")),
                "Reason code accepted for this report.")
+
+
+@require_POST
+@needs("DAMAGE_REPORT")
+def category_add(request, pk):
+    def add():
+        cat = dmg.add_category(request.user, request.POST.get("name", ""), request.POST.get("photo") == "on",
+                               request.POST.get("remarks") == "on")
+        messages.success(request, f"Reason '{cat.name}' added - choose it for the line.")
+    try:
+        add()
+    except ERRORS as exc:
+        messages.error(request, str(exc))
+    return redirect(f"{reverse('damage:detail', args=[pk])}#add-line")

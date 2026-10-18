@@ -16,11 +16,11 @@
   {% else %}Cancelled: {{ r.cancel_reason }}{% endif %}</b></div></div>
 
 <div class="card"><h2>Damaged material</h2>
-  <table class="tbl stack"><thead><tr><th>#</th><th>SKU</th><th>Category</th><th class="num">Pcs</th><th>Lot / locator</th><th>Remarks</th><th>Photos</th><th></th></tr></thead>
+  <table class="tbl stack"><thead><tr><th>#</th><th>SKU</th><th>Reason</th><th class="num">Pcs</th><th>Lot / locator</th><th>Remarks</th><th>Photos</th><th></th></tr></thead>
     <tbody>{% for ln in lines %}<tr><td data-label="#">{{ forloop.counter }}</td><td data-label="SKU"><b class="mono">{{ ln.floor_sku }}</b><div class="muted small">{{ ln.sku }} · {{ ln.description }}</div></td>
-      <td data-label="Category">{{ ln.get_category_display }}</td><td class="num" data-label="Pcs"><b>{{ ln.quantity|floatformat:"-3" }}</b></td>
+      <td data-label="Reason">{{ ln.category.name }}</td><td class="num" data-label="Pcs"><b>{{ ln.quantity|floatformat:"-3" }}</b></td>
       <td data-label="Lot / locator">{{ ln.lot_no|default:"-" }}{% if ln.locator %}<div class="muted">{{ ln.locator }}</div>{% endif %}</td><td data-label="Remarks">{{ ln.remarks }}</td>
-      <td data-label="Photos"><div class="thumbs">{% for p in ln.photos.all %}<a href="{% url 'damage:photo' r.pk p.pk 'original' %}" target="_blank" rel="noopener"><img src="{% url 'damage:photo' r.pk p.pk 'preview' %}" alt="photo" class="thumb"></a>{% if r.editable %}<form method="post" action="{% url 'damage:photo_remove' r.pk p.pk %}" class="inline-form">{% csrf_token %}<button type="submit" class="btn btn-sm" aria-label="Remove photo">&times;</button></form>{% endif %}{% empty %}{% if ln.category != 'EXPIRY' %}<span class="warn-text">photo needed</span>{% else %}<span class="muted">-</span>{% endif %}{% endfor %}</div>
+      <td data-label="Photos"><div class="thumbs">{% for p in ln.photos.all %}<a href="{% url 'damage:photo' r.pk p.pk 'original' %}" target="_blank" rel="noopener"><img src="{% url 'damage:photo' r.pk p.pk 'preview' %}" alt="photo" class="thumb"></a>{% if r.editable %}<form method="post" action="{% url 'damage:photo_remove' r.pk p.pk %}" class="inline-form">{% csrf_token %}<button type="submit" class="btn btn-sm" aria-label="Remove photo">&times;</button></form>{% endif %}{% empty %}{% if ln.category.photo_required %}<span class="warn-text">photo needed</span>{% else %}<span class="muted">-</span>{% endif %}{% endfor %}</div>
         {% if r.editable %}<form method="post" action="{% url 'damage:photo_add' r.pk ln.pk %}" enctype="multipart/form-data" class="photo-form">{% csrf_token %}
           <label class="btn btn-sm">Take / choose photo<input type="file" name="photo" accept="image/*" capture="environment" multiple class="visually-hidden"></label>
           <button type="submit" class="btn btn-sm btn-primary">Upload</button></form>{% endif %}</td>
@@ -28,17 +28,23 @@
     {% empty %}<tr><td colspan="8" class="muted">No line yet.</td></tr>{% endfor %}</tbody></table>
 
   {% if r.editable %}
-  <form method="post" action="{% url 'damage:line_add' r.pk %}" class="form-grid" style="margin-top:12px">{% csrf_token %}
+  <form method="post" action="{% url 'damage:line_add' r.pk %}" class="form-grid" style="margin-top:12px" id="add-line">{% csrf_token %}
     <h3 class="span-all">Add a damaged SKU</h3>
     <table class="span-all"><tr><td><label for="d-sku">SKU * <span class="muted">(type part of the SKU, floor code or name)</span></label>
       <input id="d-sku" name="sku_1" maxlength="16" class="caps" required data-sku-lookup="{% url 'iw:sku_search' %}" placeholder="SKU / floor code / name"><div class="sku-note muted small"></div></td></tr></table>
-    <div class="field"><label for="d-cat">Category *</label><select id="d-cat" name="category" required><option value="">Select...</option>{% for v, l in categories %}<option value="{{ v }}">{{ l }}</option>{% endfor %}</select></div>
+    <div class="field"><label for="d-cat">Reason *</label><select id="d-cat" name="category" required><option value="">Select...</option>{% for c in categories %}<option value="{{ c.code }}">{{ c.name }}{% if not c.photo_required %} (photo optional){% endif %}</option>{% endfor %}</select></div>
     <div class="field"><label for="d-qty">Pieces *</label><input id="d-qty" name="quantity" inputmode="numeric" required></div>
     <div class="field"><label for="d-lot">Lot No</label><input id="d-lot" name="lot_no" class="caps" maxlength="40"></div>
     <div class="field"><label for="d-loc">Locator</label><input id="d-loc" name="locator" class="caps" maxlength="40" placeholder="e.g. WH1.R13.C4.1"></div>
     <div class="field span-all"><label for="d-rem">Remarks</label><input id="d-rem" name="remarks" maxlength="300" placeholder="e.g. carton torn while stacking, 2 tins dented"></div>
     <div class="span-all"><button type="submit" class="btn">Add line</button></div>
   </form>
+  <details class="addsku"><summary>Reason not in the list? Add a new reason</summary>
+    <form method="post" action="{% url 'damage:category_add' r.pk %}" class="inline">{% csrf_token %}
+      <label for="c-name">New reason *</label><input id="c-name" name="name" maxlength="80" required class="input-inline" placeholder="e.g. Rat / pest damage">
+      <label class="check"><input type="checkbox" name="photo" checked> photo required</label>
+      <label class="check"><input type="checkbox" name="remarks"> remarks required</label>
+      <button type="submit" class="btn btn-sm">Add reason</button></form></details>
   {% endif %}
 </div>
 

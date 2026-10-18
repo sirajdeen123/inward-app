@@ -47,14 +47,15 @@ def test_trusted_device_skips_code_and_recovery_code_works_once(client, seeded, 
     _sign_in(client, "clerk2")
     resp = client.post(reverse("accounts:two_factor"), {"code": codes[0], "trust": "on"})
     assert resp.status_code == 302
-    assert twofactor.TRUSTED_COOKIE in resp.cookies and resp.cookies[twofactor.TRUSTED_COOKIE]["httponly"]
+    name = twofactor.trusted_cookie(user)
+    assert name in resp.cookies and resp.cookies[name]["httponly"]
     client.post(reverse("accounts:logout"))
 
     resp = _sign_in(client, "clerk2")  # trusted cookie still in the client -> straight in
     assert resp.status_code == 302 and reverse("accounts:two_factor") not in resp["Location"]
     client.post(reverse("accounts:logout"))
 
-    client.cookies.pop(twofactor.TRUSTED_COOKIE)
+    client.cookies.pop(name)
     _sign_in(client, "clerk2")
     resp = client.post(reverse("accounts:two_factor"), {"code": codes[0]})  # used already
     assert resp.status_code == 200 and "did not match" in resp.content.decode()
@@ -106,3 +107,21 @@ def test_security_headers(client):
     assert "default-src 'self'" in resp["Content-Security-Policy"]
     assert resp["X-Frame-Options"] == "DENY"
     assert resp["X-Content-Type-Options"] == "nosniff"
+
+
+def test_two_users_in_one_browser_keep_their_trust(client, seeded, make_user):
+    """UAT 18-Oct-2026: the clerk's trusted cookie replaced the manager's, so the manager was asked every time."""
+    from django_otp.oath import totp
+    users = [make_user("trust_a", "DEPOT_CLERK"), make_user("trust_b", "CFA_MANAGER")]
+    for u in users:
+        dev = twofactor.pending_totp(u)
+        dev.confirmed = True
+        dev.save()
+        _sign_in(client, u.username)
+        code = format(totp(dev.bin_key, dev.step, dev.t0, dev.digits, dev.drift), "06d")
+        assert client.post(reverse("accounts:two_factor"), {"code": code, "trust": "on"}).status_code == 302
+        client.post(reverse("accounts:logout"))
+    for u in users:                     # both are remembered in the same browser
+        resp = _sign_in(client, u.username)
+        assert reverse("accounts:two_factor") not in resp["Location"], u.username
+        client.post(reverse("accounts:logout"))

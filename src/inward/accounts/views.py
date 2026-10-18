@@ -49,7 +49,8 @@ def login_view(request):
             login(request, user)
             audit.record("LOGIN", "app_user", user.pk, user=user, ip=request.META.get("REMOTE_ADDR"))
             device = twofactor.confirmed_totp(user)
-            if device and twofactor.is_trusted(user, request.COOKIES.get(twofactor.TRUSTED_COOKIE)):
+            if device and (twofactor.is_trusted(user, request.COOKIES.get(twofactor.trusted_cookie(user)))
+                           or twofactor.is_trusted(user, request.COOKIES.get(twofactor.TRUSTED_COOKIE))):
                 otp_login(request, device)
                 return redirect(_next(request))
             target = reverse("accounts:two_factor")
@@ -90,7 +91,7 @@ def two_factor_view(request):
             response = redirect(_next(request))
             if form.cleaned_data["trust"]:
                 token = twofactor.trust_this_device(user, request.META.get("HTTP_USER_AGENT", ""))
-                response.set_cookie(twofactor.TRUSTED_COOKIE, token, max_age=settings.TRUSTED_DEVICE_DAYS * 86400,
+                response.set_cookie(twofactor.trusted_cookie(user), token, max_age=settings.TRUSTED_DEVICE_DAYS * 86400,
                                     secure=request.is_secure(), httponly=True, samesite="Lax")
             return response
     return render(request, "accounts/two_factor_verify.html", {"form": form, "error": error, "next": _next(request, "")})

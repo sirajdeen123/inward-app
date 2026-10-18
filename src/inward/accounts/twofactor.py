@@ -19,6 +19,12 @@ from inward.accounts.models import TrustedDevice, User
 from inward.core import audit
 
 TRUSTED_COOKIE = "inward_trusted"
+
+
+def trusted_cookie(user: User) -> str:
+    """One cookie per user: several people (or one tester with several users) share a browser, and a single
+    cookie was overwritten by the last user who ticked "trust", so the others were asked again (UAT 18-Oct-2026)."""
+    return f"{TRUSTED_COOKIE}_{user.pk}"
 RECOVERY_CODES = 10
 
 

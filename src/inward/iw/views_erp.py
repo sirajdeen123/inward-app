@@ -167,8 +167,11 @@ def closure_report(request, pk, number):
 def reopen_request(request, pk):
     iw = get_object_or_404(Iw, pk=pk)
     try:
-        closure.request_reopen(request.user, iw, request.POST.get("reason", ""))
-        messages.success(request, "Reopen requested - waiting for the CFA Manager's approval.")
+        req = closure.request_reopen(request.user, iw, request.POST.get("reason", ""))
+        if req.status == req.Status.APPROVED:
+            messages.success(request, "IW reopened (you are the approver - recorded as self-approved).")
+        else:
+            messages.success(request, "Reopen requested - waiting for the CFA Manager's approval.")
     except (IwError, PermissionDenied) as exc:
         messages.error(request, str(exc))
     return _back(pk)

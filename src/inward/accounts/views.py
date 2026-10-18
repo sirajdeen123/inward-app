@@ -95,17 +95,23 @@ def two_factor_view(request):
 
 @login_required
 def approvals_view(request):
-    from inward.accounts.approvals import pending_for
-    return render(request, "accounts/approvals.html", {"pending": pending_for(request.user)})
+    from inward.accounts.approvals import own_pending, pending_for
+    return render(request, "accounts/approvals.html", {"pending": pending_for(request.user),
+                                                       "own": own_pending(request.user)})
 
 
 @require_POST
 @login_required
 def decide_view(request, pk):
-    from inward.accounts.approvals import decide_and_apply
-    approve = request.POST.get("decision") == "approve"
+    from inward.accounts.approvals import decide_and_apply, settle_own
+    decision = request.POST.get("decision", "")
     try:
-        req = decide_and_apply(request.user, pk, approve, request.POST.get("note", "")[:300])
+        if decision in ("self_apply", "withdraw"):   # the requester's own request
+            req = settle_own(request.user, pk, apply=decision == "self_apply")
+            messages.success(request, f"Request {req.pk} " + ("applied directly (you are the approver)."
+                                                              if decision == "self_apply" else "withdrawn."))
+            return redirect("accounts:approvals")
+        req = decide_and_apply(request.user, pk, decision == "approve", request.POST.get("note", "")[:300])
         messages.success(request, f"Request {req.pk} {req.status.lower()}.")
     except Exception as exc:  # noqa: BLE001 - PermissionDenied, already decided, effect refused
         messages.error(request, f"Not done: {exc}")

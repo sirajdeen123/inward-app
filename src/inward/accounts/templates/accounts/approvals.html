@@ -2,7 +2,14 @@
 {% block title %}Approvals{% endblock %}
 {% block content %}
 <h1>Approvals</h1>
-<p class="muted">Requests waiting for your decision. You never see your own requests here.</p>
+<p class="muted">Requests waiting for your decision. Nobody approves their own request. When the approver (CFA Manager) does it themself, it is applied at once and audited.</p>
+{% if own %}<div class="card"><h2>Your own requests</h2>
+  {% for r in own %}<div class="bar"><b>{{ r.permission.description }}</b><span class="chip">{{ r.entity_type }} {{ r.payload.iw_no|default:r.entity_id }}</span>
+    <span class="muted">{{ r.created_at|date:"d-M-Y H:i" }} · "{{ r.reason }}"</span><div class="grow"></div>
+    <form method="post" action="{% url 'accounts:decide' r.pk %}" class="inline-form">{% csrf_token %}
+      {% if r.can_self_apply %}<button type="submit" name="decision" value="self_apply" class="btn btn-primary btn-sm">Apply now (you are the approver)</button>{% else %}<span class="chip chip-warn">waiting for the approver</span>{% endif %}
+      <button type="submit" name="decision" value="withdraw" class="btn btn-sm">Withdraw</button></form></div>
+  {% endfor %}</div>{% endif %}
 {% for r in pending %}
 <div class="card">
   <div class="bar"><b>{{ r.permission.description }}</b><span class="chip">{{ r.entity_type }} {{ r.payload.iw_no|default:r.entity_id }}</span>
@@ -15,6 +22,6 @@
   </form>
 </div>
 {% empty %}
-<div class="alert alert-info">Nothing waiting for approval.</div>
+<div class="alert alert-info">Nothing waiting for your approval.</div>
 {% endfor %}
 {% endblock %}

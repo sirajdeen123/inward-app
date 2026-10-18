@@ -82,3 +82,39 @@ def test_unloading_amount_shown_from_weights(client, ready):  # noqa: F811
     page = c.get(reverse("iw:charges", args=[w["iw"].pk])).content.decode()
     assert "unloading <b>Rs 3960.00</b>" in page and 'id="u-amount"' in page and 'data-rate="300.00"' in page
     assert "charge.js" in page
+
+
+def test_cfa_manager_void_is_applied_at_once(client, world, make_user):  # noqa: F811
+    from inward.accounts.models import ApprovalRequest
+    from inward.core.models import AuditEvent
+    cfa = make_user("cfa_v", "CFA_MANAGER")
+    iw = Iw.objects.get(pk=world["iw"].pk)
+    req = services.request_void(cfa, iw, "Created twice")
+    assert req.status == ApprovalRequest.Status.APPROVED and req.pk is None      # no request left waiting
+    assert Iw.objects.get(pk=iw.pk).status == Iw.Status.VOID and not ApprovalRequest.objects.exists()
+    assert AuditEvent.objects.filter(action="APPROVER_DIRECT_ACTION", iw_id=iw.pk).exists()
+
+
+def test_clerk_void_still_needs_the_cfa_manager(client, world, make_user):  # noqa: F811
+    from inward.accounts.models import ApprovalRequest
+    iw = Iw.objects.get(pk=world["iw"].pk)
+    req = services.request_void(world["clerk"], iw, "Wrong vehicle")
+    assert req.status == ApprovalRequest.Status.PENDING and Iw.objects.get(pk=iw.pk).status != Iw.Status.VOID
+    from inward.accounts.approvals import decide_and_apply
+    with pytest.raises(Exception, match="own request"):
+        decide_and_apply(world["clerk"], req.pk, True)
+
+
+def test_stuck_own_request_can_be_applied_from_the_screen(client, world, make_user):  # noqa: F811
+    """UAT IW-2627-000005: the CFA Manager's own VOID request waited for an approval nobody could give."""
+    from inward.accounts.services import request_approval
+    cfa = make_user("cfa_o", "CFA_MANAGER")
+    iw = Iw.objects.get(pk=world["iw"].pk)
+    req = request_approval(cfa, "IW_VOID", "iw", iw.pk, "Created twice", payload={"iw_no": iw.iw_no})  # old way
+    c = verified_client(client, cfa)
+    page = c.get(reverse("accounts:approvals")).content.decode()
+    assert "Your own requests" in page and "Apply now (you are the approver)" in page
+    c.post(reverse("accounts:decide", args=[req.pk]), {"decision": "self_apply"})
+    assert Iw.objects.get(pk=iw.pk).status == Iw.Status.VOID
+    req.refresh_from_db()
+    assert req.status == "CANCELLED" and "directly by the approver" in req.decision_note

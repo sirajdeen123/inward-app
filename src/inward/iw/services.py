@@ -9,7 +9,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from inward.accounts.models import ApprovalRequest, User
-from inward.accounts.services import PermissionDenied, request_approval, require
+from inward.accounts.services import PermissionDenied, require
 from inward.core import audit
 from inward.core.models import LoadType, Organisation, Transporter
 from inward.core.numbering import next_iw_number
@@ -166,7 +166,8 @@ def request_void(user: User, iw: Iw, reason: str) -> ApprovalRequest:
     if ApprovalRequest.objects.filter(permission_id="IW_VOID", entity_type="iw", entity_id=str(iw.pk),
                                       status=ApprovalRequest.Status.PENDING).exists():
         raise IwError("A VOID request for this IW is already waiting for approval.")
-    return request_approval(user, "IW_VOID", "iw", iw.pk, reason, payload={"iw_no": iw.iw_no})
+    from inward.accounts.approvals import submit
+    return submit(user, "IW_VOID", "iw", iw.pk, reason, payload={"iw_no": iw.iw_no})
 
 
 def apply_void(req: ApprovalRequest, approver: User) -> None:

@@ -16,7 +16,7 @@ from django.db.models import Q
 from django.utils import timezone
 
 from inward.accounts.models import ApprovalRequest, User
-from inward.accounts.services import request_approval, require
+from inward.accounts.services import require
 from inward.core import audit, branding, documents, pdf
 from inward.core.models import DocumentLink, ExceptionEvent
 from inward.iw import erp, recon
@@ -189,7 +189,8 @@ def request_reopen(user: User, iw: Iw, reason: str) -> ApprovalRequest:
                                       status=ApprovalRequest.Status.PENDING).exists():
         raise IwError("A reopen request for this IW is already waiting for approval.")
     try:
-        return request_approval(user, "IW_REOPEN", "iw", iw.pk, reason, payload={"iw_no": iw.iw_no})
+        from inward.accounts.approvals import submit
+        return submit(user, "IW_REOPEN", "iw", iw.pk, reason, payload={"iw_no": iw.iw_no})
     except ValueError as exc:
         raise IwError(str(exc)) from exc
 

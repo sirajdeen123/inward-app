@@ -142,8 +142,11 @@ def iw_void(request, pk):
         messages.error(request, "A reason is mandatory for VOID.")
         return redirect("iw:detail", pk=pk)
     try:
-        services.request_void(request.user, iw, form.cleaned_data["reason"])
-        messages.success(request, f"VOID of {iw.iw_no} requested. The CFA Manager must approve it.")
+        req = services.request_void(request.user, iw, form.cleaned_data["reason"])
+        if req.status == req.Status.APPROVED:
+            messages.success(request, f"{iw.iw_no} is VOID (you are the approver - recorded as self-approved).")
+        else:
+            messages.success(request, f"VOID of {iw.iw_no} requested. The CFA Manager must approve it.")
     except (services.IwError, PermissionDenied) as exc:
         messages.error(request, str(exc))
     return redirect("iw:detail", pk=pk)

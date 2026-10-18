@@ -1,4 +1,5 @@
 {% extends "web/base.html" %}
+{% load static %}
 {% block title %}Vendor challan · {{ iw }}{% endblock %}
 {% block content %}
 <p><a href="{% url 'iw:detail' iw.pk %}">&larr; {{ iw }}</a></p>
@@ -29,11 +30,12 @@
   <div class="span-all"><table class="tbl">
     <thead><tr><th class="num">Sl.</th><th>SKU (16 characters)</th><th>Description</th><th>UOM (L / K)</th><th class="num">Packages</th><th class="num">Quantity (LTR or KG)</th></tr></thead>
     <tbody>{% for i in rows %}<tr><td class="num">{{ forloop.counter }}</td>
-      <td><input name="sku_{{ i }}" aria-label="SKU {{ forloop.counter }}" maxlength="16"></td><td><input name="desc_{{ i }}" aria-label="Description {{ forloop.counter }}"></td>
+      <td><input name="sku_{{ i }}" aria-label="SKU {{ forloop.counter }}" maxlength="16" class="caps" placeholder="SKU / floor code / name" data-sku-lookup="{% url 'iw:sku_search' %}"><div class="sku-note muted small"></div></td><td><input name="desc_{{ i }}" aria-label="Description {{ forloop.counter }}"></td>
       <td><input name="uom_{{ i }}" class="qty" aria-label="UOM {{ forloop.counter }}"></td>
       <td class="num"><input name="nop_{{ i }}" class="qty" inputmode="decimal" aria-label="Packages {{ forloop.counter }}"></td>
       <td class="num"><input name="qty_{{ i }}" class="qty" inputmode="decimal" aria-label="Quantity {{ forloop.counter }}"></td></tr>{% endfor %}</tbody>
   </table></div>
   <div class="span-all"><button type="submit" class="btn">Add challan manually</button></div>
 </form>
+<script src="{% static 'inward/sku_lookup.js' %}" defer></script>
 {% endblock %}

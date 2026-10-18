@@ -143,3 +143,4 @@ label.check input{margin-top:3px}
 .nav.active .num{color:var(--red)}
 /* unloading amount preview */
 .amount{font-size:18px;font-weight:700}.amount small{font-size:13px;font-weight:400;color:var(--muted)}
+.small{font-size:12px}.sku-note{margin-top:2px;max-width:260px}

@@ -118,3 +118,35 @@ def test_stuck_own_request_can_be_applied_from_the_screen(client, world, make_us
     assert Iw.objects.get(pk=iw.pk).status == Iw.Status.VOID
     req.refresh_from_db()
     assert req.status == "CANCELLED" and "directly by the approver" in req.decision_note
+
+
+def test_sku_search_by_code_floor_and_words(client, world):  # noqa: F811
+    from inward.core.models import PackageType, SkuPackaging
+    carton = PackageType.objects.get(code="CARTON")
+    SkuPackaging.objects.update_or_create(sku="F00XG90991003600", defaults=dict(
+        floor_sku="XG9 991", description="WEATHERCOAT ANTI DIRT BASE 3.6 L", measure_family="LTR",
+        pack_size="3.6", package_type=carton, units_per_package=4))
+    c = verified_client(client, world["clerk"])
+    url = reverse("iw:sku_search")
+    for q in ("xg9 991", "XG9991", "xg99", "F00XG9", "anti dirt 3.6"):
+        items = c.get(url, {"q": q}).json()["items"]
+        assert any(i["sku"] == "F00XG90991003600" for i in items), q
+    first = c.get(url, {"q": "F00XG90991003600"}).json()["items"][0]
+    assert first == {"sku": "F00XG90991003600", "floor": "XG9 991", "description": "WEATHERCOAT ANTI DIRT BASE 3.6 L",
+                     "uom": "L", "pack": "3.6"}
+    assert c.get(url, {"q": "x"}).json()["items"] == []
+
+
+def test_manual_rows_offer_the_sku_lookup(client, env):  # noqa: F811
+    from tests.test_outbound_vendor import _iw
+    clerk = env["clerk"]
+    iw = _iw(clerk)
+    Organisation.objects.create(code="094", name="Pondicherry", org_type="DEPOT")
+    ship = outbound.add_ship(clerk, iw.pk, ship_id="52611001", destination="094", doc_ltr="80", doc_kg="0",
+                             source="MANUAL")
+    c = verified_client(client, clerk)
+    page = c.get(reverse("iw:outbound_manual", args=[ship.pk])).content.decode()
+    assert "data-sku-lookup" in page and "data-autoqty" in page and "sku_lookup.js" in page
+    vendor_iw = _iw(clerk, code="VENDOR", vehicle="TN01VV1")
+    page = c.get(reverse("iw:vendor", args=[vendor_iw.pk])).content.decode()
+    assert "data-sku-lookup" in page and "sku_lookup.js" in page

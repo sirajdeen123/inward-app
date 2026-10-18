@@ -201,22 +201,36 @@ def verification_reopen(request, pk):
     return redirect("iw:unloading", pk=pk)
 
 
-@needs("PHYSICAL_SED_QTY")
+@needs("SEARCH_REPORTS")
 def sku_search(request):
-    """Suggestions for the Excess SKU box: code prefix or description words, from the SKU packaging list."""
-    from django.db.models import Q
+    """SKU suggestions from the packaging master for every SKU box (Excess, manual Ship rows, vendor challan rows):
+    the start of the full SKU, the Floor SKU with or without its space (XG9 991 / XG9991 / XG99), or words of the
+    description. Exact / code matches come first."""
+    from django.db.models import Case, IntegerField, Q, Value, When
     from django.http import JsonResponse
 
     from inward.core.models import SkuPackaging
-    q = (request.GET.get("q") or "").strip().upper()
-    if len(q) < 3:
+    q = " ".join((request.GET.get("q") or "").upper().split())
+    if len(q) < 2:
         return JsonResponse({"items": []})
-    cond = Q(sku__startswith=q) | Q(description__icontains=q)
     key = q.replace(" ", "")
-    if len(key) == 6:  # a Floor SKU typed as XG9991 or XG9 991
-        cond |= Q(floor_sku=f"{key[:3]} {key[3:]}")
-    qs = SkuPackaging.objects.filter(cond).order_by("sku")[:20]
-    return JsonResponse({"items": [{"sku": p.sku, "floor": p.floor_sku, "description": p.description} for p in qs]})
+    code = Q(sku__startswith=key)
+    floor = Q()
+    if key.isalnum() and len(key) <= 6:   # a Floor SKU typed with or without the space
+        floor = Q(floor_sku__startswith=key[:3] + (" " + key[3:] if len(key) > 3 else ""))
+    words = Q()
+    for w in q.split():
+        words &= Q(description__icontains=w)
+    cond = code | floor | (words if len(q) >= 3 else Q(pk__in=[]))
+    qs = (SkuPackaging.objects.filter(cond, active=True)
+          .annotate(rank=Case(When(sku=key, then=Value(0)), When(code, then=Value(1)),
+                              When(floor, then=Value(2)) if floor else When(pk__in=[], then=Value(2)),
+                              default=Value(3), output_field=IntegerField()))
+          .order_by("rank", "floor_sku", "sku")[:25])
+    return JsonResponse({"items": [{"sku": p.sku, "floor": p.floor_sku, "description": p.description,
+                                    "uom": {"LTR": "L", "KG": "K"}.get(p.measure_family, p.uom),
+                                    "pack": format(p.pack_size.normalize(), "f") if p.pack_size else ""}
+                                   for p in qs]})
 
 
 @require_POST

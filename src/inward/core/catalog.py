@@ -124,6 +124,9 @@ FEATURE_FLAGS = {
     "daily_status_time": ("09:30", "Time (IST) after which the daily status of incomplete IWs is mailed"),
     "damage_reason_codes": (["63", "68"], "Oracle reason codes accepted for internal damage transfers to DMG; "
                                           "any other code is flagged for the System Supervisor"),
+    "irr_mail_subject": ("ISSUE/RECEIPT Register", "Daily IRR mail: text contained in its subject (partial match)"),
+    "irr_fetch_time": ("08:30", "Daily IRR mail: from this time (IST) the worker looks for today's IRR every 10 minutes"),
+    "irr_fetch_deadline": ("11:00", "Daily IRR mail: if none has come by this time, the summary says so"),
     "irr_recon_damage_from": ("2026-10-18", "IRR engine: transfers to DMG from this date need an approved internal "
                                              "damage report (earlier ones are history)"),
     "damage_approval_reminder_hours": (24, "Hours after the internal damage approval mail before one reminder"),
@@ -140,7 +143,11 @@ NOTIFICATION_PURPOSES = {
     "IRR_RECON_REPORT": [("Admin Officer", "TO"), ("CFA Manager", "TO"), ("Clerk", "TO")],
     "DAILY_UNLOADING": [("CFA Manager", "TO")],
     "DAMAGE_APPROVAL": [("Depot Manager", "TO"), ("Admin Officer", "TO"), ("CFA Manager", "CC")],
-    "IRR_EXCEPTIONS": [("System Supervisor", "TO"), ("CFA Manager", "TO")],
+    "IRR_EXCEPTIONS": [("System Supervisor", "TO"), ("CFA Manager", "TO"), ("Admin Officer", "TO")],
 }
+
+# internal damage reasons the app starts with (code, name, photo required, remarks required, order)
+DAMAGE_CATEGORIES = [("HANDLING", "Handling damage (labour)", True, False, 10), ("EXPIRY", "Expiry", False, False, 20),
+                     ("LEAKAGE", "Lid open / leakage", True, False, 30), ("OTHER", "Other", True, True, 90)]
 
 DEFAULT_RATES = {"UNLOADING_PER_TON": "300.00", "DAMAGE_CARTON": "50.00", "DAMAGE_DRUM": "150.00"}

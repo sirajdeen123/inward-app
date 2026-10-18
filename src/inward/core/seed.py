@@ -51,4 +51,9 @@ def seed_reference_data(go_live: date, depot_code: str = "035", depot_name: str 
     for rate_type, amount in DEFAULT_RATES.items():
         if not RateMaster.objects.filter(rate_type=rate_type).exists():
             RateMaster.objects.create(rate_type=rate_type, amount=Decimal(amount), effective_from=go_live)
+    from inward.core.catalog import DAMAGE_CATEGORIES
+    from inward.damage.models import DamageCategory
+    for code, name, photo, remarks, order in DAMAGE_CATEGORIES:   # never overwrites the supervisor's edits
+        DamageCategory.objects.get_or_create(code=code, defaults={"name": name, "photo_required": photo,
+                                                                  "remarks_required": remarks, "sort_order": order})
     audit.record("SEED_REFERENCE_DATA", "system", "seed", go_live=go_live)

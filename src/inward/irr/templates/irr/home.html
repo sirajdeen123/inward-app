@@ -2,6 +2,18 @@
 {% block title %}IRR import{% endblock %}
 {% block content %}
 <h1>IRR import</h1>
+<div class="card">
+  <h2>Daily IRR from Gmail</h2>
+  <p>Every day from <b>{{ auto.fetch_time|time:"h:i A" }}</b> the app looks (every 10 minutes) for today's mail whose subject contains <b>"{{ auto.subject }}"</b>, imports the IRR, runs the reconciliation and mails the summary for yesterday to the CFA Manager, Admin Officer and System Supervisor. If nothing has come by <b>{{ auto.deadline|time:"h:i A" }}</b>, the summary says so.</p>
+  <form method="post" action="{% url 'irr:fetch' %}" class="inline-form">{% csrf_token %}<button type="submit" class="btn btn-sm">Fetch IRR from Gmail now</button></form>
+  {% if auto_runs %}<table class="tbl" style="margin-top:8px"><tbody>{% for a in auto_runs %}<tr><td>{{ a.period }}</td><td>{{ a.created_at|date:"h:i A" }}</td><td class="small">{{ a.skipped }}</td></tr>{% endfor %}</tbody></table>{% endif %}
+  {% if can_set %}<details style="margin-top:8px"><summary>Change the IRR mail settings</summary>
+    <form method="post" action="{% url 'irr:auto_settings' %}" class="form-grid">{% csrf_token %}
+      <div class="field span-all"><label for="a-s">Subject contains *</label><input id="a-s" name="subject" value="{{ auto.subject }}" required></div>
+      <div class="field"><label for="a-t">Look from (HH:MM) *</label><input id="a-t" name="fetch_time" value="{{ auto.fetch_time|time:'H:i' }}" required></div>
+      <div class="field"><label for="a-d">Give up at (HH:MM) *</label><input id="a-d" name="deadline" value="{{ auto.deadline|time:'H:i' }}" required></div>
+      <div class="span-all"><button type="submit" class="btn btn-sm btn-primary">Save</button></div></form></details>{% endif %}
+</div>
 <p class="muted">Oracle "ISSUE/RECEIPT Register" for org 035. Files may overlap: rows already in the history are skipped, later rows of the same day are added. An import never closes anything - run the reconciliation from each IW's "ERP &amp; IRR" page.</p>
 <div class="kpis">
   <div class="card kpi"><div class="kpi-label">Rows in history</div><div class="kpi-value">{{ rows }}</div></div>

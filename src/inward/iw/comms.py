@@ -639,6 +639,10 @@ def run_once(transport, read_inbox: bool = True) -> dict:
         stats.update(process_outbox(transport))  # Gmail is contacted only when something waits
     from inward.damage.services import send_reminders as damage_reminders, waiting_replies
     stats["reminders"] = send_reminders() + damage_reminders()
+    from inward.irr import autofetch
+    irr = autofetch.run(transport)   # today's IRR from Gmail -> import -> engine -> summary mail
+    if irr != "idle":
+        stats["irr"] = irr
     if not read_inbox or not (SedApproval.objects.filter(status__in=[A.REQUESTED, A.REJECTED]).exists()
                               or waiting_replies()):
         return stats

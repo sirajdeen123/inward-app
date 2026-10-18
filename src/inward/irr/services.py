@@ -52,7 +52,7 @@ def _row(t: IrrTransaction) -> IrrRow:
 
 
 @transaction.atomic
-def import_irr(user: User, path: Path, filename: str) -> ImportBatch:
+def import_irr(user: User, path: Path, filename: str, source: str = "MANUAL") -> ImportBatch:
     require(user, "IMPORT_RECONCILE")
     sha = file_sha256(path)
     existing = ImportBatch.objects.filter(kind="IRR", sha256=sha).first()
@@ -74,7 +74,7 @@ def import_irr(user: User, path: Path, filename: str) -> ImportBatch:
     review = [{"type": k[0], "trx": k[1], "date": k[2].isoformat()} for k, a in plan.actions.items()
               if a is GroupAction.REVIEW]
     batch = ImportBatch.objects.create(
-        kind="IRR", source="MANUAL", filename=filename, sha256=sha, document=doc, uploaded_by=user,
+        kind="IRR", source=source, filename=filename, sha256=sha, document=doc, uploaded_by=user,
         window_from=parsed.report_from, window_to=parsed.report_to,
         row_count=len(parsed.rows) + len(parsed.issues), accepted_count=len(plan.rows_to_add),
         issue_count=len(parsed.issues), status="REVIEW" if review else "ACCEPTED",

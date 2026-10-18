@@ -20,8 +20,53 @@ from inward.web.views import PreviewForm, needs
 def irr_home(request):
     batches = ImportBatch.objects.filter(kind="IRR").select_related("uploaded_by").order_by("-uploaded_at")[:30]
     span = IrrTransaction.objects.order_by("trx_date").values_list("trx_date", flat=True)
+    from inward.accounts.services import role_codes
+    from inward.irr import autofetch
+    from inward.iw.models import ReportRun
     return render(request, "irr/home.html", {"batches": batches, "rows": IrrTransaction.objects.count(),
-                                             "first": span.first(), "last": span.last()})
+                                             "first": span.first(), "last": span.last(), "auto": autofetch.settings_now(),
+                                             "auto_runs": ReportRun.objects.filter(kind=autofetch.KIND).order_by("-period")[:7],
+                                             "can_set": bool({"CFA_MANAGER", "ADMINISTRATOR"} & set(role_codes(request.user)))})
+
+
+@require_POST
+@needs("IMPORT_RECONCILE")
+def irr_fetch_now(request):
+    from inward.irr import autofetch
+    from inward.mail.gmail import from_settings
+    try:
+        out = autofetch.import_from_mail(from_settings(), request.user)
+        (messages.success if out.status == "imported" else messages.warning)(request, out.message)
+    except (ImportFailed, PermissionDenied) as exc:
+        messages.error(request, str(exc))
+    except Exception as exc:  # noqa: BLE001 - mailbox not reachable etc.
+        messages.error(request, f"Gmail could not be read: {exc}")
+    return redirect("irr:home")
+
+
+@require_POST
+@needs("IMPORT_RECONCILE")
+def irr_auto_settings(request):
+    import re
+
+    from inward.accounts.services import role_codes
+    from inward.core import audit
+    from inward.core.models import FeatureFlag
+    if not {"CFA_MANAGER", "ADMINISTRATOR"} & set(role_codes(request.user)):
+        messages.error(request, "Only the CFA Manager or Administrator changes the IRR mail settings.")
+        return redirect("irr:home")
+    values = {"irr_mail_subject": request.POST.get("subject", "").strip(),
+              "irr_fetch_time": request.POST.get("fetch_time", "").strip(),
+              "irr_fetch_deadline": request.POST.get("deadline", "").strip()}
+    if len(values["irr_mail_subject"]) < 4 or not all(re.match(r"^\d{1,2}:\d{2}$", values[k])
+                                                     for k in ("irr_fetch_time", "irr_fetch_deadline")):
+        messages.error(request, "Enter the subject text (at least 4 characters) and times as HH:MM.")
+        return redirect("irr:home")
+    for key, value in values.items():
+        FeatureFlag.objects.filter(key=key).update(value={"value": value})
+    audit.record("IRR_AUTO_SETTINGS", "feature_flag", "irr_mail", user=request.user, after=values)
+    messages.success(request, "IRR mail settings saved.")
+    return redirect("irr:home")
 
 
 @require_POST

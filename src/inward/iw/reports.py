@@ -165,7 +165,7 @@ SPECS = {
     "DAILY_UNL": Spec("DAILY_UNL", "DAILY_UNLOADING", "iw/mail/report_unloading.html", "Daily unloading collection"),
     "MONTHLY_MIS": Spec("MONTHLY_MIS", "MONTHLY_MIS", "iw/mail/report_mis.html", "Monthly MIS"),
     "SED_REPORT": Spec("SED_REPORT", "SED_REPORT", "iw/mail/report_sed.html", "SED report"),
-    "IRR_EXC": Spec("IRR_EXC", "IRR_EXCEPTIONS", "irrecon/mail_summary.html", "IRR reconciliation summary"),
+    "IRR_EXC": Spec("IRR_EXC", "IRR_EXCEPTIONS", "irrecon/mail_summary.html", "IRR Reconciliation Summary"),
 }
 
 
@@ -226,8 +226,6 @@ def due_reports(now=None) -> list[ReportRun]:
     if not ReportRun.objects.filter(kind="DAILY_ESC", period=key).exists():
         out.append(queue_report("DAILY_ESC", key, {"r": daily_escalation(day)}))
         escalate_exceptions()
-    if not ReportRun.objects.filter(kind="IRR_EXC", period=key).exists():
-        out.append(queue_report("IRR_EXC", key, {"r": irr_summary(day)}))
     if day.day == 1:
         prev = day - timedelta(days=1)
         month = f"{prev:%Y-%m}"
@@ -239,15 +237,19 @@ def due_reports(now=None) -> list[ReportRun]:
     return out
 
 
-def irr_summary(day: date | None = None) -> dict:
-    """Daily IRR reconciliation summary: yesterday's rows, the whole IRR, and the open exceptions."""
+def irr_summary(day: date | None = None, fetched: dict | None = None) -> dict:
+    """IRR Reconciliation Summary for yesterday (sent after the day's IRR is imported from Gmail): yesterday's
+    families and exceptions first, then this month, the whole IRR and the older open exceptions."""
     from inward.irrecon.models import IrrMatch, IrrReconRun
     from inward.irrecon.summary import summary
     day = day or timezone.localdate()
     prev = day - timedelta(days=1)
     open_qs = IrrMatch.objects.filter(status="OPEN").select_related("row").order_by("-row__trx_date", "group")
     return {"day": day, "yesterday": summary(prev, prev), "prev": prev, "all": summary(),
-            "month": summary(day.replace(day=1), day), "open_rows": list(open_qs[:150]), "open_count": open_qs.count(),
+            "month": summary(day.replace(day=1), day), "fetched": fetched,
+            "y_open_rows": list(open_qs.filter(row__trx_date=prev)[:200]),
+            "open_rows": list(open_qs.exclude(row__trx_date=prev)[:100]),
+            "older_open_count": open_qs.exclude(row__trx_date=prev).count(), "open_count": open_qs.count(),
             "run": IrrReconRun.objects.first()}
 
 

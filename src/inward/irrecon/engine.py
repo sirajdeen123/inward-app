@@ -1,6 +1,6 @@
 """The matching rules, from the analysis of the IRR (01-May to 12-Sep-2026, 18,261 rows):
 
-SUBINV   Subinventory Transfer: Issue TRX N <-> Receipt TRX N+1 (sometimes N+2 / N+3), same SKU, pieces and lot, the
+SUBINV   Subinventory Transfer: Issue TRX N <-> Receipt TRX N+1 (sometimes up to N+10), same SKU, pieces and lot, the
          receipt's source = the issue's destination. A transfer INTO the DMG sub-inventory must be explained by an
          approved internal damage report or an IW damage TRX (from the cut-off date).
 PICK     Internal Order Pick: the same pairing (stock moved to 035OUT for an outbound order).
@@ -28,6 +28,8 @@ S = IrrMatch.Status
 ZERO = Decimal(0)
 TOLERANCE = Decimal("0.005")
 CONVERSION_CODES = {"31", "32", "33", "0801"}
+# the receipt half is usually TRX N+1; Oracle sometimes numbers it a few further away (seen up to N+6)
+OFFSETS = [d for k in range(1, 11) for d in (k, -k)]
 
 
 def _flag_date(key: str, default: date) -> date:
@@ -83,7 +85,7 @@ class Engine:
         for i in issues:
             n = _num(i.trx_number)
             hit = None
-            for d in (1, 2, 3, -1, -2, -3):
+            for d in OFFSETS:
                 for c in by_key.get((n + d, i.sku) if n is not None else (None, None), []):
                     if c.pk in used or c.no_of_pack != i.no_of_pack:
                         continue
@@ -97,14 +99,14 @@ class Engine:
                     break
             if hit is None:
                 self.set(i, family, S.OPEN, f"{prefix}:{i.trx_number}",
-                         f"No matching receipt half (TRX {i.trx_number}+1..3, same SKU / pieces / lot)")
+                         f"No matching receipt half (TRX {i.trx_number} +1..10, same SKU / pieces / lot)")
                 continue
             used.add(hit.pk)
             matched.append((i, hit))
         for r in rows:
             if r.transaction_type.upper() == "RECEIPT" and r.pk not in used:
                 self.set(r, family, S.OPEN, f"{prefix}:{r.trx_number}",
-                         f"No matching issue half (TRX {r.trx_number}-1..3, same SKU / pieces / lot)")
+                         f"No matching issue half (TRX {r.trx_number} -1..10, same SKU / pieces / lot)")
         return matched
 
     def subinventory(self, rows):

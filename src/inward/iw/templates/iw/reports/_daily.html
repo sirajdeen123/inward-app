@@ -14,7 +14,10 @@
 {% if r.ships %}<table class="rt"><tr><th>Ship</th><th>From</th><th>Status</th></tr>{% for s in r.ships %}<tr><td>{{ s.ship_id }}</td><td>{{ s.from_org_code }} {{ s.from_org_name }}</td><td>{{ s.get_status_display }}</td></tr>{% endfor %}</table>{% else %}<p>None.</p>{% endif %}
 
 <h4>SED approvals pending / rejected</h4>
-{% if r.approvals %}<table class="rt"><tr><th>IW</th><th>MRA</th><th>Status</th><th>Requested</th></tr>{% for a in r.approvals %}<tr><td>{{ a.iw }}</td><td>{{ a.mra.label }}</td><td>{{ a.get_status_display }}</td><td>{{ a.created_at|date:"d-M-Y H:i" }}</td></tr>{% endfor %}</table>{% else %}<p>None.</p>{% endif %}
+{% if r.approvals %}<table class="rt"><tr><th>IW</th><th>MRA</th><th>Status</th><th>Requested</th></tr>{% for a in r.approvals %}<tr><td>{{ a.iw }}</td><td>{{ a.mra.label }}</td><td>{{ a.get_status_display }}</td><td>{{ a.created_at|date:"d-M-Y h:i A" }}</td></tr>{% endfor %}</table>{% else %}<p>None.</p>{% endif %}
 
 <h4>Mail-pending releases still unsent</h4>
-{% if r.releases %}<table class="rt"><tr><th>IW</th><th>Released</th><th>Reason</th></tr>{% for x in r.releases %}<tr><td>{{ x.iw }}</td><td>{{ x.released_at|date:"d-M-Y H:i" }}</td><td>{{ x.reason }}</td></tr>{% endfor %}</table>{% else %}<p>None.</p>{% endif %}
+{% if r.releases %}<table class="rt"><tr><th>IW</th><th>Released</th><th>Reason</th></tr>{% for x in r.releases %}<tr><td>{{ x.iw }}</td><td>{{ x.released_at|date:"d-M-Y h:i A" }}</td><td>{{ x.reason }}</td></tr>{% endfor %}</table>{% else %}<p>None.</p>{% endif %}
+
+<h4>New organisations / e-mails waiting for the CFA Manager's verification</h4>
+{% if r.unverified %}<table class="rt"><tr><th>For</th><th>E-mail</th><th>Entered by</th></tr>{% for u in r.unverified %}<tr><td>{{ u.owner }}</td><td>{{ u.email }}</td><td>{{ u.by|default:"-" }}</td></tr>{% endfor %}</table>{% else %}<p>None.</p>{% endif %}

@@ -23,7 +23,7 @@ class SitImportRejected(Exception):
 
 class AlreadyImported(SitImportRejected):
     def __init__(self, batch: ImportBatch):
-        super().__init__(f"Already imported on {batch.uploaded_at:%d-%b-%Y %H:%M} ({batch.filename}).")
+        super().__init__(f"Already imported on {batch.uploaded_at:%d-%b-%Y %I:%M %p} ({batch.filename}).")
         self.batch = batch
 
 

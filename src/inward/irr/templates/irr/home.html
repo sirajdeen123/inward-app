@@ -17,7 +17,7 @@
   <h2>Imports</h2>
   {% if batches %}
   <table class="tbl stack"><thead><tr><th>Uploaded</th><th>File</th><th>Report</th><th class="num">Rows</th><th class="num">Added</th><th>Result</th></tr></thead>
-    <tbody>{% for b in batches %}<tr><td data-label="Uploaded">{{ b.uploaded_at|date:"d-M-Y H:i" }}<div class="muted">{{ b.uploaded_by.username }}</div></td><td data-label="File">{{ b.filename }}</td>
+    <tbody>{% for b in batches %}<tr><td data-label="Uploaded">{{ b.uploaded_at|date:"d-M-Y h:i A" }}<div class="muted">{{ b.uploaded_by.username }}</div></td><td data-label="File">{{ b.filename }}</td>
       <td data-label="Report">{{ b.window_from|date:"d-M-Y" }} - {{ b.window_to|date:"d-M-Y" }}</td><td class="num" data-label="Rows">{{ b.row_count }}</td><td class="num" data-label="Added">{{ b.accepted_count }}</td>
       <td data-label="Result">{% if b.status == 'REVIEW' %}<span class="chip chip-warn">{{ b.summary.review_count }} not applied</span>
         <details><summary>show</summary>{% for r in b.summary.review %}<div class="mono">{{ r.type }} {{ r.trx }} {{ r.date }}</div>{% endfor %}</details>{% else %}<span class="chip chip-ok">Accepted</span>{% endif %}

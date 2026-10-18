@@ -32,6 +32,8 @@ def depot(request) -> dict:
             from inward.accounts.approvals import pending_for
             ctx["approvals_pending"] = pending_for(user).count()
             from inward.accounts.services import modes_for
+            ctx["can_cash"] = "GRANT" in modes_for(user, "CASH_REGISTER")
+            ctx["cash_only"] = ctx["can_cash"] and "GRANT" not in modes_for(user, "SEARCH_REPORTS")
             if "GRANT" in modes_for(user, "PACKAGING_REVIEW"):
                 from inward.core.models import PackagingChange
                 ctx["packaging_review_pending"] = PackagingChange.objects.filter(review="PENDING").count()

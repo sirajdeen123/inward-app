@@ -21,7 +21,7 @@ STORAGE = ("Primary copy: the application's document store on the RAINBOW LOGIST
 
 
 def _t(dt) -> str:
-    return timezone.localtime(dt).strftime("%d-%b-%Y %H:%M") if dt else "-"
+    return timezone.localtime(dt).strftime("%d-%b-%Y %I:%M %p") if dt else "-"
 
 
 def _file(doc: Document | None) -> dict | None:
@@ -52,7 +52,7 @@ def build(iw: Iw) -> dict:
         memos.append({
             "title": f"{m.kind.title()} memo - {m.source_label}", "kind": m.kind, "direct": m.direct, "lsccr": m.lsccr_no,
             "lines": [{"sku": ln.sku, "floor": ln.floor_sku, "desc": ln.description, "qty": str(q.normalize()),
-                       "value": f"{(ln.short_value if m.kind == 'SHORT' else ln.damage_value if m.kind == 'DAMAGE' else 0) or 0:.2f}",
+                       "value": f"{({'SHORT': ln.short_value, 'DAMAGE': ln.damage_value, 'EXCESS': ln.excess_value}[m.kind]) or 0:.2f}",
                        "remarks": {"SHORT": ln.short_remarks, "EXCESS": ln.excess_remarks, "DAMAGE": ln.damage_remarks}[m.kind],
                        "by": ln.updated_by.username if ln.updated_by_id else "", "at": _t(ln.updated_at)}
                       for ln, q in m.lines],

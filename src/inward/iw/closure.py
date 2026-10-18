@@ -142,7 +142,7 @@ def report_html(iw: Iw, results, gate_list, number: int, closed_by: str, closed_
     content = (iw.mras.first().content if iw.mras.exists() else {}) or {}
     return pdf.render_html("iw/recon_report.html", {
         "iw": iw, "c": content, "results": [r.as_dict() for r in results], "gates": gate_list, "number": number,
-        "closed_by": closed_by, "closed_at": timezone.localtime(closed_at).strftime("%d-%b-%Y %H:%M"),
+        "closed_by": closed_by, "closed_at": timezone.localtime(closed_at).strftime("%d-%b-%Y %I:%M %p"),
         "logo": branding.logo_data_uri(), "receipts": iw.receipts.select_related("ship_link", "vendor_consignment"),
         "trx": iw.sed_trx.all()})
 

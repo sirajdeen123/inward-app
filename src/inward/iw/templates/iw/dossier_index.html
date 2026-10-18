@@ -3,10 +3,10 @@
 <style>body{font-family:Arial,sans-serif;font-size:14px;margin:24px}table{border-collapse:collapse}td,th{border:1px solid #bbb;padding:4px 8px;text-align:left}th{background:#eee}.h{font-family:monospace;font-size:11px}</style></head>
 <body>
 <h1>IW Dossier {{ iw.iw_no }}</h1>
-<p>{{ iw.vehicle_no }} · {{ iw.load_type }} · arrived {{ iw.arrival_at|date:"d-M-Y H:i" }} · status {{ iw.get_status_display }}<br>
-Generated {{ generated|date:"d-M-Y H:i" }} by the Stock Inward application. Each file's SHA-256 matches the application's document store.</p>
+<p>{{ iw.vehicle_no }} · {{ iw.load_type }} · arrived {{ iw.arrival_at|date:"d-M-Y h:i A" }} · status {{ iw.get_status_display }}<br>
+Generated {{ generated|date:"d-M-Y h:i A" }} by the Stock Inward application. Each file's SHA-256 matches the application's document store.</p>
 <table><tr><th>File</th><th>Type</th><th>Stored</th><th>SHA-256</th></tr>
-{% for name, d, role in docs %}<tr><td><a href="{{ name|urlencode }}">{{ name }}</a></td><td>{{ d.doc_type }}</td><td>{{ d.created_at|date:"d-M-Y H:i" }}</td><td class="h">{{ d.sha256 }}</td></tr>{% endfor %}
+{% for name, d, role in docs %}<tr><td><a href="{{ name|urlencode }}">{{ name }}</a></td><td>{{ d.doc_type }}</td><td>{{ d.created_at|date:"d-M-Y h:i A" }}</td><td class="h">{{ d.sha256 }}</td></tr>{% endfor %}
 </table>
 <p><a href="audit_trail.csv">Audit trail (CSV)</a></p>
 </body></html>

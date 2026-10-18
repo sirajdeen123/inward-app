@@ -300,7 +300,7 @@ def detail(iw: Iw) -> dict:
     sed = [r for r in results if r["kind"] == "SED"]
     for r in sed:   # "SED Ship 53481142 short" -> "Ship 53481142 short"
         r["kind_label"] = r["track"][4:] if r["track"].startswith("SED ") else r["track"]
-    return {"results": results, "sed": sed, "all_ok": bool(results) and all(r["ok"] for r in results),
+    return {"results": results, "sed": sed, "all_ok": all(r["ok"] for r in results),
             "skus": sum(len(r["lines"]) for r in results), "total": total, "receipts": len(stock)}
 
 

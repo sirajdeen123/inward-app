@@ -19,7 +19,7 @@
     <div class="span-all">{% if not link.lscrr_no and link.sed_lines.exists %}<span class="chip chip-warn">LSCCR No needed before the SED TRX Nos</span>{% endif %} <button type="submit" class="btn btn-sm">Save LSCCR No</button></div>
   </form>
   {% endif %}
-  <table class="tbl"><tbody>{% for r in link.receipts.all %}<tr><td>{{ r.get_kind_display }}</td><td class="mono"><b>{{ r.receipt_no }}</b></td><td class="muted">{{ r.entered_at|date:"d-M-Y H:i" }}</td>
+  <table class="tbl"><tbody>{% for r in link.receipts.all %}<tr><td>{{ r.get_kind_display }}</td><td class="mono"><b>{{ r.receipt_no }}</b></td><td class="muted">{{ r.entered_at|date:"d-M-Y h:i A" }}</td>
     <td>{% if open %}<form method="post" action="{% url 'iw:receipt_remove' iw.pk r.pk %}" class="inline-form">{% csrf_token %}<button type="submit" class="btn btn-sm">Remove</button></form>{% endif %}</td></tr>{% empty %}<tr><td class="muted">No receipt entered.</td></tr>{% endfor %}</tbody></table>
   {% if open %}<form method="post" action="{% url 'iw:receipt_add' iw.pk %}" class="inline">{% csrf_token %}<input type="hidden" name="ref" value="SHIP:{{ link.pk }}">
     <input type="hidden" name="kind" value="NORMAL">
@@ -30,7 +30,7 @@
 {% for c in vendors %}
 <div class="card">
   <h2>Vendor {{ c.vendor_id }} · PO {{ c.po_no }} · challan {{ c.challan_no }}</h2>
-  <table class="tbl"><tbody>{% for r in c.receipts.all %}<tr><td>{{ r.get_kind_display }}</td><td class="mono"><b>{{ r.receipt_no }}</b></td><td class="muted">{{ r.entered_at|date:"d-M-Y H:i" }}</td>
+  <table class="tbl"><tbody>{% for r in c.receipts.all %}<tr><td>{{ r.get_kind_display }}</td><td class="mono"><b>{{ r.receipt_no }}</b></td><td class="muted">{{ r.entered_at|date:"d-M-Y h:i A" }}</td>
     <td>{% if open %}<form method="post" action="{% url 'iw:receipt_remove' iw.pk r.pk %}" class="inline-form">{% csrf_token %}<button type="submit" class="btn btn-sm">Remove</button></form>{% endif %}</td></tr>{% empty %}<tr><td class="muted">No PO receipt entered.</td></tr>{% endfor %}</tbody></table>
   {% if open %}<form method="post" action="{% url 'iw:receipt_add' iw.pk %}" class="inline">{% csrf_token %}<input type="hidden" name="ref" value="VENDOR:{{ c.pk }}"><input type="hidden" name="kind" value="PO">
     <input name="receipt_no" placeholder="PO Receipt No" aria-label="PO Receipt No for challan {{ c.challan_no }}" class="input-inline" required><button type="submit" class="btn btn-sm btn-primary">Add PO receipt</button></form>{% endif %}
@@ -54,7 +54,7 @@
     {% if open %}<form method="post" action="{% url 'iw:recon_run' iw.pk %}" class="inline-form">{% csrf_token %}<button type="submit" class="btn btn-primary">Run reconciliation</button></form>{% endif %}
     {% if live %}<a class="btn" href="{% url 'iw:recon_detail' iw.pk %}" target="_blank" rel="noopener">Detailed report (SKUs &amp; locators)</a>{% endif %}
     <a class="btn" href="{% url 'irr:home' %}">IRR import</a></div>
-  {% if run %}<p class="muted">Last saved run {{ run.run_at|date:"d-M-Y H:i" }} by {{ run.run_by.username }} · {% if run.all_ok %}<span class="chip chip-ok">all reconciled</span>{% else %}<span class="chip chip-warn">not complete</span>{% endif %}. Live view below.</p>{% endif %}
+  {% if run %}<p class="muted">Last saved run {{ run.run_at|date:"d-M-Y h:i A" }} by {{ run.run_by.username }} · {% if run.all_ok %}<span class="chip chip-ok">all reconciled</span>{% else %}<span class="chip chip-warn">not complete</span>{% endif %}. Live view below.</p>{% endif %}
   {% if live %}
   <table class="tbl stack"><thead><tr><th>Item</th><th>Numbers</th><th>Result</th><th>Details</th></tr></thead>
     <tbody>{% for r in live %}<tr><td data-label="Item">{{ r.track }}</td><td data-label="Numbers" class="mono">{{ r.numbers|join:", "|default:"-" }}</td>

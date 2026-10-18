@@ -17,7 +17,7 @@
     <button type="submit" class="btn">Upload and preview</button>
   </form>
   <p class="muted">Nothing changes until you confirm the preview. Drastic changes are flagged to the CFA Manager.</p>
-  {% for u in uploads %}<p class="muted">{{ u.uploaded_at|date:"d-M-Y H:i" }} · {{ u.filename }} · {{ u.get_status_display }} · {{ u.counts.new }} new, {{ u.counts.changed }} changed{% if u.counts.drastic %}, {{ u.counts.drastic }} drastic{% endif %} · by {{ u.uploaded_by }}</p>{% endfor %}
+  {% for u in uploads %}<p class="muted">{{ u.uploaded_at|date:"d-M-Y h:i A" }} · {{ u.filename }} · {{ u.get_status_display }} · {{ u.counts.new }} new, {{ u.counts.changed }} changed{% if u.counts.drastic %}, {{ u.counts.drastic }} drastic{% endif %} · by {{ u.uploaded_by }}</p>{% endfor %}
 </div>
 {% endif %}
 <form method="get" class="filters">

@@ -42,6 +42,7 @@
       <datalist id="sku-options"></datalist>
       <div id="x-desc" class="muted" aria-live="polite"></div></div>
     <div class="field"><label for="x-qty">Excess (pieces) *</label><input id="x-qty" name="excess_qty" inputmode="numeric" required value="{{ post.excess_qty }}"></div>
+    {% if can_value %}<div class="field"><label for="x-val">Excess value (Rs) <span class="muted">- information, not claimable</span></label><input id="x-val" name="excess_value" inputmode="decimal" value="{{ post.excess_value }}"></div>{% endif %}
     <div class="field span-all"><label for="x-rem">Remarks</label><input id="x-rem" name="excess_remarks" value="{{ post.excess_remarks }}" placeholder="Excess received - n pcs / wrong item received"></div>
     <div class="span-all"><button type="submit" class="btn btn-primary">Save EXCESS</button> <a class="btn" href="?#add">Cancel</a></div>
   </form>

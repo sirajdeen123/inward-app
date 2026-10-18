@@ -59,7 +59,7 @@ def daily_escalation(day: date | None = None) -> dict:
     claim = sum((ln.claimable for r in open_sed for ln in r.iw.sed_lines.all()), Decimal(0))
     return {"day": day, "open": rows, "aged": aged, "erp_pending": erp_pending, "irr_problem": irr_problem,
             "open_sed": open_sed, "approvals": approvals, "ships": list(ships[:200]), "releases": releases,
-            "claim_open": claim, "mail": ops.mail_alert()}
+            "claim_open": claim, "mail": ops.mail_alert(), "unverified": comms.unverified_emails()}
 
 
 def daily_unloading(day: date | None = None) -> dict:
@@ -122,7 +122,7 @@ def sed_xlsx(d1: date, d2: date) -> bytes:
     ws = wb.active
     ws.title = "SED"
     ws.append(["IW", "Verified", "Vehicle", "Source", "Transporter", "Reference", "SKU", "Floor SKU", "Description",
-               "Doc pcs", "Short", "Excess", "Damage", "Damage kind", "Short Rs", "Damage Rs", "Claimable Rs",
+               "Doc pcs", "Short", "Excess", "Damage", "Damage kind", "Short Rs", "Damage Rs", "Claimable Rs", "Excess Rs (not claimable)",
                "Remarks", "DM approval"])
     for ln in data["lines"]:
         ap = data["approvals"].get(ln.iw_id)
@@ -130,7 +130,7 @@ def sed_xlsx(d1: date, d2: date) -> bytes:
                    ln.iw.vehicle_no, str(ln.iw.source_org or ""), str(ln.iw.transporter or ""), ln.source_label, ln.sku,
                    ln.floor_sku, ln.description, float(ln.doc_pieces), float(ln.short_qty), float(ln.excess_qty),
                    float(ln.damage_qty), ln.get_damage_kind_display() if ln.damage_qty else "",
-                   float(ln.short_value or 0), float(ln.damage_value or 0), float(ln.claimable),
+                   float(ln.short_value or 0), float(ln.damage_value or 0), float(ln.claimable), float(ln.excess_value or 0),
                    " / ".join(x for x in (ln.short_remarks, ln.excess_remarks, ln.damage_remarks) if x),
                    ap.get_status_display() if ap else ""])
     out = io.BytesIO()

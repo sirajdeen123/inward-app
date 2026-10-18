@@ -10,20 +10,20 @@
 {% if error %}<div class="alert alert-error"><b>NOT SAVED</b> - {{ error }}</div>{% endif %}
 
 <div class="card bar">
-  {% if snap %}<span class="chip chip-ok">Checklist R{{ snap.revision }} · {{ snap.generated_at|date:"d-M-Y H:i" }}</span>
+  {% if snap %}<span class="chip chip-ok">Checklist R{{ snap.revision }} · {{ snap.generated_at|date:"d-M-Y h:i A" }}</span>
     {% if stale %}<span class="chip chip-warn">Material changed - regenerate the checklist</span>{% endif %}
     <a class="btn btn-sm" href="{% url 'iw:checklist_print' iw.pk snap.revision %}">Print checklist</a>
   {% else %}<span class="chip chip-warn">Checklist not generated</span>{% endif %}
   <a class="btn btn-sm" href="{% url 'iw:checklist' iw.pk %}">Checklist</a>
   <div class="grow"></div>
-  {% if iw.status == 'PHYSICALLY_VERIFIED' %}<span class="chip chip-ok">Verified by {{ iw.verified_by.full_name|default:iw.verified_by.username }} · {{ iw.verified_at|date:"d-M-Y H:i" }}</span>{% endif %}
+  {% if iw.status == 'PHYSICALLY_VERIFIED' %}<span class="chip chip-ok">Verified by {{ iw.verified_by.full_name|default:iw.verified_by.username }} · {{ iw.verified_at|date:"d-M-Y h:i A" }}</span>{% endif %}
 </div>
 
 <div class="kpis">
   <div class="card kpi"><div class="kpi-label">SED lines</div><div class="kpi-value">{{ totals.lines }}</div></div>
   <div class="card kpi"><div class="kpi-label">Short / Excess / Damage pcs</div><div class="kpi-value">{{ totals.short|floatformat:"-3" }} / {{ totals.excess|floatformat:"-3" }} / {{ totals.damage|floatformat:"-3" }}</div></div>
   <div class="card kpi"><div class="kpi-label">Short + Damage value</div><div class="kpi-value">Rs {{ totals.short_value|floatformat:2 }} + {{ totals.damage_value|floatformat:2 }}</div></div>
-  <div class="card kpi"><div class="kpi-label">Total claimable</div><div class="kpi-value">Rs {{ totals.claimable|floatformat:2 }}</div>{% if totals.values_missing %}<div class="warn-text">{{ totals.values_missing }} line(s) without value</div>{% endif %}</div>
+  <div class="card kpi"><div class="kpi-label">Total claimable</div><div class="kpi-value">Rs {{ totals.claimable|floatformat:2 }}</div>{% if totals.excess_value %}<div class="muted">Excess value Rs {{ totals.excess_value|floatformat:2 }} - not claimable</div>{% endif %}{% if totals.values_missing %}<div class="warn-text">{{ totals.values_missing }} line(s) without value</div>{% endif %}</div>
 </div>
 
 <div class="card">
@@ -37,7 +37,7 @@
       <td class="num" data-label="Doc pcs">{% if ln.is_extra %}-{% else %}{{ ln.doc_pieces|floatformat:"-3" }}{% endif %}</td>
       <td class="num" data-label="Short">{{ ln.short_qty|floatformat:"-3" }}</td><td class="num" data-label="Excess">{{ ln.excess_qty|floatformat:"-3" }}</td>
       <td class="num" data-label="Damage">{{ ln.damage_qty|floatformat:"-3" }}{% if ln.damage_kind == 'CONTAINER' %}<div class="muted">{{ ln.container_count }} {{ ln.container_type|lower }}(s) @ {{ ln.container_rate|floatformat:0 }}</div>{% endif %}</td>
-      <td class="num" data-label="Value Rs">{% if ln.short_qty %}S {{ ln.short_value|floatformat:2|default:"-" }}{% endif %}{% if ln.damage_qty %}<div>D {{ ln.damage_value|floatformat:2|default:"-" }}</div>{% endif %}</td>
+      <td class="num" data-label="Value Rs">{% if ln.short_qty %}S {{ ln.short_value|floatformat:2|default:"-" }}{% endif %}{% if ln.damage_qty %}<div>D {{ ln.damage_value|floatformat:2|default:"-" }}</div>{% endif %}{% if ln.excess_qty %}<div class="muted">E {{ ln.excess_value|floatformat:2|default:"-" }}</div>{% endif %}</td>
       <td data-label="Remarks">{% if ln.short_remarks %}<div>{{ ln.short_remarks }}</div>{% endif %}{% if ln.excess_remarks %}<div>{{ ln.excess_remarks }}</div>{% endif %}{% if ln.damage_remarks %}<div>{{ ln.damage_remarks }}</div>{% endif %}</td>
       <td data-label="Photos">{% if ln.damage_qty %}
         <div class="thumbs">{% for ph in ln.photos.all %}<a href="{% url 'iw:sed_photo' ph.pk 'original' %}" target="_blank" rel="noopener"><img src="{% url 'iw:sed_photo' ph.pk 'preview' %}" alt="Damage photo {{ forloop.counter }} of {{ ln.floor_sku }}" class="thumb"></a>
@@ -65,7 +65,7 @@
       <p><b>{% if declaration_kind == 'NIL' %}You are declaring NIL SED - the consignment was received in full and in good condition.{% else %}You are declaring {{ totals.lines }} SED line(s): short {{ totals.short|floatformat:"-3" }}, excess {{ totals.excess|floatformat:"-3" }}, damage {{ totals.damage|floatformat:"-3" }} pcs.{% endif %}</b></p>
       {% for key, text in declarations %}<label class="check"><input type="checkbox" name="confirm" value="{{ key }}" required> {{ text }}</label>{% endfor %}
       {% if rejected %}<div class="alert alert-warning"><b>Entries that were NOT saved:</b>
-        {% for r in rejected %}<div>{{ r.at|date:"H:i" }} · {{ r.kind|title }} · {{ r.sku }} · {{ r.error }}{% if r.by %} ({{ r.by }}){% endif %}</div>{% endfor %}
+        {% for r in rejected %}<div>{{ r.at|date:"h:i A" }} · {{ r.kind|title }} · {{ r.sku }} · {{ r.error }}{% if r.by %} ({{ r.by }}){% endif %}</div>{% endfor %}
         <div>Record them again above. If there is really nothing to record, tick:</div></div>
         <label class="check"><input type="checkbox" name="confirm" value="rejected_checked" required> {{ rejected_text }}</label>{% endif %}
       <p class="muted">Your name and the time are recorded and printed on the MRA.</p>

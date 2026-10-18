@@ -1,0 +1,45 @@
+{% load static %}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cash statement {{ st.from|date:"M-Y" }}</title>
+{% if not for_pdf %}<link rel="stylesheet" href="{% static 'inward/recon.css' %}">{% endif %}
+</head>
+<body>
+{% if not for_pdf %}<div class="toolbar"><a href="{% url 'cash:register' %}?month={{ month }}">&larr; Cash register</a>
+  <span class="grow"></span><button type="button" id="print-btn">Print</button>
+  <a class="btnlink" href="?month={{ month }}&amp;xlsx=1">Excel</a>
+  {% if pdf_available %}<a class="btnlink" href="?month={{ month }}&amp;pdf=1" target="_blank" rel="noopener">PDF</a>{% endif %}</div>{% endif %}
+<div class="runhead"><table class="rh"><tr>
+  <td class="rh-logo">{% if logo %}<img src="{{ logo }}" alt="logo">{% endif %}</td>
+  <td class="rh-co"><div class="co">{{ depot.company|default:"" }}</div><div>Depot {{ depot.code }} · {{ depot.name }}</div>{% if depot.cfa %}<div>Operated by: {{ depot.cfa }} (CFA)</div>{% endif %}
+    <div class="doc">CASH STATEMENT</div></td>
+  <td class="rh-iw"><div class="iwno">{{ st.from|date:"F Y" }}</div><div>{{ st.from|date:"d-M-Y" }} to {{ st.to|date:"d-M-Y" }}</div></td></tr></table></div>
+<div class="runfoot">Cash statement {{ st.from|date:"M-Y" }} · generated {{ generated|date:"d-M-Y h:i A" }} by {{ by }}</div>
+<main>
+  <h2>Summary</h2>
+  <table class="tbl"><tbody>
+    <tr><th>Opening balance ({{ st.from|date:"d-M-Y" }})</th><td class="num">Rs {{ st.opening|floatformat:2 }}</td></tr>
+    <tr><th>Cash received</th><td class="num">Rs {{ st.cash_in|floatformat:2 }}</td></tr>
+    <tr><th>Expenses</th><td class="num">Rs {{ st.expenses|floatformat:2 }}</td></tr>
+    <tr><th>Handed over to the manager</th><td class="num">Rs {{ st.handovers|floatformat:2 }}</td></tr>
+    <tr><th>Closing balance ({{ st.to|date:"d-M-Y" }})</th><td class="num"><b>Rs {{ st.closing|floatformat:2 }}</b></td></tr></tbody></table>
+  {% if st.by_category %}<h2>Expenses by category</h2>
+  <table class="tbl"><tbody>{% for c in st.by_category %}<tr><td>{{ c.category }}</td><td class="num">Rs {{ c.total|floatformat:2 }}</td></tr>{% endfor %}</tbody></table>{% endif %}
+  <div class="signs"><div>Cashier: ____________________</div><div>Checked by (CFA Manager): ____________________</div></div>
+  <h2>Entries</h2>
+  <table class="tbl detail"><thead><tr><th>Date</th><th>Entry</th><th>Details</th><th class="num">In</th><th class="num">Out</th><th class="num">Balance</th></tr></thead>
+    <tbody><tr><td>{{ st.from|date:"d-M-Y" }}</td><td><b>Opening</b></td><td></td><td></td><td></td><td class="num"><b>{{ st.opening|floatformat:2 }}</b></td></tr>
+    {% for r in st.rows %}{% with e=r.e %}<tr><td>{{ e.entry_date|date:"d-M-Y" }}</td><td>{{ e.get_kind_display }}{% if e.category %} · {{ e.category }}{% endif %}</td>
+      <td>{{ e.description }}{% if e.paid_to and e.kind == 'EXPENSE' %} · paid to {{ e.paid_to }}{% endif %} <span class="small">({{ e.created_by }}{% if e.done_by_id and e.done_by_id != e.created_by_id %} / {{ e.done_by }}{% endif %}{% if e.bill_id %} · bill{% endif %})</span></td>
+      <td class="num">{% if e.is_inflow %}{{ e.amount|floatformat:2 }}{% endif %}</td><td class="num">{% if not e.is_inflow %}{{ e.amount|floatformat:2 }}{% endif %}</td><td class="num">{{ r.balance|floatformat:2 }}</td></tr>{% endwith %}{% endfor %}
+    </tbody><tfoot><tr><th colspan="3">Closing balance</th><th class="num">{{ st.cash_in|floatformat:2 }}</th><th class="num">{{ st.expenses|add:st.handovers|floatformat:2 }}</th><th class="num">{{ st.closing|floatformat:2 }}</th></tr></tfoot></table>
+  {% if st.pending %}<h2>Not yet received / confirmed (not in the balance)</h2>
+  <table class="tbl"><tbody>{% for e in st.pending %}<tr><td>{{ e.created_at|date:"d-M-Y" }}</td><td>{{ e.get_kind_display }}</td><td>{{ e.description }}</td><td class="num">{{ e.amount|floatformat:2 }}</td></tr>{% endfor %}</tbody></table>{% endif %}
+  {% if st.cancelled %}<h2>Cancelled entries</h2>
+  <table class="tbl"><tbody>{% for e in st.cancelled %}<tr><td>{{ e.created_at|date:"d-M-Y" }}</td><td>{{ e.get_kind_display }}</td><td>{{ e.description }}</td><td class="num">{{ e.amount|floatformat:2 }}</td><td>{{ e.cancel_reason }}</td></tr>{% endfor %}</tbody></table>{% endif %}
+</main>
+{% if not for_pdf %}<script src="{% static 'inward/print.js' %}" defer></script>{% endif %}
+</body>
+</html>

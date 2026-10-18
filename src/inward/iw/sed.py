@@ -144,6 +144,7 @@ class SedInput:
     container_count: object = ""
     short_value: object = ""
     damage_value: object = ""
+    excess_value: object = ""
     short_remarks: str = ""
     excess_remarks: str = ""
     damage_remarks: str = ""
@@ -211,12 +212,17 @@ def save_line(user: User, iw_pk: int, data: SedInput, line_pk: int | None = None
 
     short_value = _money(data.short_value, "Short value") if short else None
     damage_value = _money(data.damage_value, "Damage value") if damage else None
+    excess_value = _money(data.excess_value, "Excess value") if excess else None
     if "GRANT" not in modes_for(user, "SED_VALUE"):  # e.g. System Supervisor: quantities only
         old_short, old_damage = (line.short_value, line.damage_value) if line else (None, None)
-        if (short_value is not None and short_value != old_short) or                 (damage_value is not None and damage_value != old_damage):
+        old_excess = line.excess_value if line else None
+        if (short_value is not None and short_value != old_short) or \
+                (damage_value is not None and damage_value != old_damage) or \
+                (excess_value is not None and excess_value != old_excess):
             raise PermissionDenied("You may record SED quantities but not their financial values.")
         short_value = old_short if short else None
         damage_value = old_damage if damage else None
+        excess_value = old_excess if excess else None
     if damage_value is None and rate is not None:
         damage_value = (rate * count).quantize(Decimal("0.01"))  # the container charge pre-fills the value
 
@@ -229,7 +235,7 @@ def save_line(user: User, iw_pk: int, data: SedInput, line_pk: int | None = None
                      or SkuPackaging.objects.filter(sku=sku).values_list("description", flat=True).first() or "")[:200],
         short_qty=short, excess_qty=excess, damage_qty=damage, damage_kind=kind, damage_pct=pct,
         container_type=container, container_count=count, container_rate=rate, short_value=short_value,
-        damage_value=damage_value,
+        damage_value=damage_value, excess_value=excess_value,
         short_remarks=(clean_text(data.short_remarks) or f"Short received - {pcs(short)}") if short else "",
         excess_remarks=(clean_text(data.excess_remarks)
                         or (f"Wrong item received - {pcs(excess)}" if extra else f"Excess received - {pcs(excess)}"))
@@ -254,7 +260,7 @@ def _snap(line: SedLine) -> dict:
     return {"source": line.source_label, "sku": line.sku, "short": line.short_qty, "excess": line.excess_qty,
             "damage": line.damage_qty, "damage_kind": line.damage_kind, "container": line.container_type,
             "containers": line.container_count, "rate": line.container_rate, "short_value": line.short_value,
-            "damage_value": line.damage_value, "extra": line.is_extra}
+            "damage_value": line.damage_value, "excess_value": line.excess_value, "extra": line.is_extra}
 
 
 @transaction.atomic
@@ -334,6 +340,7 @@ class Totals:
     damage: Decimal = Decimal(0)
     short_value: Decimal = Decimal(0)
     damage_value: Decimal = Decimal(0)
+    excess_value: Decimal = Decimal(0)   # information only - not claimable
     values_missing: int = 0
 
     @property
@@ -354,6 +361,7 @@ def totals(iw: Iw) -> Totals:
         t.damage += ln.damage_qty
         t.short_value += ln.short_value or 0
         t.damage_value += ln.damage_value or 0
+        t.excess_value += ln.excess_value or 0
         if (ln.short_qty and ln.short_value is None) or (ln.damage_qty and ln.damage_value is None):
             t.values_missing += 1
     return t
@@ -433,7 +441,7 @@ def confirm_verification(user: User, iw_pk: int, confirmations=()) -> Iw:
     rejected = rejected_attempts(iw)
     if rejected and "rejected_checked" not in set(confirmations):
         r = rejected[0]
-        raise IwError(f"A {r['kind'].lower()} entry for {r['sku']} at {r['at']:%H:%M} was NOT saved ({r['error']}). "
+        raise IwError(f"A {r['kind'].lower()} entry for {r['sku']} at {r['at']:%I:%M %p} was NOT saved ({r['error']}). "
                       "Record it again, or tick the extra declaration if there is really nothing to record.")
     t = totals(iw)
     photos = SedPhoto.objects.filter(line__iw=iw).count()
@@ -444,7 +452,7 @@ def confirm_verification(user: User, iw_pk: int, confirmations=()) -> Iw:
                           "short": str(t.short), "excess": str(t.excess), "damage": str(t.damage)}
     if rejected:
         iw.sed_declaration["statements"].append(REJECTED_TEXT)
-        iw.sed_declaration["rejected_attempts"] = [f"{r['at']:%d-%b-%Y %H:%M} {r['kind']} {r['sku']}: {r['error']}"
+        iw.sed_declaration["rejected_attempts"] = [f"{r['at']:%d-%b-%Y %I:%M %p} {r['kind']} {r['sku']}: {r['error']}"
                                                    for r in rejected]
     iw.status = Iw.Status.PHYSICALLY_VERIFIED
     iw.verified_at, iw.verified_by = now, user

@@ -5,7 +5,7 @@
 <p class="muted">Requests waiting for your decision. Nobody approves their own request. When the approver (CFA Manager) does it themself, it is applied at once and audited.</p>
 {% if own %}<div class="card"><h2>Your own requests</h2>
   {% for r in own %}<div class="bar"><b>{{ r.permission.description }}</b><span class="chip">{{ r.entity_type }} {{ r.payload.iw_no|default:r.entity_id }}</span>
-    <span class="muted">{{ r.created_at|date:"d-M-Y H:i" }} · "{{ r.reason }}"</span><div class="grow"></div>
+    <span class="muted">{{ r.created_at|date:"d-M-Y h:i A" }} · "{{ r.reason }}"</span><div class="grow"></div>
     <form method="post" action="{% url 'accounts:decide' r.pk %}" class="inline-form">{% csrf_token %}
       {% if r.can_self_apply %}<button type="submit" name="decision" value="self_apply" class="btn btn-primary btn-sm">Apply now (you are the approver)</button>{% else %}<span class="chip chip-warn">waiting for the approver</span>{% endif %}
       <button type="submit" name="decision" value="withdraw" class="btn btn-sm">Withdraw</button></form></div>
@@ -13,7 +13,7 @@
 {% for r in pending %}
 <div class="card">
   <div class="bar"><b>{{ r.permission.description }}</b><span class="chip">{{ r.entity_type }} {{ r.payload.iw_no|default:r.entity_id }}</span>
-    <div class="grow"></div><span class="muted">requested by {{ r.requested_by }} · {{ r.created_at|date:"d-M-Y H:i" }}</span></div>
+    <div class="grow"></div><span class="muted">requested by {{ r.requested_by }} · {{ r.created_at|date:"d-M-Y h:i A" }}</span></div>
   <p>Reason: "{{ r.reason }}"</p>
   <form method="post" action="{% url 'accounts:decide' r.pk %}" class="inline">{% csrf_token %}
     <label for="note-{{ r.pk }}">Note</label><input id="note-{{ r.pk }}" name="note" class="input-inline" maxlength="300">

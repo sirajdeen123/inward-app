@@ -143,7 +143,10 @@ def capture_email(user: User, iw_pk: int, kind: str, key: str, address: str) -> 
 
 
 def unverified_emails() -> list[dict]:
-    out = [{"kind": "ORG", "pk": e.pk, "owner": str(e.organisation), "email": e.email,
+    out = [{"kind": "ORGNEW", "pk": o.code, "owner": str(o), "email": "(new organisation)",
+            "by": o.created_by.username if o.created_by else ""}
+           for o in Organisation.objects.filter(verified=False).select_related("created_by")]
+    out += [{"kind": "ORG", "pk": e.pk, "owner": str(e.organisation), "email": e.email,
             "by": e.entered_by.username if e.entered_by else ""}
            for e in OrganisationEmail.objects.filter(status=EmailStatus.UNVERIFIED).select_related("organisation",
                                                                                                   "entered_by")]
@@ -157,6 +160,10 @@ def unverified_emails() -> list[dict]:
 @transaction.atomic
 def verify_email(user: User, kind: str, pk: str, corrected: str = "") -> None:
     require(user, "EMAIL_VERIFY")
+    if kind == "ORGNEW":   # a new organisation added from the IW screen: confirm (or correct its name)
+        from inward.iw.orgs import verify_org
+        verify_org(user, pk, corrected)
+        return
     new = _clean_emails(corrected)[0] if corrected.strip() else None
     if kind == "ORG":
         e = OrganisationEmail.objects.select_for_update().get(pk=pk)
@@ -339,7 +346,7 @@ def release_blockers(iw: Iw) -> list[str]:
         oldest = min(m.created_at for m in pending)
         if timezone.now() - oldest < timedelta(hours=hours):
             out.append(f"A mail must be pending for {hours:g} hours before release "
-                       f"(queued {timezone.localtime(oldest):%d-%b %H:%M}).")
+                       f"(queued {timezone.localtime(oldest):%d-%b %I:%M %p}).")
     return out
 
 

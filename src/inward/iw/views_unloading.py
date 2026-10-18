@@ -41,6 +41,10 @@ def charges_page(request, pk):
                     payment_ref=request.POST.get("payment_ref", ""), exempt_reason=request.POST.get("exempt_reason", "")),
                     version=request.POST.get("version") or None)
                 messages.success(request, f"Unloading recorded: Rs {rec.charge} - {rec.get_status_display()}.")
+                pending = rec.iw.cash_entries.filter(state="PENDING").first()
+                if pending:
+                    messages.warning(request, f"Hand over Rs {pending.amount} cash to the cashier - it waits in the "
+                                              "cash register until the cashier marks it received.")
             return redirect("iw:charges", pk=iw.pk)
         except (IwError, PermissionDenied) as exc:
             error = str(exc)

@@ -16,12 +16,12 @@ from inward.domain.normalize import clean_code
 from inward.web.views import needs, upload_done
 
 FIELDS = ("short_qty", "excess_qty", "damage_qty", "damage_kind", "damage_pct", "container_type", "container_count",
-          "short_value", "damage_value", "short_remarks", "excess_remarks", "damage_remarks")
+          "short_value", "damage_value", "excess_value", "short_remarks", "excess_remarks", "damage_remarks")
 
 
 KIND_FIELDS = {
     "SHORT": ("short_qty", "short_value", "short_remarks"),
-    "EXCESS": ("excess_qty", "excess_remarks"),
+    "EXCESS": ("excess_qty", "excess_value", "excess_remarks"),
     "DAMAGE": ("damage_qty", "damage_kind", "damage_pct", "container_type", "container_count", "damage_value",
                "damage_remarks"),
 }

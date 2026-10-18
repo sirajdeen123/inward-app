@@ -9,10 +9,10 @@
   {% if can_edit %}<a href="{% url 'iw:edit' iw.pk %}" class="btn">{% if iw.status == 'DRAFT' %}Continue draft{% else %}Edit{% endif %}</a>{% endif %}
 </div>
 {% if iw.status != 'VOID' %}{% next_step iw %}{% endif %}
-{% if iw.status == 'VOID' %}<div class="alert alert-error">VOID on {{ iw.voided_at|date:"d-M-Y H:i" }} - {{ iw.void_reason }}. The number is kept and never reused.</div>{% endif %}
-{% if pending_void %}<div class="alert alert-warning">VOID requested by {{ pending_void.requested_by }} on {{ pending_void.created_at|date:"d-M-Y H:i" }}: "{{ pending_void.reason }}" - waiting for CFA Manager approval.</div>{% endif %}
+{% if iw.status == 'VOID' %}<div class="alert alert-error">VOID on {{ iw.voided_at|date:"d-M-Y h:i A" }} - {{ iw.void_reason }}. The number is kept and never reused.</div>{% endif %}
+{% if pending_void %}<div class="alert alert-warning">VOID requested by {{ pending_void.requested_by }} on {{ pending_void.created_at|date:"d-M-Y h:i A" }}: "{{ pending_void.reason }}" - waiting for CFA Manager approval.</div>{% endif %}
 <div class="card"><dl class="summary">
-  <dt>Arrival</dt><dd>{{ iw.arrival_at|date:"d-M-Y H:i" }}{% if iw.fy_code %} · FY {{ iw.fy_code }}{% endif %}</dd>
+  <dt>Arrival</dt><dd>{{ iw.arrival_at|date:"d-M-Y h:i A" }}{% if iw.fy_code %} · FY {{ iw.fy_code }}{% endif %}</dd>
   <dt>Load type</dt><dd>{{ iw.load_type }}</dd>
   <dt>Source of load</dt><dd>{{ iw.source_org|default:"-" }}</dd>
   <dt>Vehicle</dt><dd class="mono">{{ iw.vehicle_no }}</dd>
@@ -20,11 +20,11 @@
   <dt>Transporter</dt><dd>{{ iw.transporter|default:"-" }}{% if iw.transporter and not iw.transporter.verified %} <span class="chip chip-warn">unverified</span>{% endif %}</dd>
   <dt>LR number</dt><dd>{{ iw.lr_no|default:"-" }}</dd>
   {% if iw.remarks %}<dt>Remarks</dt><dd>{{ iw.remarks }}</dd>{% endif %}
-  <dt>Created</dt><dd>{{ iw.created_at|date:"d-M-Y H:i" }} by {{ iw.created_by }}</dd>
+  <dt>Created</dt><dd>{{ iw.created_at|date:"d-M-Y h:i A" }} by {{ iw.created_by }}</dd>
 </dl></div>
 {% if iw.status != 'DRAFT' %}
 <div class="card bar"><h2>Unloading checklist</h2>
-  {% with cl=iw.checklists.first %}{% if cl %}<span class="chip chip-ok">Revision {{ cl.revision }} · {{ cl.generated_at|date:"d-M-Y H:i" }}</span>{% else %}<span class="chip chip-warn">Not generated</span>{% endif %}{% endwith %}
+  {% with cl=iw.checklists.first %}{% if cl %}<span class="chip chip-ok">Revision {{ cl.revision }} · {{ cl.generated_at|date:"d-M-Y h:i A" }}</span>{% else %}<span class="chip chip-warn">Not generated</span>{% endif %}{% endwith %}
   <div class="grow"></div><a class="btn" href="{% url 'iw:checklist' iw.pk %}">Open checklist</a>
   {% if iw.status == 'UNLOADING_IN_PROGRESS' or iw.status == 'PHYSICALLY_VERIFIED' %}<a class="btn btn-primary" href="{% url 'iw:unloading' iw.pk %}">Unloading &amp; SED</a>{% endif %}
   {% if iw.status == 'UNLOADING_IN_PROGRESS' or iw.status == 'PHYSICALLY_VERIFIED' or iw.unloading %}<a class="btn" href="{% url 'iw:charges' iw.pk %}">Packages &amp; unloading charge</a>{% endif %}
@@ -45,6 +45,6 @@
 {% endif %}
 <div class="card"><h2>History</h2>
   <table class="tbl"><tbody>{% for h in history %}
-    <tr><td class="nowrap">{{ h.occurred_at|date:"d-M-Y H:i" }}</td><td>{{ h.action }}</td><td>{{ h.user|default:"system" }}</td></tr>
+    <tr><td class="nowrap">{{ h.occurred_at|date:"d-M-Y h:i A" }}</td><td>{{ h.action }}</td><td>{{ h.user|default:"system" }}</td></tr>
   {% endfor %}</tbody></table></div>
 {% endblock %}

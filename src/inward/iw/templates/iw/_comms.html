@@ -25,15 +25,15 @@
     {% if release_blockers %}<p class="muted">Mail-Pending Release: {{ release_blockers|join:" " }}</p>
     {% else %}<form method="post" action="{% url 'iw:mail_release' iw.pk %}" class="inline">{% csrf_token %}<label for="r-reason">Mail-Pending Release - reason *</label><input id="r-reason" name="reason" required class="input-inline"><button type="submit" class="btn">Release to ERP processing</button></form>{% endif %}
   {% endif %}
-  {% for r in releases %}<p class="warn-text">Released by {{ r.released_by.full_name|default:r.released_by.username }} on {{ r.released_at|date:"d-M-Y H:i" }}: {{ r.reason }} - closure waits until the mail is SENT.</p>{% endfor %}
+  {% for r in releases %}<p class="warn-text">Released by {{ r.released_by.full_name|default:r.released_by.username }} on {{ r.released_at|date:"d-M-Y h:i A" }}: {{ r.reason }} - closure waits until the mail is SENT.</p>{% endfor %}
 </div>
 {% endif %}
 
 {% if approval %}
 <div class="card">
   <h2>Depot Manager SED approval <span class="chip {% if approval.status == 'APPROVED' or approval.status == 'MANUAL_OK' %}chip-ok{% else %}chip-warn{% endif %}">{{ approval.get_status_display }}</span></h2>
-  <p>{{ approval.mra.label }} · requested {{ approval.created_at|date:"d-M-Y H:i" }} ({{ approval.created_at|timesince }} ago){% if approval.reminded_at %} · reminder sent {{ approval.reminded_at|date:"d-M-Y H:i" }}{% endif %}
-    {% if approval.decided_at %} · decided {{ approval.decided_at|date:"d-M-Y H:i" }}{% if approval.reply_from %} by {{ approval.reply_from }}{% endif %}{% endif %}</p>
+  <p>{{ approval.mra.label }} · requested {{ approval.created_at|date:"d-M-Y h:i A" }} ({{ approval.created_at|timesince }} ago){% if approval.reminded_at %} · reminder sent {{ approval.reminded_at|date:"d-M-Y h:i A" }}{% endif %}
+    {% if approval.decided_at %} · decided {{ approval.decided_at|date:"d-M-Y h:i A" }}{% if approval.reply_from %} by {{ approval.reply_from }}{% endif %}{% endif %}</p>
   {% if approval.decision_text %}<p>"{{ approval.decision_text }}"</p>{% endif %}
   {% if approval.status == 'REJECTED' %}<div class="alert alert-error">Rejected: reopen physical verification, correct the SED and issue a new MRA revision; a fresh approval request goes with it.</div>{% endif %}
   {% if approval.evidence %}<p><a href="{% url 'iw:approval_file' iw.pk approval.pk %}">Approval evidence file</a></p>{% endif %}
@@ -52,7 +52,7 @@
 <div class="card">
   <h2>SED Audit Memo</h2>
   <p class="muted">One document for the auditor: declaration, memos, photos, approval mails and reply, Oracle TRX, IRR result and where every file is kept. Made again automatically when the approval request is sent, when the Depot Manager replies or evidence is accepted, and at closure.</p>
-  {% for d in audit_memos %}<div><a href="{% url 'iw:audit_memo_file' iw.pk d.pk %}" target="_blank" rel="noopener">{{ d.original_filename }}</a> <span class="muted">{{ d.created_at|date:"d-M-Y H:i" }}</span>{% if forloop.first %} <span class="chip chip-ok">current</span>{% endif %}</div>{% empty %}<p class="muted">Not generated yet.</p>{% endfor %}
+  {% for d in audit_memos %}<div><a href="{% url 'iw:audit_memo_file' iw.pk d.pk %}" target="_blank" rel="noopener">{{ d.original_filename }}</a> <span class="muted">{{ d.created_at|date:"d-M-Y h:i A" }}</span>{% if forloop.first %} <span class="chip chip-ok">current</span>{% endif %}</div>{% empty %}<p class="muted">Not generated yet.</p>{% endfor %}
   <p><a class="btn btn-sm" href="{% url 'iw:audit_memo_view' iw.pk %}" target="_blank" rel="noopener">View current state</a>
     <form method="post" action="{% url 'iw:audit_memo_generate' iw.pk %}" class="inline-form">{% csrf_token %}<button type="submit" class="btn btn-sm">Generate PDF now</button></form></p>
 </div>
@@ -65,7 +65,7 @@
     <tbody>{% for m in all_mails %}<tr><td data-label="Mail">{{ m.get_purpose_display }}<div class="muted mono">{{ m.stamp }}</div></td><td data-label="Revision">{{ m.mra.label|default:"-" }}</td>
       <td data-label="To / Cc">{{ m.to|join:", " }}{% if m.cc %}<div class="muted">cc {{ m.cc|join:", " }}</div>{% endif %}</td>
       <td data-label="Status"><span class="chip {% if m.status == 'SENT' %}chip-ok{% else %}chip-warn{% endif %}">{{ m.get_status_display }}</span>{% if m.last_error %}<div class="warn-text">{{ m.last_error|truncatechars:160 }}</div>{% endif %}</td>
-      <td data-label="Sent">{{ m.sent_at|date:"d-M-Y H:i"|default:"-" }}</td>
+      <td data-label="Sent">{{ m.sent_at|date:"d-M-Y h:i A"|default:"-" }}</td>
       <td data-label="">{% if m.eml_id %}<a class="btn btn-sm" href="{% url 'iw:mail_eml' iw.pk m.pk %}">.eml</a>{% endif %}
         {% if m.status == 'FAILED' or m.status == 'FAILED_UNCONF' %}<form method="post" action="{% url 'iw:mail_retry' iw.pk m.pk %}" class="inline-form">{% csrf_token %}<button type="submit" class="btn btn-sm">Retry</button></form>{% endif %}</td></tr>{% endfor %}</tbody></table>
 </div>

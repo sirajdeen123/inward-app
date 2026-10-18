@@ -273,6 +273,8 @@ def record(user: User, iw_pk: int, data: UnloadingInput, version: int | None = N
         rec.save()
     _sync_ledger(user, iw, rec)
     audit.record("UNLOADING_RECORDED", "iw", iw.pk, user=user, iw_id=iw.pk, before=before, after=_snap(rec))
+    from inward.cash.services import sync_unloading
+    sync_unloading(rec, user)   # cash paid -> waits for the cashier
     return rec
 
 
@@ -368,4 +370,6 @@ def add_receipt(user: User, transporter_pk: int, *, amount, entry_date=None, pay
                                               created_by=user)
     audit.record("TRANSPORTER_RECEIPT", "transporter", t.pk, user=user,
                  after={"amount": amt, "date": day, "mode": payment_mode, "reference": e.reference})
+    from inward.cash.services import from_ledger_receipt
+    from_ledger_receipt(e, user)   # cash -> waits for the cashier
     return e

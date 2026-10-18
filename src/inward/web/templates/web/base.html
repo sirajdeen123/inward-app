@@ -18,6 +18,10 @@
   <nav class="sidebar" aria-label="Main">
     <div class="brand">Stock Inward</div>
     <div class="depot">{% if depot.company %}<b>{{ depot.company }}</b><br>{% endif %}Depot {{ depot.code }} · {{ depot.name }}{% if depot.cfa %}<br>Operated by {{ depot.cfa }} (CFA){% endif %}</div>
+    {% if cash_only %}
+    <div class="navgroup">Cash</div>
+    {% if can_cash %}<a href="{% url 'cash:register' %}" class="nav{% if request.resolver_match.app_name == 'cash' %} active{% endif %}">Cash register</a>{% endif %}
+    {% else %}
     <a href="{% url 'web:home' %}" class="nav{% if request.resolver_match.url_name == 'home' %} active{% endif %}">Operations</a>
     <a href="{% url 'iw:search' %}" class="nav{% if request.resolver_match.url_name == 'search' %} active{% endif %}">Search</a>
 
@@ -32,6 +36,8 @@
     <a href="{% url 'iw:reports' %}" class="nav{% if request.resolver_match.url_name == 'reports' %} active{% endif %}">Reports</a>
     <a href="{% url 'iw:ledger' %}" class="nav{% if request.resolver_match.url_name == 'ledger' or request.resolver_match.url_name == 'ledger_detail' %} active{% endif %}">Transporter ledger</a>
 
+    {% if can_cash %}<a href="{% url 'cash:register' %}" class="nav{% if request.resolver_match.app_name == 'cash' %} active{% endif %}">Cash register</a>{% endif %}
+
     <div class="navgroup">Masters</div>
     <a href="{% url 'core:packaging' %}" class="nav{% if request.resolver_match.app_name == 'core' and request.resolver_match.url_name != 'notifications' %} active{% endif %}">SKU packaging{% if packaging_review_pending %} <span class="badge">{{ packaging_review_pending }}</span>{% endif %}</a>
     {% if can_notify %}<a href="{% url 'core:notifications' %}" class="nav{% if request.resolver_match.url_name == 'notifications' %} active{% endif %}">Notification e-mails</a>{% endif %}
@@ -40,6 +46,7 @@
     <div class="navgroup">System</div>
     <a href="{% url 'web:import_preview' %}" class="nav{% if request.resolver_match.url_name == 'import_preview' %} active{% endif %}">Import preview</a>
     <a href="{% url 'web:health' %}" class="nav{% if request.resolver_match.url_name == 'health' %} active{% endif %}">System health</a>
+    {% endif %}
     <div class="grow"></div>
     <div class="who">{{ user.full_name|default:user.username }}</div>
     <form method="post" action="{% url 'accounts:logout' %}">{% csrf_token %}<button type="submit" class="btn btn-sm">Sign out</button></form>

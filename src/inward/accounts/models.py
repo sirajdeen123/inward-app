@@ -18,6 +18,11 @@ class User(AbstractUser):
     def __str__(self) -> str:
         return self.full_name or self.username
 
+    def save(self, *args, **kwargs):
+        # user names are case-insensitive: sign-in lower-cases what is typed (UAT 18-Oct-2026: "RUBAN" could not sign in)
+        self.username = (self.username or "").strip().lower()
+        super().save(*args, **kwargs)
+
 
 class Role(models.Model):
     code = models.CharField(max_length=40, primary_key=True)

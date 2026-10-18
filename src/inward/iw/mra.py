@@ -77,12 +77,28 @@ def _memo_rule(line: SedLine, kind: str) -> tuple[str, str]:
     return {"SHORT": "Issue TRX", "EXCESS": "Receipt TRX", "DAMAGE": "Subinventory transfer to DMG"}[kind], ""
 
 
+def other_items(iw: Iw) -> dict:
+    """Colour Bank machines and Non-Stock items received, item by item (UAT 18-Oct-2026) - these have no SKU, no SIT
+    and no IRR, so the MRA (and the detailed reconciliation report) list every item with its quantity."""
+    def q(v):
+        return format(v.normalize(), "f") if isinstance(v, Decimal) else str(v)
+    colour = [{"challan": cb.challan_no, "direction": cb.get_direction_display(), "description": cb.description or "-",
+               "serial": cb.serial_no or "-", "asset": cb.asset_no or "-", "qty": q(cb.quantity)}
+              for cb in iw.colour_bank_items.order_by("challan_no", "pk")]
+    non_stock = [{"document": ns.document_no, "sender": ns.sender.name, "description": ln.description,
+                  "unit": ln.unit, "qty": q(ln.quantity)}
+                 for ns in iw.non_stock_refs.select_related("sender").order_by("document_no", "pk")
+                 for ln in ns.lines.order_by("pk")]
+    return {"colour_bank": colour, "non_stock": non_stock}
+
+
 def build(iw: Iw) -> dict:
     op = _operator(iw)
     depot = Depot.objects.filter(code=op.depot_id).first() if op else None
     refs = []
     for l in iw.ship_links.select_related("ship").order_by("linked_at"):
-        refs.append({"kind": "Ship", "ref": l.ship_id, "detail": f"{l.ship.from_org_code} {l.ship.from_org_name}".strip()
+        shipped = f" / {l.ship.shipment_date:%d-%b-%Y}" if l.ship.shipment_date else ""
+        refs.append({"kind": "Ship", "ref": f"{l.ship_id}{shipped}", "detail": f"{l.ship.from_org_code} {l.ship.from_org_name}".strip()
                      + (f" · LSCCR {l.lscrr_no}" if l.lscrr_no else "") + (" · split vehicle" if l.is_split else "")})
     for c in iw.vendor_consignments.select_related("vendor"):
         refs.append({"kind": "Vendor", "ref": f"{c.vendor_id} · PO {c.po_no} · challan {c.challan_no}",
@@ -110,6 +126,7 @@ def build(iw: Iw) -> dict:
                  "damage": _s(ln.damage_qty), "damage_kind": ln.get_damage_kind_display() if ln.damage_qty else "",
                  "short_value": _money(ln.short_value) if ln.short_qty else "",
                  "damage_value": _money(ln.damage_value) if ln.damage_qty else "",
+                 "excess_value": _money(ln.excess_value) if ln.excess_qty and ln.excess_value is not None else "",
                  "remarks": " / ".join(x for x in (ln.short_remarks, ln.excess_remarks, ln.damage_remarks) if x),
                  "photos": ln.photos.count()} for ln in lines]
 
@@ -122,7 +139,7 @@ def build(iw: Iw) -> dict:
             if not qty or ln.source == SedLine.Source.OUTBOUND:
                 continue
             action, note = _memo_rule(ln, kind)
-            value = ln.short_value if kind == "SHORT" else ln.damage_value if kind == "DAMAGE" else None
+            value = {"SHORT": ln.short_value, "DAMAGE": ln.damage_value, "EXCESS": ln.excess_value}[kind]
             rows.append({"source": ln.source_label, "sku": ln.sku, "floor_sku": ln.floor_sku,
                          "description": ln.description, "qty": _s(qty), "value": _money(value) if value is not None else "",
                          "action": action, "note": note,
@@ -142,14 +159,15 @@ def build(iw: Iw) -> dict:
                   "company": depot.company_name if depot else "",
                   "seal": branding.seal_lines(depot.company_name if depot else "", op.cfa_name if op else "",
                                               op.depot_id if op else "", depot.name if depot else "")},
-        "iw": {"no": iw.iw_no, "arrival": arrival.strftime("%d-%b-%Y %H:%M"), "load_type": str(iw.load_type),
+        "iw": {"no": iw.iw_no, "arrival": arrival.strftime("%d-%b-%Y %I:%M %p"), "load_type": str(iw.load_type),
                "source_org": str(iw.source_org or ""), "vehicle": iw.vehicle_no, "transporter": str(iw.transporter or ""),
                "lr": iw.lr_no, "driver": iw.driver_name, "driver_mobile": iw.driver_mobile,
                "gate_register": iw.gate_register_no,
-               "verified": timezone.localtime(iw.verified_at).strftime("%d-%b-%Y %H:%M") if iw.verified_at else ""},
-        "references": refs, "packages": package_rows, "sed": sed_rows,
+               "verified": timezone.localtime(iw.verified_at).strftime("%d-%b-%Y %I:%M %p") if iw.verified_at else ""},
+        "references": refs, "packages": package_rows, "sed": sed_rows, "items": other_items(iw),
         "sed_totals": {"lines": t.lines, "short": _s(t.short), "excess": _s(t.excess), "damage": _s(t.damage),
                        "short_value": _money(t.short_value), "damage_value": _money(t.damage_value),
+                       "excess_value": _money(t.excess_value),
                        "claimable": _money(t.claimable)},
         "unloading": unl, "memos": memos,
         "declaration": {k: v for k, v in (iw.sed_declaration or {}).items() if k != "by_id"},
@@ -163,7 +181,7 @@ def _hash(content: dict) -> str:
 def render(content: dict, revision: int, issued_at, issued_by: str, reason: str = "") -> str:
     return pdf.render_html("iw/mra_pdf.html", {"c": content, "rev": f"R{revision:02d}", "issued_by": issued_by,
                                               "logo": branding.logo_data_uri(),
-                                              "issued_at": timezone.localtime(issued_at).strftime("%d-%b-%Y %H:%M"),
+                                              "issued_at": timezone.localtime(issued_at).strftime("%d-%b-%Y %I:%M %p"),
                                               "reason": reason, "copies": ["DRIVER COPY", "DEPOT COPY"]})
 
 

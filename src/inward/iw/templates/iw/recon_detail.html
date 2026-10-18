@@ -26,7 +26,7 @@
 <div class="runfoot">{{ iw.iw_no }} · generated {{ generated|date:"d-M-Y h:i A" }} by {{ by }}{% if run %} · last run {{ run.run_at|date:"d-M-Y h:i A" }} by {{ run.run_by.username }}{% endif %}</div>
 
 <main>
-  <h2>Summary <span class="badge {% if d.all_ok %}ok{% else %}bad{% endif %}">{% if d.all_ok %}All reconciled{% else %}Not fully reconciled{% endif %}</span></h2>
+  <h2>Summary {% if d.results %}<span class="badge {% if d.all_ok %}ok{% else %}bad{% endif %}">{% if d.all_ok %}All reconciled{% else %}Not fully reconciled{% endif %}</span>{% endif %}</h2>
   <table class="tbl"><thead><tr><th>Item</th><th>Receipt / TRX No</th><th>IRR date</th><th class="num">SKUs</th><th class="num">IRR pcs</th><th class="num">LTR</th><th class="num">KG</th><th>Result</th></tr></thead>
     <tbody>{% for r in d.results %}<tr><td>{{ r.track }}</td>
       <td class="mono">{% for x in r.dates %}<div>{{ x.no }}</div>{% empty %}-{% endfor %}</td>
@@ -34,7 +34,7 @@
       <td class="num">{{ r.lines|length }}</td><td class="num">{{ r.actual }}{% if not r.ok and r.expected != r.actual %} <span class="small">(expected {{ r.expected }})</span>{% endif %}</td>
       <td class="num">{% if r.ltr != '0' %}{{ r.ltr }}{% else %}-{% endif %}</td><td class="num">{% if r.kg != '0' %}{{ r.kg }}{% else %}-{% endif %}</td>
       <td><span class="badge {% if r.ok %}ok{% else %}bad{% endif %}">{{ r.status }}</span></td></tr>
-      {% empty %}<tr><td colspan="8">Nothing to reconcile - this IW ends at the MRA.</td></tr>{% endfor %}</tbody>
+      {% empty %}<tr><td colspan="8">No IRR reconciliation for this load{% if items.colour_bank or items.non_stock %} - the items received are listed below{% endif %}.</td></tr>{% endfor %}</tbody>
     {% if d.receipts %}<tfoot><tr><th colspan="3">Total received in stock (Ship / PO receipts{% if d.receipts > 1 %} - {{ d.receipts }}{% endif %})</th><th class="num">{{ d.total.skus }}</th><th class="num">{{ d.total.actual }}</th>
       <th class="num">{{ d.total.ltr }}</th><th class="num">{{ d.total.kg }}</th><th></th></tr></tfoot>{% endif %}</table>
   <p class="small">SED memo TRX adjust the same stock and are not added to the total. Location = Source SUB INV + Source Locator of the IRR row (where the floor supervisor placed the stock); a SKU on several locators or lots shows each with its pieces.</p>
@@ -59,6 +59,16 @@
         <th class="num">{% if r.ltr != '0' %}{{ r.ltr }} LTR{% endif %}{% if r.ltr != '0' and r.kg != '0' %}<br>{% endif %}{% if r.kg != '0' %}{{ r.kg }} KG{% endif %}</th><th colspan="2"></th></tr></tfoot></table></div>{% endif %}
   </section>
   {% endif %}{% endfor %}
+
+  {% if items.colour_bank or items.non_stock %}
+  <section class="track">
+    <h2>Received without SIT / IRR (listed item by item)</h2>
+    {% if items.colour_bank %}<table class="tbl detail"><thead><tr><th>Colour Bank challan</th><th>Direction</th><th>Machine / description</th><th>Serial No</th><th>Asset No</th><th class="num">Qty</th></tr></thead>
+      <tbody>{% for m in items.colour_bank %}<tr><td class="mono">{{ m.challan }}</td><td>{{ m.direction }}</td><td>{{ m.description }}</td><td class="mono">{{ m.serial }}</td><td class="mono">{{ m.asset }}</td><td class="num">{{ m.qty }}</td></tr>{% endfor %}</tbody></table>{% endif %}
+    {% if items.non_stock %}<table class="tbl detail" style="margin-top:4px"><thead><tr><th>Non-Stock document</th><th>Sender</th><th>Item</th><th>Unit</th><th class="num">Qty</th></tr></thead>
+      <tbody>{% for n in items.non_stock %}<tr><td class="mono">{{ n.document }}</td><td>{{ n.sender }}</td><td>{{ n.description }}</td><td>{{ n.unit }}</td><td class="num">{{ n.qty }}</td></tr>{% endfor %}</tbody></table>{% endif %}
+  </section>
+  {% endif %}
 
   {% if d.sed %}
   <section class="track">

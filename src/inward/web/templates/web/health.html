@@ -11,7 +11,7 @@
 </div>
 <div class="card">
   <h2>Latest imports</h2>
-  {% for b in latest %}<div>{{ b.kind }} · {{ b.filename }} · {{ b.uploaded_at|date:"d-M H:i" }} · {{ b.status }}</div>{% empty %}<div class="muted">None yet.</div>{% endfor %}
+  {% for b in latest %}<div>{{ b.kind }} · {{ b.filename }} · {{ b.uploaded_at|date:"d-M h:i A" }} · {{ b.status }}</div>{% empty %}<div class="muted">None yet.</div>{% endfor %}
 </div>
 <p class="muted">Worker, Gmail queue, HTTPS certificate and backup status are added with the worker (Phase 2) and deployment.</p>
 {% if mail_problems %}

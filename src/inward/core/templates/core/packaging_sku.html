@@ -27,7 +27,7 @@
 {% endif %}
 {% if history %}<div class="card"><h2>History</h2>
   <table class="tbl"><thead><tr><th>When</th><th>Action</th><th>By</th><th>Before</th><th>After</th><th>Reason</th><th>Review</th></tr></thead><tbody>
-  {% for h in history %}<tr><td class="nowrap">{{ h.changed_at|date:"d-M-Y H:i" }}</td><td>{{ h.action }} ({{ h.source }})</td><td>{{ h.changed_by }}</td>
+  {% for h in history %}<tr><td class="nowrap">{{ h.changed_at|date:"d-M-Y h:i A" }}</td><td>{{ h.action }} ({{ h.source }})</td><td>{{ h.changed_by }}</td>
     <td>{% if h.before %}{{ h.before.group }} · {{ h.before.units|default:"-" }}{% endif %}</td><td>{% if h.after %}{{ h.after.group }} · {{ h.after.units|default:"-" }}{% endif %}</td>
     <td>{{ h.reason }}{% if h.drastic %} <span class="chip chip-warn">{{ h.drastic_why }}</span>{% endif %}</td><td>{{ h.get_review_display }}</td></tr>{% endfor %}
   </tbody></table></div>{% endif %}

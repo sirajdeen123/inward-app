@@ -6,7 +6,7 @@
 <p><a href="{% url 'iw:detail' iw.pk %}">&larr; {{ iw }}</a></p>
 <h1>Package counts &amp; unloading · {{ iw }}</h1>
 {% next_step iw %}
-<p class="muted">{{ iw.vehicle_no }} · {{ iw.load_type }}{% if iw.transporter %} · {{ iw.transporter }}{% endif %} · arrived {{ iw.arrival_at|date:"d-M-Y H:i" }}</p>
+<p class="muted">{{ iw.vehicle_no }} · {{ iw.load_type }}{% if iw.transporter %} · {{ iw.transporter }}{% endif %} · arrived {{ iw.arrival_at|date:"d-M-Y h:i A" }}</p>
 {% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
 {% with editable=iw.is_editable %}
 

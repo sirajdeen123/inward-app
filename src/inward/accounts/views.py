@@ -12,6 +12,7 @@ from django.views.decorators.http import require_http_methods, require_POST
 from django_otp import login as otp_login
 
 from inward.accounts import twofactor
+from inward.accounts.services import role_codes
 from inward.core import audit
 
 
@@ -42,6 +43,8 @@ def login_view(request):
                             password=form.cleaned_data["password"])
         if user is None:
             error = "Sign-in failed. After 5 failed attempts the account is locked for 15 minutes."
+        elif not role_codes(user):
+            error = "This user has no role yet - ask the CFA Manager to give a role under Masters & users."
         else:
             login(request, user)
             audit.record("LOGIN", "app_user", user.pk, user=user, ip=request.META.get("REMOTE_ADDR"))

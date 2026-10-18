@@ -20,7 +20,7 @@
 {% endif %}
 <div class="card"><h2>Report e-mails</h2>
   {% if runs %}<table class="tbl stack"><thead><tr><th>Report</th><th>Period</th><th>Queued</th><th>Mail</th></tr></thead>
-    <tbody>{% for x in runs %}<tr><td data-label="Report">{{ x.kind }}</td><td data-label="Period">{{ x.period }}</td><td data-label="Queued">{{ x.created_at|date:"d-M-Y H:i" }}</td>
+    <tbody>{% for x in runs %}<tr><td data-label="Report">{{ x.kind }}</td><td data-label="Period">{{ x.period }}</td><td data-label="Queued">{{ x.created_at|date:"d-M-Y h:i A" }}</td>
       <td data-label="Mail">{% if x.skipped %}<span class="chip chip-warn">skipped: {{ x.skipped }}</span>{% elif x.mail %}<span class="chip {% if x.mail.status == 'SENT' %}chip-ok{% else %}chip-warn{% endif %}">{{ x.mail.get_status_display }}</span>{% endif %}</td></tr>{% endfor %}</tbody></table>
   {% else %}<p class="muted">No report sent yet.</p>{% endif %}</div>
 {% endblock %}

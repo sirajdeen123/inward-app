@@ -64,6 +64,8 @@ class IwForm(forms.Form):
     gate_register_no = forms.CharField(label="Security gate register No (needed before the MRA)", required=False,
                                        max_length=30, widget=forms.TextInput(attrs={"class": "caps"}))
     remarks = forms.CharField(label="Remarks", required=False, widget=forms.Textarea(attrs={"rows": 2}))
+    second_trip = forms.BooleanField(label="Genuine second trip of this vehicle today (only if the app asks)",
+                                     required=False)
     version = forms.IntegerField(required=False, widget=forms.HiddenInput)
 
     def clean_source_org(self):
@@ -73,7 +75,7 @@ class IwForm(forms.Form):
         code = text.split(":", 1)[0].strip()
         org = Organisation.objects.filter(code=code).first() or Organisation.objects.filter(name__iexact=text).first()
         if org is None:
-            raise forms.ValidationError("Unknown organisation. Pick one from the list (it fills from SIT imports).")
+            raise forms.ValidationError("Unknown organisation. Pick one from the list, or add it with \"+ Add / update organisation\" below.")
         return org
 
     @staticmethod

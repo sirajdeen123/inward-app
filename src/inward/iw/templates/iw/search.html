@@ -17,7 +17,7 @@
   <h2>{{ hits|length }} IW(s){% if kind %} <span class="muted">· looks like: {{ kind }}</span>{% endif %}</h2>
   {% if hits %}
   <table class="tbl stack"><thead><tr><th>IW</th><th>Arrival</th><th>Vehicle</th><th>Load / source</th><th>Status</th><th>Matched on</th></tr></thead>
-    <tbody>{% for h in hits %}<tr><td data-label="IW"><a href="{% url 'iw:detail' h.iw.pk %}"><b>{{ h.iw }}</b></a></td><td data-label="Arrival">{{ h.iw.arrival_at|date:"d-M-Y H:i" }}</td>
+    <tbody>{% for h in hits %}<tr><td data-label="IW"><a href="{% url 'iw:detail' h.iw.pk %}"><b>{{ h.iw }}</b></a></td><td data-label="Arrival">{{ h.iw.arrival_at|date:"d-M-Y h:i A" }}</td>
       <td data-label="Vehicle">{{ h.iw.vehicle_no }}{% if h.iw.lr_no %}<div class="muted">LR {{ h.iw.lr_no }}</div>{% endif %}</td>
       <td data-label="Load / source">{{ h.iw.load_type }}<div class="muted">{{ h.iw.source_org|default:"" }}</div></td>
       <td data-label="Status">{% iw_status h.iw %}</td><td data-label="Matched on">{{ h.matched|join:", " }}</td></tr>{% endfor %}</tbody></table>

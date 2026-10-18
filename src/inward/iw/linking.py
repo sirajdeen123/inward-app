@@ -213,6 +213,13 @@ def add_colour_bank(user: User, iw_pk: int, *, direction: str, challan_no: str, 
         raise IwError("Challan number is mandatory for a Colour Bank machine.")
     if quantity < 1:
         raise IwError("Quantity must be at least 1.")
+    serial = clean_text(serial_no).upper()
+    same = ColourBankItem.objects.filter(challan_no=challan, direction=direction, iw__status__in=LIVE)
+    clash = same.exclude(iw=iw).select_related("iw").first()
+    if clash:
+        raise IwError(f"Colour Bank challan {challan} ({clash.get_direction_display()}) is already on {clash.iw}.")
+    if same.filter(iw=iw, serial_no=serial).exists():
+        raise IwError(f"Challan {challan}" + (f" serial {serial}" if serial else "") + " is already on this IW.")
     item = ColourBankItem.objects.create(iw=iw, direction=direction, challan_no=challan,
                                          description=clean_text(description), serial_no=clean_text(serial_no).upper(),
                                          asset_no=clean_text(asset_no).upper(), quantity=quantity, linked_by=user)
@@ -257,6 +264,10 @@ def add_non_stock(user: User, iw_pk: int, *, sender_name: str, sender_email: str
     doc = clean_text(document_no).upper()
     if not doc:
         raise IwError("Challan / document number is mandatory.")
+    clash = (NonStockRef.objects.filter(document_no=doc, sender__name__iexact=clean_text(sender_name),
+                                        iw__status__in=LIVE).select_related("iw").first())
+    if clash:
+        raise IwError(f"Document {doc} of {clash.sender.name} is already on {clash.iw}.")
     items = [(clean_text(d), clean_text(u) or "Nos", _qty(q)) for d, u, q in lines if clean_text(d)]
     if not items or any(q <= 0 for _, _, q in items):
         raise IwError("Enter at least one item with a quantity greater than zero.")

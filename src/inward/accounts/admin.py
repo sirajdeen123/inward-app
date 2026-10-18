@@ -1,5 +1,7 @@
+from django import forms
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
+from django.contrib.auth.forms import UserCreationForm
 
 from inward.accounts.models import ApprovalRequest, Role, RolePermission, TrustedDevice, User, UserRole
 
@@ -9,9 +11,32 @@ class UserRoleInline(admin.TabularInline):
     extra = 0
 
 
+class InwardUserCreationForm(UserCreationForm):
+    class Meta(UserCreationForm.Meta):
+        model = User
+        fields = ("username", "full_name", "email")
+
+    def clean_username(self):
+        name = (self.cleaned_data.get("username") or "").strip().lower()
+        if User.objects.filter(username=name).exists():
+            raise forms.ValidationError("A user with this name already exists (user names ignore capitals).")
+        return name
+
+
 @admin.register(User)
 class InwardUserAdmin(UserAdmin):
-    list_display = ("username", "full_name", "email", "is_active", "is_staff", "last_login")
+    add_form = InwardUserCreationForm
+    list_display = ("username", "full_name", "email", "roles", "is_active", "is_staff", "last_login")
+
+    @admin.display(description="Roles")
+    def roles(self, obj):
+        codes = [r.role_id for r in obj.user_roles.all()]
+        return ", ".join(codes) or "NO ROLE - cannot use the app"
+
+    def save_related(self, request, form, formsets, change):
+        super().save_related(request, form, formsets, change)
+        from inward.accounts.services import _sync_staff_flag
+        _sync_staff_flag(form.instance)   # managers / administrators get the Masters & users screen
     fieldsets = ((None, {"fields": ("username", "password")}),
                  ("Person", {"fields": ("full_name", "email")}),
                  ("Status", {"fields": ("is_active", "is_staff", "is_break_glass")}))

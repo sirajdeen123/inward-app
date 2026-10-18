@@ -13,7 +13,7 @@
     <label for="dr-file">Upload report (.xls / .xlsx)</label><input id="dr-file" type="file" name="file" required>
     <button type="submit" class="btn">Upload</button>
   </form>
-  {% for r in reports %}<p class="muted">{{ r.filename }} · {{ r.window_from|date:"d-M-Y" }} to {{ r.window_to|date:"d-M-Y" }} · uploaded {{ r.uploaded_at|date:"d-M-Y H:i" }}</p>{% endfor %}
+  {% for r in reports %}<p class="muted">{{ r.filename }} · {{ r.window_from|date:"d-M-Y" }} to {{ r.window_to|date:"d-M-Y" }} · uploaded {{ r.uploaded_at|date:"d-M-Y h:i A" }}</p>{% endfor %}
   {% if destinations %}<p>Destinations in the report: {% for code, name, n in destinations %}<span class="chip">{{ code }} : {{ name }} · {{ n }} row(s)</span> {% endfor %}</p>{% endif %}
 </div>
 

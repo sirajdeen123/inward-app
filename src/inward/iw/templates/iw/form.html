@@ -1,4 +1,5 @@
 {% extends "web/base.html" %}
+{% load static %}
 {% block title %}{% if iw %}{{ iw }}{% else %}New IW{% endif %}{% endblock %}
 {% block content %}
 <p><a href="{% if iw %}{% url 'iw:detail' iw.pk %}{% else %}{% url 'iw:list' %}{% endif %}">&larr; Back</a></p>
@@ -11,6 +12,15 @@
     <label for="{{ field.id_for_label }}">{{ field.label }}</label>
     {{ field }}
     {% if field.errors %}<div class="field-error">{{ field.errors|join:" " }}</div>{% endif %}
+    {% if field.name == 'source_org' %}<details class="orgadd" id="org-add"><summary>+ Add / update organisation</summary>
+      <div class="orgadd-grid">
+        <label for="org-code">Code *</label><input id="org-code" class="caps" maxlength="10" placeholder="e.g. 390">
+        <label for="org-name">Name</label><input id="org-name" class="caps" maxlength="120" placeholder="e.g. HINDUPUR - MFG">
+        <label for="org-type">Type</label><select id="org-type"><option value="DEPOT">Depot</option><option value="RDC">RDC</option><option value="FACTORY">Factory</option><option value="OTHER">Other</option></select>
+        <label for="org-emails">MRA e-mail(s)</label><input id="org-emails" type="text" inputmode="email" placeholder="name@bergerindia.com, ...">
+      </div>
+      <p><button type="button" class="btn btn-sm btn-primary" id="org-save" data-url="{% url 'iw:org_save' %}">Save organisation</button> <span id="org-msg" class="muted">Used at once; the CFA Manager verifies it.</span></p>
+    </details>{% endif %}
   </div>
   {% endif %}{% endfor %}
   <datalist id="org-list">{% for o in orgs %}<option value="{{ o.code }} : {{ o.name }}"></option>{% endfor %}</datalist>
@@ -25,4 +35,5 @@
     <span class="muted">The IW number is taken from the financial year of the arrival date.</span>
   </div>
 </form>
+<script src="{% static 'inward/org_add.js' %}" defer></script>
 {% endblock %}

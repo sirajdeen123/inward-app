@@ -103,6 +103,9 @@ class Organisation(models.Model):
     org_type = models.CharField(max_length=10, choices=OrgType.choices, default=OrgType.OTHER)
     state = models.CharField(max_length=60, blank=True)
     active = models.BooleanField(default=True)
+    # False = added by a user from the IW screen, waiting for the CFA Manager (SIT / master entries are verified)
+    verified = models.BooleanField(default=True)
+    created_by = models.ForeignKey(USER, null=True, blank=True, on_delete=models.PROTECT, related_name="+")
 
     class Meta:
         db_table = "organisation"

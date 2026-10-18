@@ -12,5 +12,6 @@
   <div class="field"></div>
   {% if can_value %}
   <div class="field"><label for="f-sval">Short value (Rs)</label><input id="f-sval" name="short_value" inputmode="decimal" value="{{ post.short_value }}"></div>
+  <div class="field"><label for="f-xval">Excess value (Rs) - not claimable</label><input id="f-xval" name="excess_value" inputmode="decimal" value="{{ post.excess_value }}"></div>
   <div class="field"><label for="f-dval">Damage value (Rs)</label><input id="f-dval" name="damage_value" inputmode="decimal" value="{{ post.damage_value }}" placeholder="blank = container charge"></div>
   {% else %}<p class="muted span-all">Financial values are entered by the depot clerk or CFA Manager.</p>{% endif %}

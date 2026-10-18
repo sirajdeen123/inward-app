@@ -6,7 +6,7 @@
 <div class="bar"><h1>Unloading checklist · {{ iw }}</h1><div class="grow"></div>
   {% if current %}<a class="btn btn-primary" href="{% url 'iw:checklist_print' iw.pk current.revision %}" target="_blank" rel="noopener">Print revision {{ current.revision }}</a>{% endif %}</div>
 {% next_step iw %}
-<p class="muted">{{ iw.load_type }} · {{ iw.vehicle_no }} · arrival {{ iw.arrival_at|date:"d-M-Y H:i" }} · {% iw_status iw %}</p>
+<p class="muted">{{ iw.load_type }} · {{ iw.vehicle_no }} · arrival {{ iw.arrival_at|date:"d-M-Y h:i A" }} · {% iw_status iw %}</p>
 
 {% for b in build.blockers %}<div class="alert alert-error">{{ b }}</div>{% endfor %}
 {% for w in build.warnings %}<div class="alert alert-warning">{{ w }}</div>{% endfor %}
@@ -20,7 +20,7 @@
 </div>{% endif %}
 
 <div class="card">
-  <div class="bar"><h2>{% if current %}Revision {{ current.revision }} · generated {{ current.generated_at|date:"d-M-Y H:i" }} by {{ current.generated_by }}{% else %}Not generated yet{% endif %}</h2><div class="grow"></div>
+  <div class="bar"><h2>{% if current %}Revision {{ current.revision }} · generated {{ current.generated_at|date:"d-M-Y h:i A" }} by {{ current.generated_by }}{% else %}Not generated yet{% endif %}</h2><div class="grow"></div>
     {% if can_generate and not build.blockers %}<form method="post" action="{% url 'iw:checklist_generate' iw.pk %}">{% csrf_token %}<button type="submit" class="btn{% if not current or stale %} btn-primary{% endif %}">{% if current %}Generate new revision{% else %}Generate checklist{% endif %}</button></form>{% endif %}</div>
   {% if older %}<p class="muted">Earlier: {% for o in older %}<a href="{% url 'iw:checklist_print' iw.pk o.revision %}" target="_blank" rel="noopener">R{{ o.revision }}</a> {% endfor %}</p>{% endif %}
   {% if current %}

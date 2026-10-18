@@ -189,7 +189,9 @@ def recon_detail(request, pk):
         messages.error(request, "The reconciliation starts after the MRA is issued.")
         return _back(pk)
     mra = iw.mras.first()
-    ctx = {"iw": iw, "d": recon.detail(iw), "c": (mra.content if mra else {}) or {}, "logo": branding.logo_data_uri(),
+    from inward.iw.mra import other_items
+    ctx = {"iw": iw, "d": recon.detail(iw), "items": other_items(iw), "c": (mra.content if mra else {}) or {},
+           "logo": branding.logo_data_uri(),
            "closure": iw.closures.select_related("closed_by").first(), "run": iw.recon_runs.select_related("run_by").first(),
            "generated": timezone.localtime(timezone.now()), "by": request.user.username,
            "pdf_available": pdf.available()}

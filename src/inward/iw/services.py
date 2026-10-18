@@ -38,6 +38,7 @@ class IwData:
     lr_no: str = ""
     remarks: str = ""
     gate_register_no: str = ""
+    second_trip: bool = False   # the clerk confirmed a genuine second trip of the vehicle on the same day
 
 
 def ship_link_state() -> tuple[set[str], set[str]]:
@@ -78,6 +79,28 @@ def _validate(data: IwData) -> None:
     needs_org = (data.load_type.has_inbound_sit or data.load_type.has_outbound) and not data.load_type.is_vendor
     if needs_org and data.source_org is None:
         raise IwError("Source of load (organisation) is required for this load type.")
+
+
+def _check_duplicate(data: IwData, exclude_pk=None) -> None:
+    """UAT 18-Oct-2026 (IW-2627-000009 repeated IW-2627-000008): the same vehicle with the same LR number on another
+    live IW is a duplicate and is refused; the same vehicle arriving the same day (other / no LR) needs the clerk's
+    confirmation that it is a genuine second trip."""
+    vkey, lkey = search_key(data.vehicle_no), search_key(data.lr_no)
+    live = Iw.objects.exclude(status__in=[Iw.Status.DRAFT, Iw.Status.VOID])
+    if exclude_pk:
+        live = live.exclude(pk=exclude_pk)
+    if lkey:
+        dup = live.filter(vehicle_key=vkey, lr_key=lkey).first()
+        if dup:
+            raise IwError(f"Duplicate entry: {dup} already has vehicle {dup.vehicle_no} with LR {dup.lr_no} "
+                          f"(arrived {timezone.localtime(dup.arrival_at):%d-%b-%Y %I:%M %p}, {dup.get_status_display()}). "
+                          f"Open {dup} instead of creating it again.")
+    day = timezone.localtime(data.arrival_at).date()
+    same_day = [i for i in live.filter(vehicle_key=vkey) if timezone.localtime(i.arrival_at).date() == day]
+    if same_day and not data.second_trip:
+        raise IwError(f"Vehicle {clean_text(data.vehicle_no).upper()} already has {', '.join(map(str, same_day))} "
+                      f"arriving on {day:%d-%b-%Y}. If this is a genuine second trip, tick 'Genuine second trip' "
+                      "and save again; otherwise open the existing IW.")
 
 
 def _apply(iw: Iw, data: IwData) -> None:
@@ -127,12 +150,14 @@ def create(user: User, data: IwData, draft: Iw | None = None) -> Iw:
     iw = draft or Iw(created_by=user)
     if iw.pk and iw.status != Iw.Status.DRAFT:
         raise IwError("This IW is already created.")
+    _check_duplicate(data, iw.pk)
     _apply(iw, data)
     iw.iw_no = next_iw_number(data.arrival_at)
     iw.fy_code = fy_code(data.arrival_at)
     iw.status = Iw.Status.OPEN
     iw.save()
-    audit.record("IW_CREATED", "iw", iw.pk, user=user, iw_id=iw.pk, after=_snapshot(iw))
+    audit.record("IW_CREATED", "iw", iw.pk, user=user, iw_id=iw.pk,
+                 after=_snapshot(iw) | ({"second_trip_confirmed": True} if data.second_trip else {}))
     return iw
 
 
@@ -150,6 +175,7 @@ def update(user: User, iw_pk: int, version: int, data: IwData) -> Iw:
         raise IwError(f"The new arrival date belongs to another financial year than {iw.iw_no}. "
                       "VOID this IW and create a new one instead.")
     before = _snapshot(iw)
+    _check_duplicate(data, iw.pk)
     _apply(iw, data)
     iw.version += 1
     iw.save()

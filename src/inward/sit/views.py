@@ -65,7 +65,7 @@ def sit_fetch(request):
         messages.error(request, f"Could not read Gmail: {exc}")
         return redirect("sit:home")
     if result.found:
-        messages.info(request, f"Latest SIT e-mail: '{result.subject}' received {result.received_at:%d-%b-%Y %H:%M}.")
+        messages.info(request, f"Latest SIT e-mail: '{result.subject}' received {result.received_at:%d-%b-%Y %I:%M %p}.")
     for imp in result.imported:
         messages.success(request, "Imported: " + services.describe(imp))
     for text in result.messages:

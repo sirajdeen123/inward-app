@@ -55,6 +55,9 @@ OFFSITE="not configured"
 if command -v rclone >/dev/null && [ -s "$RCLONE_CONF" ] && rclone --config "$RCLONE_CONF" listremotes | grep -q '^onedrive:'; then
   if rclone --config "$RCLONE_CONF" copy "$DEST" "onedrive:Inward Backups/$ENVNAME" --exclude 'state/**' -q; then
     OFFSITE="copied"; else OFFSITE="FAILED"; fi
+  # rclone (run here as root) rewrites the file when it refreshes the OneDrive token - give it back to the app,
+  # otherwise the worker's document mirror stops with "permission denied" (UAT 18-Oct-2026)
+  chown inward:inward "$RCLONE_CONF"; chmod 600 "$RCLONE_CONF"
 fi
 SIZE="$(du -h "$OUT" | cut -f1)"
 printf '{"ok": true, "at": "%s", "file": "%s", "size": "%s", "documents": "%s", "offsite": "%s"}\n' \

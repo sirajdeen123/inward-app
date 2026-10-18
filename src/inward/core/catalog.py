@@ -7,10 +7,13 @@ ROLES = {
     "CFA_MANAGER": "CFA Manager",
     "ADMINISTRATOR": "Administrator",
     "VIEWER": "Viewer (Depot Manager / Admin Officer)",
+    "CASHIER": "Cashier (cash register only)",
 }
 STAFF_ROLES = {"CFA_MANAGER", "ADMINISTRATOR"}  # may open the Django admin area (SoT 14.5)
 
 PERMISSIONS = {
+    "CASH_REGISTER": "Cash register: receive cash, expenses, handovers, statement",
+    "CASH_MANAGE": "Cash register: opening balance, confirm / cancel any entry (manager)",
     "IW_EDIT": "Create / edit IW before MRA",
     "MATERIAL_LINK": "Link material; assign outbound rows",
     "PHYSICAL_SED_QTY": "Physical verification and SED quantities",
@@ -64,6 +67,8 @@ MATRIX: dict[str, dict[str, str]] = {
     "TWO_FACTOR_RESET": {"CFA_MANAGER": R, "ADMINISTRATOR": A},
     "SYSTEM_ADMIN": {"CFA_MANAGER": V, "ADMINISTRATOR": G},
     "SEARCH_REPORTS": {"DEPOT_CLERK": G, "SYSTEM_SUPERVISOR": G, "CFA_MANAGER": G, "ADMINISTRATOR": G, "VIEWER": G},
+    "CASH_REGISTER": {"CASHIER": G, "CFA_MANAGER": G},
+    "CASH_MANAGE": {"CFA_MANAGER": G},
 }
 
 LOAD_TYPES = [

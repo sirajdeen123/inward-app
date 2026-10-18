@@ -26,7 +26,7 @@ def _data(form: IwForm) -> services.IwData:
     return services.IwData(arrival_at=c["arrival_at"], load_type=c["load_type"], source_org=c["source_org"],
                            vehicle_no=c["vehicle_no"], driver_name=c["driver_name"], driver_mobile=c["driver_mobile"],
                            transporter_name=c["transporter"], lr_no=c["lr_no"], remarks=c["remarks"],
-                           gate_register_no=c["gate_register_no"])
+                           gate_register_no=c["gate_register_no"], second_trip=c.get("second_trip", False))
 
 
 def _lists() -> dict:
@@ -163,3 +163,23 @@ def iw_discard(request, pk):
         messages.error(request, str(exc))
         return redirect("iw:detail", pk=pk)
     return redirect("iw:list")
+
+
+@require_POST
+@needs("IW_EDIT")
+def org_save(request):
+    """IW form panel: add a source organisation / add its e-mails (JSON for org_add.js)."""
+    from django.http import JsonResponse
+
+    from inward.iw import orgs
+    try:
+        saved = orgs.save_org(request.user, request.POST.get("code", ""), request.POST.get("name", ""),
+                              request.POST.get("org_type", ""), request.POST.get("emails", ""))
+    except (services.IwError, PermissionDenied) as exc:
+        return JsonResponse({"error": str(exc)})
+    parts = [f"{saved.org} {'added - unverified until the CFA Manager confirms it' if saved.created else 'selected'}."]
+    if saved.emails:
+        parts.append(f"E-mail(s) added: {', '.join(saved.emails)} (unverified).")
+    if saved.note:
+        parts.append(saved.note)
+    return JsonResponse({"value": str(saved.org), "message": " ".join(parts)})

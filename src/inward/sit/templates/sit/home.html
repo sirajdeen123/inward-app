@@ -35,7 +35,7 @@
   <dl class="summary">
     <dt>File</dt><dd>{{ latest.batch.filename }} <span class="chip">{{ latest.batch.source }}</span></dd>
     <dt>Report window</dt><dd>{{ latest.report_from|date:"d-M-Y" }} to {{ latest.report_to|date:"d-M-Y" }} · system date {{ latest.system_date|date:"d-M-Y" }}</dd>
-    <dt>Imported</dt><dd>{{ latest.batch.uploaded_at|date:"d-M-Y H:i" }}{% if latest.batch.uploaded_by %} by {{ latest.batch.uploaded_by }}{% endif %}</dd>
+    <dt>Imported</dt><dd>{{ latest.batch.uploaded_at|date:"d-M-Y h:i A" }}{% if latest.batch.uploaded_by %} by {{ latest.batch.uploaded_by }}{% endif %}</dd>
     <dt>Content</dt><dd>{% if latest.back_dated %}<span class="chip chip-warn">UAT merge</span> {{ latest.ship_count }} new Ship(s) · {{ latest.known_ships }} duplicate(s) skipped{% else %}{{ latest.ship_count }} Ships{% endif %} · {{ latest.line_count }} SKU lines · {{ latest.batch.issue_count }} row issue(s)</dd>
     <dt>Changes</dt><dd>{{ latest.event_count }} · <b>{{ latest.critical_count }} critical</b></dd>
   </dl>

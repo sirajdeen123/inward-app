@@ -12,7 +12,7 @@ from django.contrib.auth.decorators import login_required
 from django.db import connection
 from django.db.migrations.executor import MigrationExecutor
 from django.http import HttpResponse, HttpResponseForbidden
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 
 from inward.accounts.services import modes_for, role_codes
 from inward.core.models import ImportBatch
@@ -45,6 +45,8 @@ def home(request):
     if "GRANT" in modes_for(request.user, "SEARCH_REPORTS"):
         from inward.iw.views_ops import control_centre
         return control_centre(request)
+    if "GRANT" in modes_for(request.user, "CASH_REGISTER"):
+        return redirect("cash:register")   # the cashier works only in the cash register
     return render(request, "web/home.html", {"roles": role_codes(request.user)})
 
 
@@ -162,7 +164,7 @@ def health(request):
         at = _dt.fromisoformat(b["at"])
         fresh = timezone.now() - at < timezone.timedelta(hours=26)
         checks.append(("Nightly backup", b.get("ok") and fresh,
-                       (f"{timezone.localtime(at):%d-%b %H:%M} · {b.get('file', '')} {b.get('size', '')} · "
+                       (f"{timezone.localtime(at):%d-%b %I:%M %p} · {b.get('file', '')} {b.get('size', '')} · "
                         f"OneDrive copy: {b.get('offsite', '-')}") if b.get("ok") else f"FAILED {b.get('error', '')}"))
     except (OSError, ValueError, KeyError):
         checks.append(("Nightly backup", False, "no backup has run yet"))
@@ -174,7 +176,7 @@ def health(request):
     stuck = MailMessage.objects.exclude(status=MailMessage.Status.SENT)
     failed = stuck.filter(status__in=[MailMessage.Status.FAILED, MailMessage.Status.FAILED_UNCONFIRMED]).count()
     oldest = stuck.order_by("created_at").first()
-    waiting = f"oldest waiting since {timezone.localtime(oldest.created_at):%d-%b %H:%M}" if oldest else "nothing waiting"
+    waiting = f"oldest waiting since {timezone.localtime(oldest.created_at):%d-%b %I:%M %p}" if oldest else "nothing waiting"
     checks.append(("Mail queue", failed == 0 and (not oldest or timezone.now() - oldest.created_at
                                                   < timezone.timedelta(minutes=30)),
                    f"{stuck.count()} not yet sent, {failed} failed · {waiting}"))

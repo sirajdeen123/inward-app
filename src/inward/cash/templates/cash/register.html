@@ -1,0 +1,70 @@
+{% extends "web/base.html" %}
+{% block title %}Cash register{% endblock %}
+{% block content %}
+<div class="bar"><h1>Cash register</h1><div class="grow"></div>
+  <form method="get" class="inline"><label for="m">Month</label><input id="m" type="month" name="month" value="{{ month }}" class="input-inline"><button type="submit" class="btn btn-sm">Show</button></form>
+  <a class="btn" href="{% url 'cash:statement' %}?month={{ month }}" target="_blank" rel="noopener">Monthly statement</a>
+  <a class="btn" href="{% url 'cash:statement' %}?month={{ month }}&amp;xlsx=1">Excel</a></div>
+
+<div class="kpis">
+  <div class="card kpi"><div class="kpi-label">Cash in hand</div><div class="kpi-value">Rs {{ pos.in_hand|floatformat:2 }}</div></div>
+  <div class="card kpi"><div class="kpi-label">To receive from clerk</div><div class="kpi-value">Rs {{ pos.to_receive|floatformat:2 }}</div><div class="muted">{{ pos.pending_in|length }} entr{{ pos.pending_in|length|pluralize:"y,ies" }}</div></div>
+  <div class="card kpi"><div class="kpi-label">{{ st.from|date:"M-Y" }} expenses</div><div class="kpi-value">Rs {{ st.expenses|floatformat:2 }}</div></div>
+  <div class="card kpi"><div class="kpi-label">{{ st.from|date:"M-Y" }} handed to manager</div><div class="kpi-value">Rs {{ st.handovers|floatformat:2 }}</div></div>
+</div>
+
+{% if manager and not has_opening %}
+<form method="post" action="{% url 'cash:opening' %}" class="card inline">{% csrf_token %}
+  <b>Start the register:</b> <label for="op-amt">Opening cash (Rs)</label><input id="op-amt" name="amount" inputmode="decimal" class="input-inline" required>
+  <label for="op-d">as on</label><input id="op-d" type="date" name="entry_date" value="{{ today|date:'Y-m-d' }}" class="input-inline">
+  <button type="submit" class="btn btn-primary btn-sm">Set opening balance</button></form>
+{% endif %}
+
+<div class="card"><h2>Cash to receive from the clerk</h2>
+  {% if pos.pending_in %}
+  <table class="tbl stack"><thead><tr><th>Recorded</th><th>From where</th><th>By</th><th class="num">Rs</th><th></th></tr></thead>
+    <tbody>{% for e in pos.pending_in %}<tr><td data-label="Recorded">{{ e.created_at|date:"d-M-Y h:i A" }}</td>
+      <td data-label="From where">{{ e.get_kind_display }}<div class="muted">{{ e.description }}</div></td><td data-label="By">{{ e.created_by }}</td>
+      <td class="num" data-label="Rs"><b>{{ e.amount|floatformat:2 }}</b>{% if e.amount < 0 %}<div class="warn-text">give back to the clerk</div>{% endif %}</td>
+      <td data-label=""><form method="post" action="{% url 'cash:receive' e.pk %}" class="inline-form">{% csrf_token %}<button type="submit" class="btn btn-sm btn-primary">{% if e.amount < 0 %}Given back{% else %}Received{% endif %}</button></form></td></tr>{% endfor %}</tbody></table>
+  {% else %}<p class="muted">Nothing waiting - every cash payment recorded by the clerk has been received.</p>{% endif %}
+</div>
+
+<div class="grid2">
+<form method="post" action="{% url 'cash:expense' %}" enctype="multipart/form-data" class="card form-grid">{% csrf_token %}
+  <h2 class="span-all">Enter an expense</h2>
+  <div class="field"><label for="x-d">Date *</label><input id="x-d" type="date" name="entry_date" value="{{ today|date:'Y-m-d' }}" max="{{ today|date:'Y-m-d' }}" required></div>
+  <div class="field"><label for="x-c">Category *</label><select id="x-c" name="category" required><option value="">Select...</option>{% for c in categories %}<option>{{ c }}</option>{% endfor %}</select></div>
+  <div class="field"><label for="x-a">Amount (Rs) *</label><input id="x-a" name="amount" inputmode="decimal" required></div>
+  <div class="field"><label for="x-p">Paid to</label><input id="x-p" name="paid_to" maxlength="120"></div>
+  <div class="field span-all"><label for="x-n">Details</label><input id="x-n" name="description" maxlength="240" placeholder="e.g. tea for unloading team, 12 cups"></div>
+  <div class="field span-all"><label for="x-b">Bill / voucher photo (optional)</label><input id="x-b" type="file" name="bill" accept="image/*,application/pdf" capture="environment"></div>
+  <div class="span-all"><button type="submit" class="btn btn-primary">Save expense</button></div>
+</form>
+
+<div class="card">
+  <h2>Cash handed to the manager</h2>
+  {% for e in pos.pending_handover %}<div class="alert alert-warning">Rs {{ e.amount|floatformat:2 }} recorded by {{ e.created_by }} ({{ e.paid_to }}) on {{ e.created_at|date:"d-M-Y h:i A" }} - waiting for confirmation.
+    {% if e.created_by_id != request.user.pk %}{% if manager and e.paid_to == 'cashier' or not manager and e.paid_to == 'manager' %}<form method="post" action="{% url 'cash:confirm' e.pk %}" class="inline-form">{% csrf_token %}<button type="submit" class="btn btn-sm btn-primary">Confirm Rs {{ e.amount|floatformat:2 }}</button></form>{% endif %}{% endif %}</div>{% endfor %}
+  <form method="post" action="{% url 'cash:handover' %}" class="form-grid">{% csrf_token %}
+    <div class="field"><label for="h-a">Amount (Rs) *</label><input id="h-a" name="amount" inputmode="decimal" required></div>
+    <div class="field"><label for="h-n">Note</label><input id="h-n" name="note" maxlength="240"></div>
+    <div class="span-all"><button type="submit" class="btn">{% if manager %}Record cash collected from the cashier{% else %}Record cash handed to the manager{% endif %}</button>
+      <span class="muted">The {% if manager %}cashier{% else %}manager{% endif %} confirms it in the app.</span></div>
+  </form>
+</div>
+</div>
+
+<div class="card"><h2>{{ st.from|date:"F Y" }} - register</h2>
+  <table class="tbl stack"><thead><tr><th>Date</th><th>Entry</th><th>Details</th><th class="num">In</th><th class="num">Out</th><th class="num">Balance</th><th></th></tr></thead>
+    <tbody><tr><td data-label="Date">{{ st.from|date:"d-M-Y" }}</td><td data-label="Entry"><b>Opening</b></td><td></td><td></td><td></td><td class="num" data-label="Balance"><b>{{ st.opening|floatformat:2 }}</b></td><td></td></tr>
+    {% for r in st.rows %}{% with e=r.e %}<tr><td data-label="Date">{{ e.entry_date|date:"d-M-Y" }}</td>
+      <td data-label="Entry">{{ e.get_kind_display }}{% if e.category %}<div class="muted">{{ e.category }}</div>{% endif %}</td>
+      <td data-label="Details">{{ e.description }}{% if e.paid_to and e.kind == 'EXPENSE' %} · paid to {{ e.paid_to }}{% endif %}<div class="muted">by {{ e.created_by }}{% if e.done_by_id and e.done_by_id != e.created_by_id %} · {{ e.done_by }}{% endif %}</div>{% if e.bill_id %}<a href="{% url 'cash:bill' e.pk %}" target="_blank" rel="noopener">bill</a>{% endif %}</td>
+      <td class="num" data-label="In">{% if e.is_inflow %}{{ e.amount|floatformat:2 }}{% endif %}</td><td class="num" data-label="Out">{% if not e.is_inflow %}{{ e.amount|floatformat:2 }}{% endif %}</td>
+      <td class="num" data-label="Balance">{{ r.balance|floatformat:2 }}</td>
+      <td data-label="">{% if e.kind == 'EXPENSE' or e.kind == 'HANDOVER' %}<details><summary class="muted">cancel</summary><form method="post" action="{% url 'cash:cancel' e.pk %}" class="inline">{% csrf_token %}<input name="reason" placeholder="reason" required class="input-inline"><button type="submit" class="btn btn-sm">Cancel entry</button></form></details>{% endif %}</td></tr>{% endwith %}{% endfor %}
+    <tr><td></td><td><b>Closing</b></td><td></td><td class="num"><b>{{ st.cash_in|floatformat:2 }}</b></td><td class="num"><b>{{ st.expenses|add:st.handovers|floatformat:2 }}</b></td><td class="num"><b>{{ st.closing|floatformat:2 }}</b></td><td></td></tr></tbody></table>
+  {% if st.cancelled %}<p class="muted">Cancelled this month: {% for e in st.cancelled %}{{ e.get_kind_display }} Rs {{ e.amount|floatformat:2 }} ({{ e.cancel_reason }}){% if not forloop.last %}; {% endif %}{% endfor %}</p>{% endif %}
+</div>
+{% endblock %}

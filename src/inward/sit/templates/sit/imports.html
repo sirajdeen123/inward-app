@@ -6,7 +6,7 @@
 <div class="scroll"><table class="tbl">
   <thead><tr><th>#</th><th>Imported</th><th>Source</th><th>File</th><th>System date</th><th class="num">Ships</th><th class="num">Changes</th><th class="num">Critical</th><th class="num">Row issues</th></tr></thead>
   <tbody>{% for imp in page %}
-    <tr><td><a href="{% url 'sit:import' imp.pk %}">{{ imp.pk }}</a></td><td>{{ imp.batch.uploaded_at|date:"d-M-Y H:i" }}</td>
+    <tr><td><a href="{% url 'sit:import' imp.pk %}">{{ imp.pk }}</a></td><td>{{ imp.batch.uploaded_at|date:"d-M-Y h:i A" }}</td>
     <td>{{ imp.batch.source }}{% if imp.back_dated %} <span class="chip chip-warn">UAT merge</span>{% endif %}</td><td>{{ imp.batch.filename }}</td><td>{{ imp.system_date|date:"d-M-Y" }}</td>
     <td class="num">{{ imp.ship_count }}{% if imp.back_dated %} new<div class="muted">{{ imp.known_ships }} duplicates skipped</div>{% endif %}</td><td class="num">{{ imp.event_count }}</td><td class="num">{{ imp.critical_count }}</td><td class="num">{{ imp.batch.issue_count }}</td></tr>
   {% empty %}<tr><td colspan="9" class="muted">None yet.</td></tr>{% endfor %}</tbody>

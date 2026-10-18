@@ -53,6 +53,7 @@ urlpatterns = [
     path("<int:pk>/sed-approval/<int:approval_pk>/decide/", views_mra.approval_decide, name="approval_decide"),
     path("<int:pk>/sed-approval/<int:approval_pk>/file/", views_mra.approval_file, name="approval_file"),
     path("emails/verify/", views_mra.email_verify, name="email_verify"),
+    path("orgs/save/", views.org_save, name="org_save"),
     path("<int:pk>/erp/", views_erp.erp_page, name="erp"),
     path("<int:pk>/erp/receipts/add/", views_erp.receipt_add, name="receipt_add"),
     path("<int:pk>/erp/receipts/<int:receipt_pk>/remove/", views_erp.receipt_remove, name="receipt_remove"),

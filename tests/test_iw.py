@@ -46,8 +46,8 @@ def test_create_issues_number_from_arrival_fy(org, clerk):
     assert (iw.iw_no, iw.fy_code, iw.status) == ("IW-2627-000001", "2627", Iw.Status.OPEN)
     assert (iw.vehicle_no, iw.vehicle_key, iw.driver_mobile, iw.lr_no) == ("TN 60 E 8139", "TN60E8139", "9876543210", "LR-4521")
     assert iw.transporter.name == "EZLUMALAIYAN LOGISTICS (786323)" and not iw.transporter.verified
-    iw2 = services.create(clerk, _data(org, arrival_at=datetime(2026, 3, 31, 23, 10, tzinfo=IST)))
-    iw3 = services.create(clerk, _data(org, arrival_at=datetime(2026, 4, 1, 0, 5, tzinfo=IST)))
+    iw2 = services.create(clerk, _data(org, arrival_at=datetime(2026, 3, 31, 23, 10, tzinfo=IST), lr_no="lr-4400"))
+    iw3 = services.create(clerk, _data(org, arrival_at=datetime(2026, 4, 1, 0, 5, tzinfo=IST), lr_no="lr-4401"))
     assert (iw2.iw_no, iw3.iw_no) == ("IW-2526-000001", "IW-2627-000002")
     assert AuditEvent.objects.filter(action="IW_CREATED").count() == 3
 
@@ -73,9 +73,24 @@ def test_validation(org, clerk, kw, message):
     assert not Iw.objects.exists()
 
 
+def test_duplicate_iw_is_refused(org, clerk):
+    """UAT: IW-2627-000009 repeated IW-2627-000008 (same vehicle, LR and arrival)."""
+    first = services.create(clerk, _data(org))
+    with pytest.raises(services.IwError, match="Duplicate entry: IW-2627-000001"):
+        services.create(clerk, _data(org, arrival_at=datetime(2026, 9, 26, 9, 0, tzinfo=IST)))
+    with pytest.raises(services.IwError, match="second trip"):
+        services.create(clerk, _data(org, lr_no="LR-9999"))
+    second = services.create(clerk, _data(org, lr_no="LR-9999", second_trip=True))
+    with pytest.raises(services.IwError, match="Duplicate entry"):            # editing into a duplicate
+        services.update(clerk, second.pk, second.version, _data(org, second_trip=True))
+    Iw.objects.filter(pk=first.pk).update(status=Iw.Status.VOID)
+    assert services.create(clerk, _data(org, second_trip=True)).iw_no       # a VOID IW does not count
+
+
 def test_vendor_and_non_stock_need_no_source_org(org, clerk):
     for code in ("VENDOR", "OTHERS_NON_STOCK"):
-        assert services.create(clerk, _data(org, source_org=None, load_type=LoadType.objects.get(code=code))).iw_no
+        assert services.create(clerk, _data(org, source_org=None, load_type=LoadType.objects.get(code=code),
+                                            vehicle_no=f"TN01{code[:2]}1", lr_no=code)).iw_no
 
 
 def test_edit_rules(org, clerk):
@@ -132,8 +147,12 @@ def test_screens_create_edit_and_approve(client, org, clerk, cfa, seeded):
     assert (local.hour, local.minute) == (21, 40)                       # 9:40 PM
     page = c.get(reverse("iw:edit", args=[made.pk])).content.decode()
     assert 'value="PM" selected' in page and '<option value="9" selected>' in page
-    resp = c.post(reverse("iw:new"), post, follow=True)
-    assert "already has open IW(s): IW-2627-000001" in resp.content.decode()
+    resp = c.post(reverse("iw:new"), post, follow=True)          # the same vehicle and LR again: refused
+    assert "Duplicate entry: IW-2627-000001" in resp.content.decode() and Iw.objects.count() == 1
+    resp = c.post(reverse("iw:new"), post | {"lr_no": "L2"}, follow=True)   # same vehicle, same day, other LR
+    assert "genuine second trip" in resp.content.decode() and Iw.objects.count() == 1
+    resp = c.post(reverse("iw:new"), post | {"lr_no": "L2", "second_trip": "on"}, follow=True)
+    assert "IW-2627-000002 created." in resp.content.decode()
     iw = Iw.objects.get(iw_no="IW-2627-000001")
     assert c.get(reverse("iw:list") + "?q=tn60e8139").status_code == 200
     c.post(reverse("iw:void", args=[iw.pk]), {"reason": "duplicate"})

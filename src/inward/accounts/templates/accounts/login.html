@@ -1,18 +1,34 @@
 {% extends "web/base.html" %}
+{% load static %}
 {% block title %}Sign in{% endblock %}
+{% block bodyclass %}login-page{% endblock %}
 {% block content %}
-<div class="auth">
-  {% load static %}<img src="{% static 'inward/company_logo.png' %}" alt="{{ depot.company|default:'Company' }} logo" class="auth-logo">
-  <div class="auth-company">{{ depot.company }}</div>
-  <h1>Stock Inward · Sign in</h1>
-  <p class="muted">Depot {{ depot.code }} · {{ depot.name }}{% if depot.cfa %} · operated by {{ depot.cfa }} (CFA){% endif %}</p>
-  {% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
-  <form method="post" class="card form">
-    {% csrf_token %}
-    <input type="hidden" name="next" value="{{ next }}">
-    <label for="id_username">Username</label>{{ form.username }}
-    <label for="id_password">Password</label>{{ form.password }}
-    <button type="submit" class="btn btn-primary">Sign in</button>
-  </form>
+<div class="login-wrap">
+  <div class="login-card">
+    <section class="login-art">
+      <div class="login-brand"><img src="{% static 'inward/company_logo.png' %}" alt="{{ depot.company|default:'Company' }} logo">
+        <div><div class="login-company">{{ depot.company|default:"BERGER PAINTS INDIA LIMITED" }}</div>
+          <div class="login-depot">Depot {{ depot.code }} · {{ depot.name }}{% if depot.cfa %} · operated by {{ depot.cfa }}{% endif %}</div></div></div>
+      <img src="{% static 'inward/login-flow.svg' %}" alt="Stock inward flow: SIT and Ship linking, unloading and SED, MRA and e-mails, ERP and IRR reconciliation, closure and reports" class="login-flow">
+    </section>
+    <section class="login-form">
+      <img src="{% static 'inward/icon-192.png' %}" alt="" class="login-icon">
+      <h1>STOCK INWARD SYSTEM</h1>
+      <p class="login-sub">Vehicle inward, unloading, SED, MRA and IRR reconciliation for Depot {{ depot.code }}.</p>
+      {% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
+      <form method="post" class="login-fields">{% csrf_token %}
+        <input type="hidden" name="next" value="{{ next }}">
+        <label for="id_username">Username <span class="req">*</span></label>{{ form.username }}
+        <label for="id_password">Password <span class="req">*</span></label>
+        <div class="pw-wrap">{{ form.password }}<button type="button" class="pw-eye" id="pw-eye" aria-label="Show password" title="Show password">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M12 5C6.5 5 2.4 8.6 1 12c1.4 3.4 5.5 7 11 7s9.6-3.6 11-7c-1.4-3.4-5.5-7-11-7zm0 11.5A4.5 4.5 0 1 1 12 7.5a4.5 4.5 0 0 1 0 9zm0-7a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z" fill="currentColor"/></svg></button></div>
+        <button type="submit" class="btn btn-primary login-btn">Sign in</button>
+        <p class="login-note">Next you enter the 6-digit code from your authenticator app.</p>
+      </form>
+      <div class="powered">This application is powered by
+        <span class="powered-name"><img src="{% static 'inward/mts-logo.svg' %}" alt="" width="26" height="26">Maryam Tech Solutions</span></div>
+    </section>
+  </div>
 </div>
+<script src="{% static 'inward/login.js' %}" defer></script>
 {% endblock %}

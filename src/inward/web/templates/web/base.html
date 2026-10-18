@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Inward">
 </head>
-<body>
+<body class="{% block bodyclass %}{% endblock %}">
 {% if TEST_MODE %}<div class="test-banner" role="status">TEST MODE · test data only · all e-mails go to the test address</div>{% endif %}
 <div class="shell">
   {% if user.is_authenticated and user.is_verified %}
@@ -52,6 +52,7 @@
     <div class="grow"></div>
     <div class="who">{{ user.full_name|default:user.username }}</div>
     <form method="post" action="{% url 'accounts:logout' %}">{% csrf_token %}<button type="submit" class="btn btn-sm">Sign out</button></form>
+    <div class="powered side-powered">Powered by<span class="powered-name"><img src="{% static 'inward/mts-logo.svg' %}" alt="" width="22" height="22">Maryam Tech Solutions</span></div>
   </nav>
   {% endif %}
   <main class="main">

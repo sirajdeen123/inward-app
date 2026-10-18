@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 420" role="img" aria-label="Stock inward flow: SIT and Ship linking, unloading and SED, MRA and e-mails, ERP and IRR reconciliation, closure and reports">
+  <defs>
+    <linearGradient id="ring" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4FC3D9"/><stop offset=".35" stop-color="#9B6BE0"/>
+      <stop offset=".7" stop-color="#F06BA8"/><stop offset="1" stop-color="#F7A54A"/>
+    </linearGradient>
+    <filter id="sh" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity=".15"/></filter>
+  </defs>
+  <!-- centre -->
+  <circle cx="140" cy="210" r="118" fill="none" stroke="url(#ring)" stroke-width="12"/>
+  <circle cx="140" cy="210" r="96" fill="#f7f8fb" filter="url(#sh)"/>
+  <text x="140" y="196" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="21" font-weight="800" fill="#2E2560">STOCK</text>
+  <text x="140" y="222" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="21" font-weight="800" fill="#2E2560">INWARD</text>
+  <text x="140" y="246" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="600" fill="#5b5e6b">MANAGEMENT</text>
+  <!-- steps -->
+  <g font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="700" fill="#2b2d36">
+    <path d="M230 128 C260 100 280 86 304 86" fill="none" stroke="#4FC3D9" stroke-width="2"/>
+    <circle cx="230" cy="128" r="6" fill="#4FC3D9"/>
+    <rect x="300" y="64" width="208" height="44" rx="22" fill="#fff" stroke="#4FC3D9" stroke-width="2" filter="url(#sh)"/>
+    <circle cx="322" cy="86" r="18" fill="#4FC3D9"/><text x="322" y="91" text-anchor="middle" fill="#fff" font-size="14">1</text>
+    <text x="348" y="91">SIT &amp; SHIP LINKING</text>
+
+    <path d="M256 168 C280 156 296 150 320 150" fill="none" stroke="#9B6BE0" stroke-width="2"/>
+    <circle cx="256" cy="168" r="6" fill="#9B6BE0"/>
+    <rect x="316" y="128" width="192" height="44" rx="22" fill="#fff" stroke="#9B6BE0" stroke-width="2" filter="url(#sh)"/>
+    <circle cx="338" cy="150" r="18" fill="#9B6BE0"/><text x="338" y="155" text-anchor="middle" fill="#fff" font-size="14">2</text>
+    <text x="364" y="155">UNLOADING &amp; SED</text>
+
+    <path d="M262 214 L328 214" fill="none" stroke="#5B7BE8" stroke-width="2"/>
+    <circle cx="262" cy="214" r="6" fill="#5B7BE8"/>
+    <rect x="324" y="192" width="184" height="44" rx="22" fill="#fff" stroke="#5B7BE8" stroke-width="2" filter="url(#sh)"/>
+    <circle cx="346" cy="214" r="18" fill="#5B7BE8"/><text x="346" y="219" text-anchor="middle" fill="#fff" font-size="14">3</text>
+    <text x="372" y="219">MRA &amp; E-MAILS</text>
+
+    <path d="M254 260 C280 272 296 278 320 278" fill="none" stroke="#F06BA8" stroke-width="2"/>
+    <circle cx="254" cy="260" r="6" fill="#F06BA8"/>
+    <rect x="316" y="256" width="192" height="44" rx="22" fill="#fff" stroke="#F06BA8" stroke-width="2" filter="url(#sh)"/>
+    <circle cx="338" cy="278" r="18" fill="#F06BA8"/><text x="338" y="283" text-anchor="middle" fill="#fff" font-size="14">4</text>
+    <text x="364" y="276" font-size="12">ERP &amp; IRR</text><text x="364" y="290" font-size="12">RECONCILIATION</text>
+
+    <path d="M228 302 C260 328 280 342 304 342" fill="none" stroke="#F7A54A" stroke-width="2"/>
+    <circle cx="228" cy="302" r="6" fill="#F7A54A"/>
+    <rect x="300" y="320" width="208" height="44" rx="22" fill="#fff" stroke="#F7A54A" stroke-width="2" filter="url(#sh)"/>
+    <circle cx="322" cy="342" r="18" fill="#F7A54A"/><text x="322" y="347" text-anchor="middle" fill="#fff" font-size="14">5</text>
+    <text x="348" y="347">CLOSURE &amp; REPORTS</text>
+  </g>
+</svg>

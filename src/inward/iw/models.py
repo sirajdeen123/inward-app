@@ -494,6 +494,7 @@ class MailMessage(models.Model):
         MONTHLY_MIS = "MONTHLY_MIS", "Monthly MIS"
         DAMAGE_APPROVAL = "IDR_APPR", "Internal damage approval request"
         DAMAGE_REMINDER = "IDR_REMIND", "Internal damage approval reminder"
+        IRR_EXCEPTIONS = "IRR_EXC", "IRR reconciliation exceptions"
 
     class Status(models.TextChoices):
         PENDING = "PENDING", "Waiting to send"

@@ -99,4 +99,6 @@ def import_irr(user: User, path: Path, filename: str) -> ImportBatch:
                         **{k: v for k, v in batch.summary.items() if k not in ("review", "issues")}})
     from inward.damage.services import reconcile_open
     reconcile_open()
+    from inward.irrecon import engine
+    engine.run(user)   # the separate IRR reconciliation engine
     return batch

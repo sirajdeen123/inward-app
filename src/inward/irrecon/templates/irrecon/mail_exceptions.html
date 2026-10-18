@@ -1,0 +1,9 @@
+{% extends "iw/mail/_base.html" %}
+{% block body %}
+<p><b>IRR reconciliation - {{ count }} open exception(s)</b> ({{ day|date:"d-M-Y" }})</p>
+<p>Rows of the IRR that the engine could not match or explain. Open <i>IRR reconciliation</i> in the app to explain or follow them up.</p>
+<table cellpadding="4" cellspacing="0" style="border-collapse:collapse;font-size:12px;width:100%">
+<tr style="background:#eee"><th style="border:1px solid #bbb;text-align:left">Date</th><th style="border:1px solid #bbb;text-align:left">Type / TRX</th><th style="border:1px solid #bbb;text-align:left">SKU</th><th style="border:1px solid #bbb">Pcs</th><th style="border:1px solid #bbb;text-align:left">Why</th></tr>
+{% for m in rows %}<tr><td style="border:1px solid #ccc">{{ m.row.trx_date|date:"d-M-Y" }}</td><td style="border:1px solid #ccc">{{ m.row.type }} {{ m.row.transaction_type }}<br>{{ m.row.trx_number }}</td><td style="border:1px solid #ccc">{{ m.row.sku }}</td><td style="border:1px solid #ccc;text-align:right">{{ m.row.no_of_pack|floatformat:"-3" }}</td><td style="border:1px solid #ccc">{{ m.note }}</td></tr>{% endfor %}
+</table>{% if count > rows|length %}<p>... and {{ count|add:0 }} in total - see the app.</p>{% endif %}
+{% endblock %}

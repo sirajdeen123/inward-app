@@ -165,6 +165,7 @@ SPECS = {
     "DAILY_UNL": Spec("DAILY_UNL", "DAILY_UNLOADING", "iw/mail/report_unloading.html", "Daily unloading collection"),
     "MONTHLY_MIS": Spec("MONTHLY_MIS", "MONTHLY_MIS", "iw/mail/report_mis.html", "Monthly MIS"),
     "SED_REPORT": Spec("SED_REPORT", "SED_REPORT", "iw/mail/report_sed.html", "SED report"),
+    "IRR_EXC": Spec("IRR_EXC", "IRR_EXCEPTIONS", "irrecon/mail_exceptions.html", "IRR reconciliation exceptions"),
 }
 
 
@@ -225,6 +226,12 @@ def due_reports(now=None) -> list[ReportRun]:
     if not ReportRun.objects.filter(kind="DAILY_ESC", period=key).exists():
         out.append(queue_report("DAILY_ESC", key, {"r": daily_escalation(day)}))
         escalate_exceptions()
+    if not ReportRun.objects.filter(kind="IRR_EXC", period=key).exists():
+        from inward.irrecon.models import IrrMatch
+        open_rows = list(IrrMatch.objects.filter(status="OPEN").select_related("row").order_by("row__trx_date")[:300])
+        if open_rows:
+            out.append(queue_report("IRR_EXC", key, {"rows": open_rows, "count": IrrMatch.objects.filter(status="OPEN").count(),
+                                                     "day": day}))
     if day.day == 1:
         prev = day - timedelta(days=1)
         month = f"{prev:%Y-%m}"

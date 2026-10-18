@@ -18,6 +18,7 @@ PURPOSES = {
     "SED_IMMEDIATE": "Internal SED notification - with every MRA that has Short / Excess / Damage",
     "SED_APPROVAL": "SED approval request - the Depot Manager approves by replying from this address",
     "DAMAGE_APPROVAL": "Internal damage approval - the Depot Manager or Admin Officer approves by replying",
+    "IRR_EXCEPTIONS": "IRR reconciliation exceptions (09:30, when there are open exceptions)",
     "DAILY_ESCALATION": "Daily status of incomplete IWs (09:30)",
     "DAILY_UNLOADING": "Yesterday's unloading collection (09:00)",
     "MONTHLY_MIS": "Monthly MIS (1st of the month)",

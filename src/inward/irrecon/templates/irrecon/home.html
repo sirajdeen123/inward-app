@@ -1,0 +1,52 @@
+{% extends "web/base.html" %}
+{% block title %}IRR reconciliation{% endblock %}
+{% block content %}
+<div class="bar"><h1>IRR reconciliation engine</h1><div class="grow"></div>
+  {% if can_mark %}<form method="post" action="{% url 'irrecon:run' %}" class="inline-form">{% csrf_token %}<button type="submit" class="btn btn-primary">Run now</button></form>{% endif %}
+  <a class="btn" href="{% url 'irr:home' %}">IRR import</a></div>
+<p class="muted">Every row of the imported IRR is checked: transfers and picks must find their other half, picks must leave in the day's shipments, conversions must tally in litres / kilos, transfers to DMG need an approved internal damage report, LSCCR postings belong to an IW. It runs after every IRR import. Separate from the IW flow.</p>
+
+<div class="kpis">
+  <div class="card kpi"><div class="kpi-label">IRR rows checked</div><div class="kpi-value">{{ total }}</div><div class="muted">of {{ irr_rows }} imported</div></div>
+  <div class="card kpi"><div class="kpi-label">Reconciled</div><div class="kpi-value">{{ pct }} %</div></div>
+  <div class="card kpi"><div class="kpi-label">Open exceptions</div><div class="kpi-value">{{ open }}</div></div>
+  <div class="card kpi"><div class="kpi-label">Last run</div><div class="kpi-value" style="font-size:16px">{% if run %}{{ run.run_at|date:"d-M-Y h:i A" }}{% else %}never{% endif %}</div>{% if run.run_by %}<div class="muted">by {{ run.run_by }}</div>{% endif %}</div>
+</div>
+
+<div class="card"><h2>By family</h2>
+  <table class="tbl stack"><thead><tr><th>Family</th>{% for s, l in statuses %}<th class="num">{{ l }}</th>{% endfor %}<th class="num">Total</th><th class="num">Done</th></tr></thead>
+    <tbody>{% for t in table %}<tr><td data-label="Family"><a href="?family={{ t.code }}&amp;status=">{{ t.label }}</a></td>
+      {% for s, l in statuses %}<td class="num" data-label="{{ l }}">{% for k, v in t.counts.items %}{% if k == s %}{% if s == 'OPEN' and v %}<a href="?family={{ t.code }}&amp;status=OPEN"><b class="warn-text">{{ v }}</b></a>{% else %}{{ v }}{% endif %}{% endif %}{% endfor %}</td>{% endfor %}
+      <td class="num" data-label="Total">{{ t.total }}</td><td class="num" data-label="Done">{{ t.pct }} %</td></tr>
+    {% empty %}<tr><td colspan="7" class="muted">Import an IRR and run the engine.</td></tr>{% endfor %}</tbody></table>
+</div>
+
+<form method="get" class="filters card">
+  <label for="f-st">Result</label><select id="f-st" name="status"><option value=""{% if not status %} selected{% endif %}>All</option>{% for s, l in statuses %}<option value="{{ s }}"{% if s == status %} selected{% endif %}>{{ l }}</option>{% endfor %}</select>
+  <label for="f-fa">Family</label><select id="f-fa" name="family"><option value="">All</option>{% for c, l in families %}<option value="{{ c }}"{% if c == f.family %} selected{% endif %}>{{ l }}</option>{% endfor %}</select>
+  <label for="f-fr">From</label><input id="f-fr" type="date" name="from" value="{{ f.from }}">
+  <label for="f-to">To</label><input id="f-to" type="date" name="to" value="{{ f.to }}">
+  <label for="f-q">TRX / SKU / IW / IDR</label><input id="f-q" name="q" value="{{ f.q }}" class="input-inline">
+  <button type="submit" class="btn btn-sm">Show</button>
+  <a class="btn btn-sm" href="?{{ request.GET.urlencode }}&amp;xlsx=1">Excel</a>
+</form>
+
+<form method="post" action="{% url 'irrecon:mark' %}" class="card">{% csrf_token %}<input type="hidden" name="back" value="{{ request.get_full_path }}">
+  <h2>{{ page.paginator.count }} row(s){% if status %} · {% for s, l in statuses %}{% if s == status %}{{ l }}{% endif %}{% endfor %}{% endif %}</h2>
+  <div class="scroll"><table class="tbl stack"><thead><tr>{% if can_mark %}<th></th>{% endif %}<th>Date</th><th>Type / TRX</th><th>SKU</th><th class="num">Pcs</th><th>From → To</th><th>Result</th><th>Why</th></tr></thead>
+    <tbody>{% for m in page %}{% with r=m.row %}<tr>
+      {% if can_mark %}<td data-label="">{% if m.status == 'OPEN' %}<input type="checkbox" name="row" value="{{ r.pk }}" aria-label="Select TRX {{ r.trx_number }}">{% elif m.note|slice:":9" == "Marked by" %}<button type="submit" formaction="{% url 'irrecon:unmark' r.pk %}" class="btn btn-sm" title="Remove the mark">undo</button>{% endif %}</td>{% endif %}
+      <td data-label="Date">{{ r.trx_date|date:"d-M-Y" }}</td>
+      <td data-label="Type / TRX">{{ r.type }} · {{ r.transaction_type|default:"-" }}<div class="mono">{{ r.trx_number }}</div></td>
+      <td data-label="SKU"><span class="mono">{{ r.sku }}</span><div class="muted small">{{ r.item_description|truncatechars:40 }}</div></td>
+      <td class="num" data-label="Pcs">{{ r.no_of_pack|floatformat:"-3" }}</td>
+      <td data-label="From → To" class="small">{{ r.source_subinv|default:"-" }} → {{ r.dest_subinv|default:"-" }}{% if r.reason_description %}<div class="muted">{{ r.reason_description }}</div>{% endif %}</td>
+      <td data-label="Result"><span class="chip {% if m.status == 'OPEN' %}chip-warn{% elif m.status == 'INFO' %}{% else %}chip-ok{% endif %}">{{ m.get_status_display }}</span>{% if m.link %}<div class="small">{{ m.link }}</div>{% endif %}</td>
+      <td data-label="Why" class="small">{{ m.note }}{% if m.group %}<div class="muted"><a href="?status=&amp;q={{ m.group|urlencode }}">group {{ m.group }}</a></div>{% endif %}</td></tr>{% endwith %}
+    {% empty %}<tr><td colspan="8" class="muted">Nothing here.</td></tr>{% endfor %}</tbody></table></div>
+  {% if can_mark and status == 'OPEN' and page.object_list %}
+  <div class="inline" style="margin-top:10px"><label for="m-r">Explain the ticked rows *</label><input id="m-r" name="reason" class="input-inline" maxlength="300" placeholder="e.g. receipt posted on 14-Sep under TRX 3672..." style="min-width:320px">
+    <button type="submit" class="btn btn-primary btn-sm">Mark explained</button></div>{% endif %}
+  <p class="pager">{% if page.has_previous %}<a href="?{{ request.GET.urlencode }}&amp;page={{ page.previous_page_number }}">Previous</a>{% endif %} Page {{ page.number }} of {{ page.paginator.num_pages }} {% if page.has_next %}<a href="?{{ request.GET.urlencode }}&amp;page={{ page.next_page_number }}">Next</a>{% endif %}</p>
+</form>
+{% endblock %}

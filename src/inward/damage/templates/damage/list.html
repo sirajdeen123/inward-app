@@ -1,0 +1,19 @@
+{% extends "web/base.html" %}
+{% block title %}Internal damage{% endblock %}
+{% block content %}
+<h1>Internal damage</h1>
+<p class="muted">Material damaged inside the warehouse, expired, or leaking: list it with photos, the Depot Manager or Admin Officer approves by replying to the mail, move it to DMG in Oracle, enter the TRX No - the app reconciles it with the IRR.</p>
+<form method="post" action="{% url 'damage:new' %}" class="card form-grid">{% csrf_token %}
+  <h2 class="span-all">New internal damage report</h2>
+  <div class="field"><label for="n-d">Found on *</label><input id="n-d" type="date" name="found_on" required></div>
+  <div class="field"><label for="n-l">Area / rack</label><input id="n-l" name="location" class="caps" maxlength="120" placeholder="e.g. WH1 RACK R13"></div>
+  <div class="field span-all"><label for="n-r">Remarks</label><input id="n-r" name="remarks" maxlength="500"></div>
+  <div class="span-all"><button type="submit" class="btn btn-primary">Start report</button></div>
+</form>
+<form method="get" class="filters"><label for="st">Status</label><select id="st" name="status"><option value="">All</option>{% for v, l in statuses %}<option value="{{ v }}"{% if v == status %} selected{% endif %}>{{ l }}</option>{% endfor %}</select><button type="submit" class="btn btn-sm">Show</button></form>
+<div class="card"><table class="tbl stack"><thead><tr><th>Report</th><th>Found on</th><th>Lines</th><th>Status</th><th>By</th></tr></thead>
+  <tbody>{% for r in reports %}<tr><td data-label="Report"><a href="{% url 'damage:detail' r.pk %}"><b>{{ r.number }}</b></a>{% if r.location %}<div class="muted">{{ r.location }}</div>{% endif %}</td>
+    <td data-label="Found on">{{ r.found_on|date:"d-M-Y" }}</td><td data-label="Lines">{{ r.lines.all|length }}</td>
+    <td data-label="Status"><span class="chip dmg dmg-{{ r.status }}">{{ r.get_status_display }}</span></td><td data-label="By">{{ r.created_by }}</td></tr>
+  {% empty %}<tr><td colspan="5" class="muted">No report yet.</td></tr>{% endfor %}</tbody></table></div>
+{% endblock %}

@@ -21,6 +21,7 @@ urlpatterns = [
     path("iw/", include("inward.iw.urls")),
     path("irr/", include("inward.irr.urls")),
     path("cash/", include("inward.cash.urls")),
+    path("damage/", include("inward.damage.urls")),
     path("masters/", include("inward.core.urls")),
     path("", include("inward.web.urls")),
 ]

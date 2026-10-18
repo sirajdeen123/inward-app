@@ -492,6 +492,8 @@ class MailMessage(models.Model):
         DAILY_UNLOADING = "DAILY_UNL", "Daily unloading collection"
         SED_REPORT = "SED_REPORT", "SED report"
         MONTHLY_MIS = "MONTHLY_MIS", "Monthly MIS"
+        DAMAGE_APPROVAL = "IDR_APPR", "Internal damage approval request"
+        DAMAGE_REMINDER = "IDR_REMIND", "Internal damage approval reminder"
 
     class Status(models.TextChoices):
         PENDING = "PENDING", "Waiting to send"

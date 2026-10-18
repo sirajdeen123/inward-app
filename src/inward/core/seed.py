@@ -41,7 +41,10 @@ def seed_reference_data(go_live: date, depot_code: str = "035", depot_name: str 
     for purpose, recipients in NOTIFICATION_PURPOSES.items():
         if not NotificationRecipient.objects.filter(purpose=purpose).exists():
             for label, kind in recipients:  # e-mail addresses are filled in by the CFA Manager
-                NotificationRecipient.objects.create(purpose=purpose, role_label=label, kind=kind, mandatory=True)
+                known = (NotificationRecipient.objects.filter(role_label=label).exclude(email="")
+                         .values_list("email", flat=True).first() or "")   # same person on another list
+                NotificationRecipient.objects.create(purpose=purpose, role_label=label, kind=kind, mandatory=True,
+                                                     email=known)
     depot, _ = Depot.objects.get_or_create(code=depot_code, defaults={"name": depot_name})
     if not depot.operators.exists():
         DepotOperator.objects.create(depot=depot, cfa_name=cfa_name, cfa_short_name=cfa_name, effective_from=go_live)

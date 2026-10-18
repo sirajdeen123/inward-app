@@ -561,6 +561,12 @@ def handle_reply(raw: bytes) -> str:
     if msg.get("X-Inward-Stamp"):
         return "skip"  # one of our own requests / reminders seen in the inbox
     received = parsedate_to_datetime(msg["Date"]) if msg.get("Date") else None
+    if "IDR-APPR" in subject:   # internal damage approval (decision 18-Oct-2026)
+        from inward.damage.services import apply_reply
+        outcome, _ = apply_reply(raw, msg, sender, received, _first_line(msg), _authenticated(msg))
+        InboundMail.objects.create(message_id=mid[:250], subject=subject[:250], sender=sender[:256],
+                                   received_at=received, outcome=outcome[:200])
+        return outcome
     tag = TAG_RE.search(subject)
     ap = None
     if tag:
@@ -599,7 +605,13 @@ def handle_reply(raw: bytes) -> str:
 
 
 def poll_replies(transport) -> list[str]:
-    return [handle_reply(raw) for raw in transport.fetch_raw("SED-APPR")]
+    from inward.damage.services import waiting_replies
+    out = []
+    if SedApproval.objects.filter(status__in=[A.REQUESTED, A.REJECTED]).exists():
+        out += [handle_reply(raw) for raw in transport.fetch_raw("SED-APPR")]
+    if waiting_replies():
+        out += [handle_reply(raw) for raw in transport.fetch_raw("IDR-APPR")]
+    return out
 
 
 def send_reminders(now=None) -> int:
@@ -625,8 +637,10 @@ def run_once(transport, read_inbox: bool = True) -> dict:
     stats = {"reports": len(reports.due_reports())}
     if MailMessage.objects.exclude(status__in=[M.SENT, M.FAILED]).exists():
         stats.update(process_outbox(transport))  # Gmail is contacted only when something waits
-    stats["reminders"] = send_reminders()
-    if not read_inbox or not SedApproval.objects.filter(status__in=[A.REQUESTED, A.REJECTED]).exists():
+    from inward.damage.services import send_reminders as damage_reminders, waiting_replies
+    stats["reminders"] = send_reminders() + damage_reminders()
+    if not read_inbox or not (SedApproval.objects.filter(status__in=[A.REQUESTED, A.REJECTED]).exists()
+                              or waiting_replies()):
         return stats
     try:
         stats["replies"] = poll_replies(transport)

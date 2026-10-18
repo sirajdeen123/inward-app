@@ -29,6 +29,7 @@
     <a href="{% url 'sit:home' %}" class="nav{% if request.resolver_match.app_name == 'sit' %} active{% endif %}"><span class="num">1</span>SIT import</a>
     <a href="{% url 'iw:list' %}" class="nav{% if request.resolver_match.app_name == 'iw' and request.resolver_match.url_name != 'ledger' and request.resolver_match.url_name != 'ledger_detail' and request.resolver_match.url_name != 'reports' and request.resolver_match.url_name != 'search' and request.resolver_match.url_name != 'email_verify' %} active{% endif %}"><span class="num">2</span>IW vehicles</a>
     <a href="{% url 'irr:home' %}" class="nav{% if request.resolver_match.app_name == 'irr' %} active{% endif %}"><span class="num">3</span>IRR import</a>
+    {% if can_damage %}<a href="{% url 'damage:list' %}" class="nav{% if request.resolver_match.app_name == 'damage' %} active{% endif %}">Internal damage</a>{% endif %}
     <a href="{% url 'accounts:approvals' %}" class="nav{% if request.resolver_match.url_name == 'approvals' %} active{% endif %}">Approvals{% if approvals_pending %} <span class="badge">{{ approvals_pending }}</span>{% endif %}</a>
     {% if emails_unverified %}<a href="{% url 'iw:email_verify' %}" class="nav{% if request.resolver_match.url_name == 'email_verify' %} active{% endif %}">Verify e-mails <span class="badge">{{ emails_unverified }}</span></a>{% endif %}
 

@@ -59,7 +59,9 @@ def daily_escalation(day: date | None = None) -> dict:
     claim = sum((ln.claimable for r in open_sed for ln in r.iw.sed_lines.all()), Decimal(0))
     return {"day": day, "open": rows, "aged": aged, "erp_pending": erp_pending, "irr_problem": irr_problem,
             "open_sed": open_sed, "approvals": approvals, "ships": list(ships[:200]), "releases": releases,
-            "claim_open": claim, "mail": ops.mail_alert(), "unverified": comms.unverified_emails()}
+            "claim_open": claim, "mail": ops.mail_alert(), "unverified": comms.unverified_emails(),
+            "damage": list(__import__("inward.damage.models", fromlist=["DamageReport"]).DamageReport.objects
+                           .exclude(status__in=["RECONCILED", "CANCELLED"]).order_by("created_at"))}
 
 
 def daily_unloading(day: date | None = None) -> dict:

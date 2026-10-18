@@ -12,6 +12,8 @@ ROLES = {
 STAFF_ROLES = {"CFA_MANAGER", "ADMINISTRATOR"}  # may open the Django admin area (SoT 14.5)
 
 PERMISSIONS = {
+    "DAMAGE_REPORT": "Internal damage: list damaged material with photos, send for approval",
+    "DAMAGE_TRX": "Internal damage: enter the DMG transfer TRX No, reconcile, decide reason codes",
     "CASH_REGISTER": "Cash register: receive cash, expenses, handovers, statement",
     "CASH_MANAGE": "Cash register: opening balance, confirm / cancel any entry (manager)",
     "IW_EDIT": "Create / edit IW before MRA",
@@ -68,6 +70,8 @@ MATRIX: dict[str, dict[str, str]] = {
     "SYSTEM_ADMIN": {"CFA_MANAGER": V, "ADMINISTRATOR": G},
     "SEARCH_REPORTS": {"DEPOT_CLERK": G, "SYSTEM_SUPERVISOR": G, "CFA_MANAGER": G, "ADMINISTRATOR": G, "VIEWER": G},
     "CASH_REGISTER": {"CASHIER": G, "CFA_MANAGER": G},
+    "DAMAGE_REPORT": {"DEPOT_CLERK": G, "SYSTEM_SUPERVISOR": G, "CFA_MANAGER": G},
+    "DAMAGE_TRX": {"SYSTEM_SUPERVISOR": G, "CFA_MANAGER": G},
     "CASH_MANAGE": {"CFA_MANAGER": G},
 }
 
@@ -116,6 +120,9 @@ FEATURE_FLAGS = {
     "cloud_only_after_months": (12, "Closed IW documents kept on OneDrive only after this many months"),
     "daily_unloading_time": ("09:00", "Time (IST) after which yesterday's unloading collection is mailed"),
     "daily_status_time": ("09:30", "Time (IST) after which the daily status of incomplete IWs is mailed"),
+    "damage_reason_codes": (["63", "68"], "Oracle reason codes accepted for internal damage transfers to DMG; "
+                                          "any other code is flagged for the System Supervisor"),
+    "damage_approval_reminder_hours": (24, "Hours after the internal damage approval mail before one reminder"),
     "packaging_bulk_change_limit": (50, "An upload changing more existing SKUs than this is flagged as a whole"),
 }
 
@@ -128,6 +135,7 @@ NOTIFICATION_PURPOSES = {
     "SED_REPORT": [("Admin Officer", "TO"), ("CFA Manager", "TO"), ("Clerk", "TO")],
     "IRR_RECON_REPORT": [("Admin Officer", "TO"), ("CFA Manager", "TO"), ("Clerk", "TO")],
     "DAILY_UNLOADING": [("CFA Manager", "TO")],
+    "DAMAGE_APPROVAL": [("Depot Manager", "TO"), ("Admin Officer", "TO"), ("CFA Manager", "CC")],
 }
 
 DEFAULT_RATES = {"UNLOADING_PER_TON": "300.00", "DAMAGE_CARTON": "50.00", "DAMAGE_DRUM": "150.00"}

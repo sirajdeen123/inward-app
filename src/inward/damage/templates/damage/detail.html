@@ -1,0 +1,82 @@
+{% extends "web/base.html" %}
+{% load static %}
+{% block title %}{{ r.number }}{% endblock %}
+{% block content %}
+<p><a href="{% url 'damage:list' %}">&larr; Internal damage</a></p>
+<div class="bar"><h1>{{ r.number }}</h1><span class="chip dmg dmg-{{ r.status }}">{{ r.get_status_display }}</span></div>
+<p class="muted">Found on {{ r.found_on|date:"d-M-Y" }}{% if r.location %} · {{ r.location }}{% endif %} · by {{ r.created_by }} · {{ r.created_at|date:"d-M-Y h:i A" }}{% if r.remarks %} · {{ r.remarks }}{% endif %}</p>
+
+<div class="nextstep{% if r.status == 'RECONCILED' %} nextstep-done{% endif %}"><div class="ns-row"><span class="ns-label">{% if r.status == 'RECONCILED' %}Done{% else %}Next step{% endif %}</span><b class="ns-text">
+  {% if r.status == 'DRAFT' %}Add the damaged SKUs with their photos, then send for approval.
+  {% elif r.status == 'SUBMITTED' %}Waiting for the reply of the Depot Manager or Admin Officer (APPROVED / REJECTED).
+  {% elif r.status == 'REJECTED' %}Rejected: {{ r.decision_text }} - correct the list and send it again.
+  {% elif r.status == 'APPROVED' %}Approved - post the Subinventory Transfer to DMG in Oracle and enter its TRX No.
+  {% elif r.status == 'TRANSFERRED' %}Import the latest IRR, then run the reconciliation.
+  {% elif r.status == 'RECONCILED' %}Moved to DMG and reconciled with the IRR.
+  {% else %}Cancelled: {{ r.cancel_reason }}{% endif %}</b></div></div>
+
+<div class="card"><h2>Damaged material</h2>
+  <table class="tbl stack"><thead><tr><th>#</th><th>SKU</th><th>Category</th><th class="num">Pcs</th><th>Lot / locator</th><th>Remarks</th><th>Photos</th><th></th></tr></thead>
+    <tbody>{% for ln in lines %}<tr><td data-label="#">{{ forloop.counter }}</td><td data-label="SKU"><b class="mono">{{ ln.floor_sku }}</b><div class="muted small">{{ ln.sku }} · {{ ln.description }}</div></td>
+      <td data-label="Category">{{ ln.get_category_display }}</td><td class="num" data-label="Pcs"><b>{{ ln.quantity|floatformat:"-3" }}</b></td>
+      <td data-label="Lot / locator">{{ ln.lot_no|default:"-" }}{% if ln.locator %}<div class="muted">{{ ln.locator }}</div>{% endif %}</td><td data-label="Remarks">{{ ln.remarks }}</td>
+      <td data-label="Photos"><div class="thumbs">{% for p in ln.photos.all %}<a href="{% url 'damage:photo' r.pk p.pk 'original' %}" target="_blank" rel="noopener"><img src="{% url 'damage:photo' r.pk p.pk 'preview' %}" alt="photo" class="thumb"></a>{% if r.editable %}<form method="post" action="{% url 'damage:photo_remove' r.pk p.pk %}" class="inline-form">{% csrf_token %}<button type="submit" class="btn btn-sm" aria-label="Remove photo">&times;</button></form>{% endif %}{% empty %}{% if ln.category != 'EXPIRY' %}<span class="warn-text">photo needed</span>{% else %}<span class="muted">-</span>{% endif %}{% endfor %}</div>
+        {% if r.editable %}<form method="post" action="{% url 'damage:photo_add' r.pk ln.pk %}" enctype="multipart/form-data" class="photo-form">{% csrf_token %}
+          <label class="btn btn-sm">Take / choose photo<input type="file" name="photo" accept="image/*" capture="environment" multiple class="visually-hidden"></label>
+          <button type="submit" class="btn btn-sm btn-primary">Upload</button></form>{% endif %}</td>
+      <td data-label="">{% if r.editable %}<form method="post" action="{% url 'damage:line_remove' r.pk ln.pk %}" class="inline-form">{% csrf_token %}<button type="submit" class="btn btn-sm">Remove</button></form>{% endif %}</td></tr>
+    {% empty %}<tr><td colspan="8" class="muted">No line yet.</td></tr>{% endfor %}</tbody></table>
+
+  {% if r.editable %}
+  <form method="post" action="{% url 'damage:line_add' r.pk %}" class="form-grid" style="margin-top:12px">{% csrf_token %}
+    <h3 class="span-all">Add a damaged SKU</h3>
+    <table class="span-all"><tr><td><label for="d-sku">SKU * <span class="muted">(type part of the SKU, floor code or name)</span></label>
+      <input id="d-sku" name="sku_1" maxlength="16" class="caps" required data-sku-lookup="{% url 'iw:sku_search' %}" placeholder="SKU / floor code / name"><div class="sku-note muted small"></div></td></tr></table>
+    <div class="field"><label for="d-cat">Category *</label><select id="d-cat" name="category" required><option value="">Select...</option>{% for v, l in categories %}<option value="{{ v }}">{{ l }}</option>{% endfor %}</select></div>
+    <div class="field"><label for="d-qty">Pieces *</label><input id="d-qty" name="quantity" inputmode="numeric" required></div>
+    <div class="field"><label for="d-lot">Lot No</label><input id="d-lot" name="lot_no" class="caps" maxlength="40"></div>
+    <div class="field"><label for="d-loc">Locator</label><input id="d-loc" name="locator" class="caps" maxlength="40" placeholder="e.g. WH1.R13.C4.1"></div>
+    <div class="field span-all"><label for="d-rem">Remarks</label><input id="d-rem" name="remarks" maxlength="300" placeholder="e.g. carton torn while stacking, 2 tins dented"></div>
+    <div class="span-all"><button type="submit" class="btn">Add line</button></div>
+  </form>
+  {% endif %}
+</div>
+
+{% if r.editable %}
+<div class="card"><h2>Send for approval</h2>
+  <p>The mail goes to {% if recipients.0 %}<b>{{ recipients.0|join:", " }}</b>{% else %}<span class="warn-text">no approver address yet</span>{% endif %}{% if recipients.1 %} (copy {{ recipients.1|join:", " }}){% endif %} with the list and the photos. The Depot Manager or the Admin Officer replies APPROVED or REJECTED.</p>
+  {% for b in blockers %}<div class="alert alert-error">{{ b }}</div>{% endfor %}
+  <form method="post" action="{% url 'damage:submit' r.pk %}">{% csrf_token %}<button type="submit" class="btn btn-primary"{% if blockers %} disabled{% endif %}>{% if r.revision %}Send again for approval{% else %}Send for approval{% endif %}</button></form>
+</div>{% endif %}
+
+{% if r.revision %}<div class="card"><h2>Approval</h2>
+  <p>Request R{{ r.revision }}{% if r.request_mail %} · {{ r.request_mail.get_status_display }}{% if r.request_mail.sent_at %} {{ r.request_mail.sent_at|date:"d-M-Y h:i A" }}{% endif %} · to {{ r.request_mail.to|join:", " }}{% endif %}{% if r.reminded_at %} · reminder sent {{ r.reminded_at|date:"d-M-Y h:i A" }}{% endif %}</p>
+  {% if r.decided_at %}<p><b>{% if r.status == 'REJECTED' %}Rejected{% else %}Approved{% endif %}</b> by {{ r.reply_from }} on {{ r.decided_at|date:"d-M-Y h:i A" }}: "{{ r.decision_text }}" {% if r.reply %}<a href="{% url 'damage:reply' r.pk %}">reply mail (.eml)</a>{% endif %}</p>{% endif %}
+</div>{% endif %}
+
+{% if r.status == 'APPROVED' or r.status == 'TRANSFERRED' or r.status == 'RECONCILED' %}
+<div class="card"><h2>Oracle transfer to DMG &amp; IRR reconciliation</h2>
+  <table class="tbl"><tbody>{% for t in trx %}<tr><td class="mono"><b>{{ t.trx_no }}</b></td><td class="muted">{{ t.entered_by }} · {{ t.entered_at|date:"d-M-Y h:i A" }}</td>
+    <td>{% if can_trx and r.status != 'RECONCILED' %}<form method="post" action="{% url 'damage:trx_remove' r.pk t.pk %}" class="inline-form">{% csrf_token %}<button type="submit" class="btn btn-sm">Remove</button></form>{% endif %}</td></tr>{% empty %}<tr><td class="muted">No TRX entered yet.</td></tr>{% endfor %}</tbody></table>
+  {% if can_trx and r.status != 'RECONCILED' %}
+  <form method="post" action="{% url 'damage:trx_add' r.pk %}" class="inline">{% csrf_token %}<label for="t-no">Subinventory Transfer TRX No</label><input id="t-no" name="trx_no" class="input-inline" required><button type="submit" class="btn btn-sm btn-primary">Add TRX</button></form>
+  {% if trx %}<form method="post" action="{% url 'damage:recon' r.pk %}" style="margin-top:8px">{% csrf_token %}<button type="submit" class="btn btn-primary">Run reconciliation</button> <span class="muted">Accepted reason codes: {{ accepted|join:", " }}</span></form>{% endif %}
+  {% endif %}
+  {% if r.recon.lines %}
+  <h3>Result: <span class="chip {% if r.status == 'RECONCILED' %}chip-ok{% else %}chip-warn{% endif %}">{{ r.recon.status }}</span> <span class="muted small">{{ r.recon.at|slice:":16" }}</span></h3>
+  {% for n in r.recon.notes %}<div class="alert alert-warning">{{ n }}</div>{% endfor %}
+  {% for f in r.recon.reason_flags %}<div class="alert alert-warning">Reason <b>{{ f.text }}</b> (TRX {{ f.trx }}) is not in the accepted list - decide:
+    {% if can_trx %}<form method="post" action="{% url 'damage:accept_reason' r.pk %}" class="inline-form">{% csrf_token %}<input type="hidden" name="code" value="{{ f.code }}"><button type="submit" class="btn btn-sm">Accept reason {{ f.code }} for this report</button></form> or correct the transfer in Oracle.{% endif %}</div>{% endfor %}
+  <table class="tbl stack"><thead><tr><th>SKU</th><th class="num">Report pcs</th><th class="num">IRR pcs</th><th>Moved from</th><th>Result</th></tr></thead>
+    <tbody>{% for ln in r.recon.lines %}<tr><td data-label="SKU"><b class="mono">{{ ln.floor }}</b><div class="muted small">{{ ln.sku }}</div></td><td class="num" data-label="Report">{{ ln.expected }}</td><td class="num" data-label="IRR">{{ ln.actual }}</td>
+      <td data-label="Moved from" class="small">{% for p in ln.from %}<div>{{ p }}</div>{% endfor %}</td><td data-label="Result"><span class="chip {% if ln.status == 'FULL' %}chip-ok{% else %}chip-warn{% endif %}">{{ ln.status }}</span></td></tr>{% endfor %}</tbody></table>
+  {% endif %}
+</div>{% endif %}
+
+{% if r.status == 'DRAFT' or r.status == 'REJECTED' or r.status == 'SUBMITTED' %}
+<details class="card"><summary>Cancel this report</summary>
+  <form method="post" action="{% url 'damage:cancel' r.pk %}" class="inline">{% csrf_token %}<label for="c-r">Reason *</label><input id="c-r" name="reason" required class="input-inline"><button type="submit" class="btn">Cancel report</button></form></details>
+{% endif %}
+<script src="{% static 'inward/sku_lookup.js' %}" defer></script>
+<script src="{% static 'inward/upload.js' %}" defer></script>
+{% endblock %}

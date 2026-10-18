@@ -21,3 +21,6 @@
 
 <h4>New organisations / e-mails waiting for the CFA Manager's verification</h4>
 {% if r.unverified %}<table class="rt"><tr><th>For</th><th>E-mail</th><th>Entered by</th></tr>{% for u in r.unverified %}<tr><td>{{ u.owner }}</td><td>{{ u.email }}</td><td>{{ u.by|default:"-" }}</td></tr>{% endfor %}</table>{% else %}<p>None.</p>{% endif %}
+
+<h4>Internal damage reports not yet complete</h4>
+{% if r.damage %}<table class="rt"><tr><th>Report</th><th>Found on</th><th>Status</th></tr>{% for d in r.damage %}<tr><td>{{ d.number }}</td><td>{{ d.found_on|date:"d-M-Y" }}</td><td>{{ d.get_status_display }}</td></tr>{% endfor %}</table>{% else %}<p>None.</p>{% endif %}

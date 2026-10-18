@@ -1,0 +1,17 @@
+{% extends "iw/mail/_base.html" %}
+{% block body %}
+{% if reminder %}<p style="color:#b00020"><b>REMINDER - your approval is still awaited.</b></p>{% endif %}
+<p><b>Internal Damage - Approval Request {{ r.number }} R{{ r.revision }}</b></p>
+<p>Found on <b>{{ r.found_on|date:"d-M-Y" }}</b>{% if r.location %} · {{ r.location }}{% endif %} · reported by {{ r.created_by.full_name|default:r.created_by.username }}{% if r.remarks %}<br>{{ r.remarks }}{% endif %}</p>
+<table cellpadding="4" cellspacing="0" style="border-collapse:collapse;font-size:12px;width:100%">
+<tr style="background:#eee"><th style="border:1px solid #bbb;text-align:left">#</th><th style="border:1px solid #bbb;text-align:left">SKU</th><th style="border:1px solid #bbb;text-align:left">Description</th><th style="border:1px solid #bbb;text-align:left">Category</th><th style="border:1px solid #bbb">Pcs</th><th style="border:1px solid #bbb;text-align:left">Lot / locator</th><th style="border:1px solid #bbb;text-align:left">Remarks</th></tr>
+{% for ln in lines %}<tr><td style="border:1px solid #ccc">{{ forloop.counter }}</td><td style="border:1px solid #ccc"><b>{{ ln.floor_sku }}</b><br><span style="font-size:10px">{{ ln.sku }}</span></td><td style="border:1px solid #ccc">{{ ln.description }}</td>
+<td style="border:1px solid #ccc">{{ ln.get_category_display }}</td><td style="border:1px solid #ccc;text-align:right"><b>{{ ln.quantity|floatformat:"-3" }}</b></td><td style="border:1px solid #ccc">{{ ln.lot_no|default:"-" }}{% if ln.locator %}<br>{{ ln.locator }}{% endif %}</td><td style="border:1px solid #ccc">{{ ln.remarks }}{% if ln.photos.count %} · {{ ln.photos.count }} photo(s) attached{% endif %}</td></tr>{% endfor %}
+</table>
+<p style="font-size:12px">On approval the material is moved to the DMG sub-inventory in Oracle; the transfer is then reconciled with the IRR.</p>
+<div style="border:2px solid #2E2560;padding:10px;margin:14px 0">
+<b>To approve, reply to this e-mail with the first line:</b> APPROVED<br>
+<b>To reject, reply with the first line:</b> REJECTED followed by the reason (e.g. <i>REJECTED recheck the quantity of leakage</i>)<br>
+<span style="font-size:12px">Either the Depot Manager or the Admin Officer may reply. Please reply from your registered address and keep the subject unchanged.</span>
+</div>
+{% endblock %}

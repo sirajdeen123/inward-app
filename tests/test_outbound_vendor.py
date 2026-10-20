@@ -144,6 +144,7 @@ def test_screens(client, env):
     with open(sample("Outbound SIT sample.xlsx"), "rb") as fh:
         resp = c.post(reverse("iw:outbound_upload", args=[iw.pk]), {"file": fh}, follow=True)
     assert "36 rows" in resp.content.decode() and "094 : Pondicherry" in resp.content.decode()
+    assert "org-pick-data" in resp.content.decode() and "org_pick.js" in resp.content.decode()
     resp = c.post(reverse("iw:outbound_add_ship", args=[iw.pk]),
                   {"ship_id": "52611001", "destination": "094 : Pondicherry", "doc_ltr": "80", "doc_kg": "0"},
                   follow=True)

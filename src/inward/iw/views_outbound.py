@@ -46,6 +46,8 @@ def outbound_page(request, pk):
         "iw": iw, "state": outbound.state(iw), "destinations": dests,
         "default_destination": f"{dests[0][0]} : {dests[0][1]}" if len(dests) == 1 else "",
         "orgs": Organisation.objects.filter(active=True).order_by("code"),
+        "org_pick": [{"c": o.code, "n": o.name, "r": o.code in {d[0] for d in dests}}
+                     for o in Organisation.objects.filter(active=True).order_by("code")],
         "reports": iw.despatch_reports.filter(kind=OutboundSource.DESPATCH).order_by("uploaded_at"),
         "sources": OutboundSource.choices})
 

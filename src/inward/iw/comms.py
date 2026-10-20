@@ -109,6 +109,12 @@ def origin_cc(iw: Iw) -> list[str]:
                       .filter(organisation_id__in=origins).values_list("email", flat=True)))
 
 
+def default_mra_cc() -> list[str]:
+    """Notification e-mails -> 'Default Cc on every MRA mail' (21-Oct-2026)."""
+    return [e.lower() for e in NotificationRecipient.objects.filter(purpose="MRA_CC", active=True).exclude(email="")
+            .order_by("id").values_list("email", flat=True)]
+
+
 def internal(purpose: str) -> tuple[list[str], list[str], list[str]]:
     """(to, cc, missing role labels) from the Notification Master."""
     to, cc, missing = [], [], []
@@ -260,7 +266,9 @@ def send_mra(user: User, iw_pk: int, extra_cc: str = "") -> list[MailMessage]:
     for t in mra_targets(iw):
         to += [e for e in t.to if e not in to]
         cc += [e for e in t.cc if e not in cc]
-    cc += [e for e in origin_cc(iw) + extra if e not in cc and e not in to]
+    for e in origin_cc(iw) + default_mra_cc() + extra:
+        if e not in cc and e not in to:
+            cc.append(e)
     c = rev.content
     base = f"{iw.iw_no} MRA-{rev.label}"
     mails = [_queue(iw, P.MRA, rev, base, to, cc,

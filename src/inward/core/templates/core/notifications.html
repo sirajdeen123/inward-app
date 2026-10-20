@@ -13,6 +13,9 @@
         <td data-label="Receives">{% for label, kind, mandatory in uses %}<div>{{ label }} <span class="muted">({{ kind }}{% if mandatory %}, mandatory{% endif %})</span></div>{% endfor %}</td></tr>
     {% endfor %}</tbody>
   </table>
+  <h2>Default Cc on every MRA mail</h2>
+  <p class="muted">Copied on every MRA sent to a source, vendor or sender, in addition to the source's own Cc. Several addresses separated by commas. Leave empty for none.</p>
+  <div class="field"><label for="mra-cc">MRA default Cc</label><textarea id="mra-cc" name="mra_cc" rows="2" placeholder="name@example.com, other@example.com">{{ mra_cc }}</textarea></div>
   <p><button type="submit" class="btn btn-primary">Save e-mails</button></p>
 </form>
 <p class="muted">Source organisation, vendor and sender e-mails (who receives the MRA) are entered on the MRA page when missing, or under Masters &amp; users → Organisations.</p>

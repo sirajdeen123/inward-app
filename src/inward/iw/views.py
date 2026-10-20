@@ -187,4 +187,6 @@ def org_save(request):
         parts.append(f"E-mail(s) added: {', '.join(saved.emails)} (unverified).")
     if saved.note:
         parts.append(saved.note)
-    return JsonResponse({"value": str(saved.org), "message": " ".join(parts)})
+    from inward.core.models import OrganisationEmail
+    mra = ", ".join(OrganisationEmail.objects.filter(organisation=saved.org, kind="TO").values_list("email", flat=True))
+    return JsonResponse({"value": str(saved.org), "message": " ".join(parts), "mra": mra})

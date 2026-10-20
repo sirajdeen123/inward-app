@@ -12,6 +12,7 @@
     <label for="{{ field.id_for_label }}">{{ field.label }}</label>
     {{ field }}
     {% if field.errors %}<div class="field-error">{{ field.errors|join:" " }}</div>{% endif %}
+    {% if field.name == 'source_email' %}<div id="src-mail-note" class="muted small"></div>{% endif %}
     {% if field.name == 'source_org' %}<details class="orgadd" id="org-add"><summary>+ Add / update organisation</summary>
       <div class="orgadd-grid">
         <label for="org-code">Code *</label><input id="org-code" class="caps" maxlength="10" placeholder="e.g. 390">
@@ -23,7 +24,7 @@
     </details>{% endif %}
   </div>
   {% endif %}{% endfor %}
-  <datalist id="org-list">{% for o in orgs %}<option value="{{ o.code }} : {{ o.name }}">{% if o.mra_to %}MRA to {{ o.mra_to }}{% else %}no MRA e-mail yet - enter one{% endif %}</option>{% endfor %}</datalist>
+  <datalist id="org-list">{% for o in orgs %}<option value="{{ o.code }} : {{ o.name }}" data-mra="{{ o.mra_to }}">{% if o.mra_to %}MRA to {{ o.mra_to }}{% else %}no MRA e-mail yet - enter one{% endif %}</option>{% endfor %}</datalist>
   <datalist id="transporter-list">{% for t in transporters %}<option value="{{ t.name }}"></option>{% endfor %}</datalist>
   <div class="span-all bar">
     {% if iw and iw.iw_no %}

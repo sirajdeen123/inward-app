@@ -193,3 +193,39 @@ def test_source_email_is_required(org, clerk, settings):
     assert services.create(clerk, _data(org, lr_no="LR-2", vehicle_no="TN01X1")).iw_no      # known now: not asked
     assert services.create(clerk, _data(org, source_org=None, lr_no="LR-3", vehicle_no="TN01X2",
                                         load_type=LoadType.objects.get(code="VENDOR"))).iw_no   # vendor: no source
+
+
+def test_source_email_only_when_none_on_file(org, clerk, settings):
+    """21-Oct-2026: an e-mail on file switches the IW box / org panel add off; typed text is not added."""
+    from inward.core.models import OrganisationEmail
+    from inward.iw import orgs
+    settings.INWARD = {**settings.INWARD, "REQUIRE_SOURCE_EMAIL": True}
+    OrganisationEmail.objects.create(organisation=org, email="on.file@example.com", kind="TO", status="VERIFIED")
+    services.create(clerk, _data(org, source_email="other@example.com"))
+    assert list(OrganisationEmail.objects.filter(organisation=org).values_list("email", flat=True)) == ["on.file@example.com"]
+    with pytest.raises(services.IwError, match="already has the MRA e-mail on.file@example.com"):
+        orgs.save_org(clerk, org.code, "", "", "new@example.com")
+    assert orgs.save_org(clerk, "777", "NEW DEPOT", "DEPOT", "n@example.com").emails == ["n@example.com"]
+
+
+def test_import_orgs_command(seeded, tmp_path):
+    import openpyxl
+    from django.core.management import call_command
+    from inward.core.models import Organisation, OrganisationEmail
+    Organisation.objects.create(code="001", name="KEEP ME", org_type="OTHER")
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.append(["Source Name", "To Email"])
+    for r in (["001:Kolkata", ""], ["279:RDC - WB-Sreerampore", ""], ["390:Hindupur - Mfg", "h@example.com"],
+              ["BPM: Item Master Organization", None]):
+        ws.append(r)
+    path = tmp_path / "orgs.xlsx"
+    wb.save(path)
+    before = Organisation.objects.count()
+    call_command("import_orgs", str(path))                       # dry run
+    assert Organisation.objects.count() == before
+    call_command("import_orgs", str(path), apply=True)
+    assert Organisation.objects.get(code="001").name == "KEEP ME"   # existing left as it is
+    assert Organisation.objects.get(code="279").org_type == "RDC" and Organisation.objects.get(code="390").org_type == "FACTORY"
+    assert Organisation.objects.get(code="BPM").name == "Item Master Organization"
+    assert OrganisationEmail.objects.get(organisation_id="390").status == "VERIFIED"

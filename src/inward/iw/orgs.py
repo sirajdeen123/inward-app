@@ -59,6 +59,9 @@ def save_org(user: User, code: str, name: str, org_type: str = "", emails: str =
             org.save(update_fields=["name", "org_type"])
             audit.record("ORGANISATION_UPDATED", "organisation", code, user=user, before=before,
                          after={"name": name, "type": kind})
+    on_file = list(OrganisationEmail.objects.filter(organisation=org, kind="TO").values_list("email", flat=True))
+    if addresses and on_file and not created:
+        raise IwError(f"{org} already has the MRA e-mail {', '.join(on_file)} - the CFA Manager changes it in the masters.")
     added = []
     for addr in addresses:
         _, new = OrganisationEmail.objects.get_or_create(organisation=org, email=addr, kind="TO",

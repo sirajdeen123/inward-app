@@ -279,3 +279,21 @@ def test_notification_emails_screen(client, seeded, make_user):
     clerk = make_user("clerk_notif", "DEPOT_CLERK")
     client.logout()
     assert verified_client(client, clerk).get(reverse("core:notifications")).status_code == 403
+
+
+def test_default_mra_cc(client, issued, make_user):
+    """21-Oct-2026: Notification e-mails -> default Cc on every MRA mail."""
+    w = issued
+    cfa = verified_client(client, make_user("cfa_mracc", "CFA_MANAGER"))
+    roles = sorted(set(NotificationRecipient.objects.values_list("role_label", flat=True)))
+    data = {f"role_{i}": (NotificationRecipient.objects.filter(role_label=r).exclude(email="")
+                          .values_list("email", flat=True).first() or "x@example.com") for i, r in enumerate(roles)}
+    bad = cfa.post(reverse("core:notifications"), {**data, "mra_cc": "ok@example.com, wrong"}, follow=True)
+    assert "Default MRA Cc: &#x27;wrong&#x27;" in bad.content.decode() and not comms.default_mra_cc()
+    cfa.post(reverse("core:notifications"), {**data, "mra_cc": "Copy1@Example.com; copy2@example.com"})
+    assert comms.default_mra_cc() == ["copy1@example.com", "copy2@example.com"]
+    page = cfa.get(reverse("core:notifications")).content.decode()
+    assert "copy1@example.com, copy2@example.com" in page and "MRA default Cc</b>" not in page   # not a person row
+    OrganisationEmail.objects.create(organisation_id="390", email="h@example.com", kind="TO", status=EmailStatus.VERIFIED)
+    m = comms.send_mra(w["clerk"], w["iw"].pk, "copy2@example.com")[0]
+    assert m.to == ["h@example.com"] and m.cc == ["copy1@example.com", "copy2@example.com"]

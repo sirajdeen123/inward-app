@@ -97,7 +97,9 @@ def _source_email(user: User, data: IwData) -> None:
     if data.source_email.strip() and not typed:
         raise IwError(f"'{data.source_email.strip()}' is not a valid e-mail address.")
     has_to = OrganisationEmail.objects.filter(organisation=org, kind="TO").exists()
-    if not has_to and not typed:
+    if has_to:
+        return   # e-mail on file: the box is off on the screen; anything typed is not added (21-Oct-2026)
+    if not typed:
         raise IwError(f"{org} has no MRA e-mail yet. Enter at least one 'To' address of the source in "
                       "'Source MRA e-mail (To)' - the MRA is mailed there.")
     for addr in typed:

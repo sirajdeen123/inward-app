@@ -11,6 +11,7 @@
   {% if iw.status == 'PHYSICALLY_VERIFIED' %}
     {% for b in send_blockers %}<div class="alert alert-error">{{ b }}</div>{% endfor %}
     <form method="post" action="{% url 'iw:mra_send' iw.pk %}" class="form-grid">{% csrf_token %}
+      {% if default_cc %}<p class="span-all muted">Default Cc on every MRA: {{ default_cc|join:", " }}</p>{% endif %}
       <div class="field span-all"><label for="m-cc">Extra Cc (optional, comma separated)</label><input id="m-cc" name="extra_cc"></div>
       <div class="span-all"><button type="submit" class="btn btn-primary"{% if send_blockers %} disabled{% endif %}>Send {{ latest.label }}</button></div></form>
   {% endif %}

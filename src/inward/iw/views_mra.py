@@ -70,7 +70,7 @@ def _comms_context(request, iw: Iw) -> dict:
     from inward.accounts.services import modes_for
     from inward.iw import audit_memo, comms
     latest = iw.mras.first()
-    return {"targets": comms.mra_targets(iw), "send_blockers": comms.send_blockers(iw),
+    return {"targets": comms.mra_targets(iw), "default_cc": comms.default_mra_cc(), "send_blockers": comms.send_blockers(iw),
             "mails": latest.mails.select_related("eml").order_by("id") if latest else [],
             "all_mails": iw.mails.select_related("mra").order_by("-id"),
             "gates": comms.gates(iw) if latest else [], "approval": comms.approval(iw),

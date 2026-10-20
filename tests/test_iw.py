@@ -216,7 +216,7 @@ def test_import_orgs_command(seeded, tmp_path):
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.append(["Source Name", "To Email"])
-    for r in (["001:Kolkata", ""], ["279:RDC - WB-Sreerampore", ""], ["390:Hindupur - Mfg", "h@example.com"],
+    for r in (["001:Kolkata", ""], ["279:RDC - WB-Sreerampore", ""], ["390:Hindupur - Mfg-CESA Reporting", ""], ["390:Hindupur - Mfg", "h@example.com"],
               ["BPM: Item Master Organization", None]):
         ws.append(r)
     path = tmp_path / "orgs.xlsx"
@@ -228,4 +228,5 @@ def test_import_orgs_command(seeded, tmp_path):
     assert Organisation.objects.get(code="001").name == "KEEP ME"   # existing left as it is
     assert Organisation.objects.get(code="279").org_type == "RDC" and Organisation.objects.get(code="390").org_type == "FACTORY"
     assert Organisation.objects.get(code="BPM").name == "Item Master Organization"
+    assert Organisation.objects.get(code="390").name == "Hindupur - Mfg"   # not the 'CESA Reporting' twin
     assert OrganisationEmail.objects.get(organisation_id="390").status == "VERIFIED"

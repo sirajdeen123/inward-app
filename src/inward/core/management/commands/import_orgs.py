@@ -56,6 +56,25 @@ def read(path) -> list[tuple[str, str, list[str], list[str]]]:
     return out
 
 
+def merge(rows):
+    """A code listed twice: the factories appear as 'Hindupur - Mfg' and 'Hindupur - Mfg-CESA Reporting' - the name
+    without 'CESA Reporting' (as on the SIT / Ship documents) is kept, e-mails of both are combined."""
+    by: dict[str, tuple] = {}
+    merged = []
+    for code, name, to, cc in rows:
+        if code not in by:
+            by[code] = (code, name, to, cc)
+            continue
+        merged.append(code)
+        old = by[code]
+        cesa_old, cesa_new = "CESA REPORTING" in old[1].upper(), "CESA REPORTING" in name.upper()
+        if cesa_old == cesa_new:
+            raise CommandError(f"Code {code} twice in the file with different names: '{old[1]}' / '{name}'.")
+        keep = name if cesa_old else old[1]
+        by[code] = (code, keep, old[2] + [a for a in to if a not in old[2]], old[3] + [a for a in cc if a not in old[3]])
+    return list(by.values()), merged
+
+
 class Command(BaseCommand):
     help = "Import source organisations (and optional MRA e-mails) from Excel; existing ones are skipped."
 
@@ -65,11 +84,8 @@ class Command(BaseCommand):
 
     def handle(self, path, apply=False, **opts):
         from inward.sit.services import _org_type
-        rows = read(path)
+        rows, merged = merge(read(path))
         codes = [r[0] for r in rows]
-        dup = sorted({c for c in codes if codes.count(c) > 1})
-        if dup:
-            raise CommandError(f"Code(s) twice in the file: {', '.join(dup)}")
         known = set(Organisation.objects.filter(code__in=codes).values_list("code", flat=True))
         new = [r for r in rows if r[0] not in known]
         with transaction.atomic():
@@ -83,10 +99,10 @@ class Command(BaseCommand):
                             organisation_id=code, email=a, kind=kind, defaults={"status": EmailStatus.VERIFIED})
                         mails += made
             audit.record("ORGANISATIONS_IMPORTED", "organisation", "import", after={
-                "file": str(path).replace("\\", "/").rsplit("/", 1)[-1], "in_file": len(rows), "added": len(new),
+                "file": str(path).replace("\\", "/").rsplit("/", 1)[-1], "in_file": len(rows), "merged_cesa": merged, "added": len(new),
                 "skipped_existing": len(known), "emails_added": mails, "codes_added": [r[0] for r in new]})
-            msg = (f"{len(rows)} in the file: {len(new)} new organisation(s), {len(known)} already in the app (skipped), "
-                   f"{mails} e-mail(s) added.")
+            msg = (f"{len(rows)} organisations in the file ({len(merged)} listed twice as '... CESA Reporting', kept "
+                   f"once): {len(new)} new, {len(known)} already in the app (skipped), {mails} e-mail(s) added.")
             if not apply:
                 transaction.set_rollback(True)
                 msg = "DRY RUN (nothing saved) - " + msg

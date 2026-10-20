@@ -148,3 +148,9 @@ def test_uat_merge_refused_outside_test(tmp_path, seeded, settings):
     path = sit_html(tmp_path / "x.xls", _rows())
     with pytest.raises(services.SitImportRejected, match="only in the UAT"):
         services._import_uat_merge(path, parse_sit(path), "abc", "x.xls", "MANUAL", None, "", None)
+
+
+def test_organisation_type_from_the_name():
+    from inward.sit.services import _org_type
+    assert [_org_type(n) for n in ("Bangalore-RDC", "RDC - WB-Sreerampore", "Hubli RDC", "Pondy - Mfg",
+                                    "Coimbatore", "Hardcore Depot")] == ["RDC", "RDC", "RDC", "FACTORY", "DEPOT", "DEPOT"]

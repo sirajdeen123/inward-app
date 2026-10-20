@@ -90,6 +90,8 @@ def integrity_check() -> dict:
     root = settings.INWARD["ONEDRIVE_REMOTE"].rstrip("/")
     r = _rclone("lsjson", "-R", "--files-only", "--hash", "--hash-type", "QuickXorHash", root, timeout=1800)
     if r.returncode != 0:
+        if "directory not found" in r.stderr and not Document.objects.exclude(cloud_mirrored_at__isnull=True).exists():
+            return {"check": "nothing mirrored yet"}   # a new environment: the folder appears with the first upload
         return {"check": f"failed: {r.stderr.strip()[:200]}"}
     remote = {e["Path"]: (e.get("Hashes") or {}).get("quickxor", "").lower() for e in json.loads(r.stdout or "[]")}
     changed = missing = 0

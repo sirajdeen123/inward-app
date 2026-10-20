@@ -1,6 +1,7 @@
 """SIT import (manual upload or 'Fetch from Gmail' button) and change detection (SoT 3)."""
 from __future__ import annotations
 
+import re
 import tempfile
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -218,7 +219,7 @@ def _org_type(name: str) -> str:
     upper = name.upper()
     if "MFG" in upper or "FACTORY" in upper:
         return Organisation.OrgType.FACTORY
-    if upper.startswith("RDC") or " RDC" in upper:
+    if re.search(r"(^|[^A-Z])RDC([^A-Z]|$)", upper):   # "RDC - WB", "Bangalore-RDC", "Hubli RDC"
         return Organisation.OrgType.RDC
     return Organisation.OrgType.DEPOT
 

@@ -79,8 +79,14 @@ install -m 644 "$ROOT/app/deploy/inward-backup@.timer" /etc/systemd/system/inwar
 systemctl daemon-reload
 systemctl enable --quiet "inward@$ENVNAME"
 systemctl restart "inward@$ENVNAME"
-systemctl enable --quiet "inward-worker@$ENVNAME"
 systemctl enable --quiet --now "inward-backup@$ENVNAME.timer"
-systemctl restart "inward-worker@$ENVNAME"
+# the mail worker stays off where "$ROOT/worker-off" exists (UAT after go-live: only live reads 035cfa@gmail.com)
+if [ -e "$ROOT/worker-off" ]; then
+  systemctl disable --now --quiet "inward-worker@$ENVNAME" || true
+  echo "worker: off ($ROOT/worker-off)"
+else
+  systemctl enable --quiet "inward-worker@$ENVNAME"
+  systemctl restart "inward-worker@$ENVNAME"
+fi
 sleep 3
 curl -fsS -H "Host: $HOST" "http://127.0.0.1:$PORT/healthz" >/dev/null && echo "service inward@$ENVNAME healthy on :$PORT"

@@ -13,7 +13,8 @@
     <label for="dr-file">Upload report (.xls / .xlsx)</label><input id="dr-file" type="file" name="file" required>
     <button type="submit" class="btn">Upload</button>
   </form>
-  {% for r in reports %}<p class="muted">{{ r.filename }} · {{ r.window_from|date:"d-M-Y" }} to {{ r.window_to|date:"d-M-Y" }} · uploaded {{ r.uploaded_at|date:"d-M-Y h:i A" }}</p>{% endfor %}
+  {% for r in reports %}<p class="muted">{{ r.filename }} · {{ r.window_from|date:"d-M-Y" }} to {{ r.window_to|date:"d-M-Y" }} · uploaded {{ r.uploaded_at|date:"d-M-Y h:i A" }}
+    <form method="post" action="{% url 'iw:outbound_remove_report' r.pk %}" class="inline-form">{% csrf_token %}<button type="submit" class="btn btn-sm">Remove</button></form></p>{% endfor %}
   {% if destinations %}<p>Destinations in the report: {% for code, name, n in destinations %}<span class="chip">{{ code }} : {{ name }} · {{ n }} row(s)</span> {% endfor %}</p>{% endif %}
 </div>
 
@@ -23,7 +24,8 @@
     <div class="field"><label for="ob-id">Outbound Ship ID *</label><input id="ob-id" name="ship_id" inputmode="numeric"></div>
     <div class="field"><label for="ob-dest">Destination *</label><input id="ob-dest" name="destination" list="dest-list" value="{{ default_destination }}" placeholder="094 : Pondicherry"></div>
     <div class="field"><label for="ob-ltr">LTR on document *</label><input id="ob-ltr" name="doc_ltr" inputmode="decimal"></div>
-    <div class="field"><label for="ob-kg">KG on document *</label><input id="ob-kg" name="doc_kg" inputmode="decimal" placeholder="0 if none"></div>
+    <div class="field"><label for="ob-kg">KG of KG products (putty, powder - UOM K) *</label><input id="ob-kg" name="doc_kg" inputmode="decimal" placeholder="0 if all items are in litres"><span class="muted small">Not the gross weight.</span></div>
+    <div class="field"><label for="ob-gross">Gross weight (KG) on document</label><input id="ob-gross" name="gross_kg" inputmode="decimal"><span class="muted small">For the record only - not tallied.</span></div>
     <div class="field"><label for="ob-nop">Packages on document (optional)</label><input id="ob-nop" name="doc_nop" inputmode="decimal"></div>
     <div class="field span-all"><label>Rows of this Ship come from *</label>
       <label class="check"><input type="radio" name="source" value="DESPATCH"{% if reports %} checked{% else %} disabled{% endif %}> A · Despatch Detail Report{% if not reports %} (upload it above first){% endif %}</label>
@@ -42,7 +44,7 @@
     <tbody>{% for s in state.ships %}
       <tr><td class="mono">{{ s.ship.ship_id }}</td><td>{{ s.ship.destination }}</td><td>{{ s.ship.get_source_display }}</td>
       <td class="num">{{ s.ship.doc_ltr|floatformat:"-3" }} / {{ s.ticked.ltr|floatformat:"-3" }}</td>
-      <td class="num">{{ s.ship.doc_kg|floatformat:"-3" }} / {{ s.ticked.kg|floatformat:"-3" }}</td>
+      <td class="num">{{ s.ship.doc_kg|floatformat:"-3" }} / {{ s.ticked.kg|floatformat:"-3" }}{% if s.ship.gross_kg is not None %}<div class="muted small">gross {{ s.ship.gross_kg|floatformat:"-3" }}</div>{% endif %}</td>
       <td class="num">{{ s.ship.doc_nop|floatformat:"-3"|default:"-" }} / {{ s.ticked.nop|floatformat:"-3" }}</td>
       <td>{% if s.tallied %}<span class="chip chip-ok">Tallied and saved</span>{% else %}<span class="chip chip-warn">Rows not saved</span>{% endif %}</td>
       <td class="nowrap">{% if s.ship.source == "DEST_SIT" %}<a href="{% url 'iw:outbound_dest_sit' s.ship.pk %}" class="btn btn-sm{% if not s.tallied %} btn-primary{% endif %}">{% if s.tallied %}View / load again{% else %}Upload destination SIT{% endif %}</a>

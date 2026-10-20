@@ -154,3 +154,12 @@ def test_organisation_type_from_the_name():
     from inward.sit.services import _org_type
     assert [_org_type(n) for n in ("Bangalore-RDC", "RDC - WB-Sreerampore", "Hubli RDC", "Pondy - Mfg",
                                     "Coimbatore", "Hardcore Depot")] == ["RDC", "RDC", "RDC", "FACTORY", "DEPOT", "DEPOT"]
+
+
+def test_another_depots_sit_is_refused(tmp_path, seeded):
+    """Live 20-Oct-2026: a Madurai (037) SIT imported by mistake made every 035 Ship look removed."""
+    services.import_sit_file(sit_html(tmp_path / "sit1.xls", _rows()), source="MANUAL")
+    with pytest.raises(services.SitImportRejected, match="not for Depot 035: it has Ships to depot 037"):
+        services.import_sit_file(sit_html(tmp_path / "mdu.xls", _rows(a_qty=10), to_org="037:Madurai"), source="MANUAL")
+    assert SitImport.objects.count() == 1 and not ExceptionEvent.objects.exists()
+    assert set(SitShip.objects.values_list("status", flat=True)) == {"IN_SIT"}

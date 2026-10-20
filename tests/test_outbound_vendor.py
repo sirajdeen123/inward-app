@@ -192,7 +192,7 @@ def test_destination_sit_rows_by_ship_id(env):
     Organisation.objects.create(code="094", name="Pondicherry", org_type="DEPOT")
     ship = outbound.add_ship(clerk, iw.pk, ship_id="52611001", destination="094", doc_ltr="72", doc_kg="99",
                              source="DEST_SIT")
-    with pytest.raises(IwError, match="does not tally"):
+    with pytest.raises(IwError, match="not tally"):
         outbound.load_destination_sit(clerk, ship.pk, _dest_sit(env), "dest.xls")
     assert not ship.rows.exists()
     with pytest.raises(IwError, match="goes to 035"):
@@ -220,7 +220,7 @@ def test_manual_rows_must_tally(env):
                              doc_nop="82", source="MANUAL")
     lines = [("F000000160001000", "", "L", "60", "60"), ("f000000134001000", "Luxol sky blue", "L", "12", "12"),
              ("", "", "", "", "")]
-    with pytest.raises(IwError, match="does not tally"):
+    with pytest.raises(IwError, match="not tally"):
         outbound.save_manual(clerk, ship.pk, lines)
     with pytest.raises(IwError, match="16-character"):
         outbound.save_manual(clerk, ship.pk, [("F0001", "", "L", "1", "1")])
@@ -254,3 +254,54 @@ def test_other_sources_screens(client, env):
                   {"count": "12", "sku_0": "F000000134001000", "uom_0": "L", "nop_0": "5", "qty_0": "5"}, follow=True)
     assert "1 row(s) saved" in resp.content.decode()
     assert 'value="F000000134001000"' in c.get(reverse("iw:outbound_manual", args=[m.pk])).content.decode()
+
+
+def test_gross_weight_typed_as_kg_can_be_corrected(env):
+    """Live 20-Oct-2026: the gross weight went into 'KG' - all-litre rows could never tally; the clerk corrects it."""
+    clerk, iw = env["clerk"], _iw(env["clerk"])
+    Organisation.objects.create(code="094", name="Pondicherry", org_type="DEPOT")
+    with pytest.raises(IwError, match="is the gross weight"):
+        outbound.add_ship(clerk, iw.pk, ship_id="52611001", destination="094", doc_ltr="72", doc_kg="95",
+                          gross_kg="95", source="MANUAL")
+    ship = outbound.add_ship(clerk, iw.pk, ship_id="52611001", destination="094", doc_ltr="72", doc_kg="95",
+                             source="DEST_SIT")
+    lines = [("F000000160001000", "", "L", "60", "60"), ("F000000134001000", "", "L", "12", "12")]
+    with pytest.raises(IwError, match="looks like the gross weight"):
+        outbound.save_manual(clerk, ship.pk, lines)   # manual entry works from any source page
+    ship = outbound.update_ship(clerk, ship.pk, doc_ltr="72", doc_kg="0", gross_kg="95", source="MANUAL")
+    assert (ship.doc_kg, ship.gross_kg, ship.source, ship.tallied_at) == (0, 95, "MANUAL", None)
+    outbound.save_manual(clerk, ship.pk, lines)
+    assert outbound.state(iw).ready
+    ship = outbound.update_ship(clerk, ship.pk, doc_ltr="72", doc_kg="0", doc_nop="72")
+    assert ship.tallied_at is not None            # the saved rows still tally with the corrected figures
+    ship = outbound.update_ship(clerk, ship.pk, doc_ltr="73", doc_kg="0")
+    assert ship.tallied_at is None and not outbound.state(iw).ready
+
+
+def test_same_despatch_report_twice_is_refused_and_removable(env):
+    clerk, iw = env["clerk"], _iw(env["clerk"])
+    first = _report(env, iw)
+    with pytest.raises(IwError, match="already uploaded"):
+        _report(env, iw)
+    assert DespatchRow.objects.filter(report__iw=iw).count() == 36
+    ship = outbound.add_ship(clerk, iw.pk, ship_id="52611001", destination="094", doc_ltr="12", doc_kg="0")
+    outbound.save_selection(clerk, ship.pk, {_all_rows(iw)[0].pk}, set())
+    with pytest.raises(IwError, match="saved on a Ship"):
+        outbound.remove_report(clerk, first.pk)
+    outbound.remove_ship(clerk, ship.pk)
+    outbound.remove_report(clerk, first.pk)
+    assert not iw.despatch_reports.exists()
+
+
+def test_correct_figures_screen(client, env):
+    c = verified_client(client, env["clerk"])
+    iw = _iw(env["clerk"])
+    Organisation.objects.create(code="094", name="Pondicherry", org_type="DEPOT")
+    ship = outbound.add_ship(env["clerk"], iw.pk, ship_id="52611001", destination="094", doc_ltr="72", doc_kg="95",
+                             source="DEST_SIT")
+    page = c.get(reverse("iw:outbound_dest_sit", args=[ship.pk])).content.decode()
+    assert "Correct Ship figures" in page
+    resp = c.post(reverse("iw:outbound_update_ship", args=[ship.pk]),
+                  {"doc_ltr": "72", "doc_kg": "0", "gross_kg": "95", "source": "MANUAL"}, follow=True)
+    page = resp.content.decode()
+    assert "corrected - now enter its rows" in page and "Type the SKU rows" in page and "mt-total" in page

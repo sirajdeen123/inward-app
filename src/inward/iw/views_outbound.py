@@ -12,7 +12,7 @@ from inward.accounts.services import PermissionDenied
 from inward.core.models import Organisation, Vendor
 from inward.importers.common import ImportFailed
 from inward.iw import outbound, vendor
-from inward.iw.models import Iw, OutboundShip, OutboundSource, VendorConsignment
+from inward.iw.models import DespatchReport, Iw, OutboundShip, OutboundSource, VendorConsignment
 from inward.iw.services import IwError
 from inward.web.views import PreviewForm, needs
 
@@ -73,7 +73,8 @@ def outbound_add_ship(request, pk):
         s = outbound.add_ship(request.user, pk, ship_id=request.POST.get("ship_id", ""),
                               destination=request.POST.get("destination", ""), doc_ltr=request.POST.get("doc_ltr", ""),
                               doc_kg=request.POST.get("doc_kg", ""), doc_nop=request.POST.get("doc_nop", ""),
-                              source=request.POST.get("source", OutboundSource.DESPATCH))
+                              source=request.POST.get("source", OutboundSource.DESPATCH),
+                              gross_kg=request.POST.get("gross_kg", ""))
         messages.success(request, f"Outbound Ship {s.ship_id} added - now {NEXT_STEP[s.source]}.")
         return redirect(ROWS_PAGE[s.source], ship_pk=s.pk)
     except (IwError, PermissionDenied) as exc:
@@ -165,6 +166,36 @@ def outbound_manual(request, ship_pk):
     rows = list(lines) + [("", "", "", "", "")] * max(0, MANUAL_ROWS - len(lines))
     return render(request, "iw/outbound_manual.html", {"ship": ship, "iw": ship.iw, "error": error,
                                                        "rows": [(i, *r) for i, r in enumerate(rows)], "count": len(rows)})
+
+
+@require_POST
+@needs("MATERIAL_LINK")
+def outbound_update_ship(request, ship_pk):
+    ship = get_object_or_404(OutboundShip, pk=ship_pk)
+    try:
+        s = outbound.update_ship(request.user, ship.pk, doc_ltr=request.POST.get("doc_ltr", ""),
+                                 doc_kg=request.POST.get("doc_kg", ""), doc_nop=request.POST.get("doc_nop", ""),
+                                 gross_kg=request.POST.get("gross_kg", ""), source=request.POST.get("source", ""))
+    except (IwError, PermissionDenied) as exc:
+        messages.error(request, str(exc))
+        return redirect(ROWS_PAGE[ship.source], ship_pk=ship.pk)
+    if s.tallied_at:
+        messages.success(request, f"Outbound Ship {s.ship_id} corrected - its saved rows tally.")
+        return redirect("iw:outbound", pk=s.iw_id)
+    messages.success(request, f"Outbound Ship {s.ship_id} corrected - now {NEXT_STEP[s.source]}.")
+    return redirect(ROWS_PAGE[s.source], ship_pk=s.pk)
+
+
+@require_POST
+@needs("MATERIAL_LINK")
+def outbound_remove_report(request, report_pk):
+    report = get_object_or_404(DespatchReport, pk=report_pk)
+    try:
+        outbound.remove_report(request.user, report.pk)
+        messages.success(request, f"Despatch report {report.filename} removed.")
+    except (IwError, PermissionDenied) as exc:
+        messages.error(request, str(exc))
+    return redirect("iw:outbound", pk=report.iw_id)
 
 
 @require_POST

@@ -68,6 +68,12 @@ def import_sit_file(path: Path, *, source: str, user=None, message_id: str = "",
         raise AlreadyImported(existing)
 
     parsed = parse_sit(path)  # ImportFailed propagates with a clear message
+    depot = settings.INWARD["DEPOT_CODE"]
+    others = sorted({r.to_org_code for r in parsed.rows if r.to_org_code and r.to_org_code != depot})
+    if others:  # live 20-Oct-2026: a Madurai (037) SIT was imported by mistake and every 035 Ship looked removed
+        raise SitImportRejected(
+            f"This SIT report is not for Depot {depot}: it has Ships to depot {', '.join(others)}. "
+            f"Only the SIT of Depot {depot} is imported here - nothing was changed.")
     if settings.INWARD["MODE"] == "TEST":  # UAT only: every report is merged, in any date order (17-Oct-2026)
         return _import_uat_merge(path, parsed, sha, name, source, user, message_id, received_at)
     latest = SitImport.objects.filter(back_dated=False).select_related("batch").first()

@@ -5,6 +5,7 @@
 <h1>Outbound Ship {{ ship.ship_id }} · {{ ship.destination }}</h1>
 <p class="muted">Rows from the SIT report shared by the destination depot. The rows of Ship {{ ship.ship_id }} are taken by Ship ID and must tally with the Ship document: LTR {{ ship.doc_ltr|floatformat:"-3" }} · KG {{ ship.doc_kg|floatformat:"-3" }}{% if ship.doc_nop is not None %} · packages {{ ship.doc_nop|floatformat:"-3" }}{% endif %}.</p>
 {% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
+{% include "iw/_outbound_fix.html" %}
 <div class="card">
   <h2>{% if rows %}Load again (replaces the rows below){% else %}Upload the destination depot's SIT report{% endif %}</h2>
   <form method="post" enctype="multipart/form-data" class="inline">{% csrf_token %}

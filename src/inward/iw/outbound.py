@@ -83,6 +83,8 @@ def upload_report(user: User, iw_pk: int, path: Path, filename: str) -> Despatch
     parsed = parse_despatch(path)
     doc = documents.store(Path(path).read_bytes(), filename=filename, content_type="application/vnd.ms-excel",
                           doc_type="DESPATCH_REPORT", user=user, links=[("iw", iw.pk, "despatch_report")])
+    if iw.despatch_reports.filter(kind=OutboundSource.DESPATCH, document__sha256=doc.sha256).exists():
+        raise IwError(f"{filename} is already uploaded on this IW - the same rows would be listed twice.")
     report = DespatchReport.objects.create(iw=iw, document=doc, filename=filename, window_from=parsed.window_from,
                                            window_to=parsed.window_to, uploaded_by=user)
     DespatchRow.objects.bulk_create([
@@ -107,7 +109,7 @@ def report_destinations(iw: Iw) -> list[tuple[str, str, int]]:
 
 @transaction.atomic
 def add_ship(user: User, iw_pk: int, *, ship_id: str, destination: str, doc_ltr="", doc_kg="", doc_nop="",
-             source: str = OutboundSource.DESPATCH) -> OutboundShip:
+             source: str = OutboundSource.DESPATCH, gross_kg="") -> OutboundShip:
     require(user, "MATERIAL_LINK")
     iw = Iw.objects.select_for_update().select_related("load_type").get(pk=iw_pk)
     _require_outbound(iw)
@@ -123,17 +125,68 @@ def add_ship(user: User, iw_pk: int, *, ship_id: str, destination: str, doc_ltr=
         raise IwError("Choose where the Ship's rows come from: Despatch report, destination SIT or manual entry.")
     if source == OutboundSource.DESPATCH and not iw.despatch_reports.filter(kind=OutboundSource.DESPATCH).exists():
         raise IwError("Upload the Despatch Detail Report first, or choose the destination SIT / manual entry.")
+    ltr, kg, nop, gross = _figures(doc_ltr, doc_kg, doc_nop, gross_kg)
+    ship = OutboundShip.objects.create(iw=iw, ship_id=sid, destination=_org(destination), doc_ltr=ltr, doc_kg=kg,
+                                       doc_nop=nop, gross_kg=gross, source=source, linked_by=user)
+    _refresh_status(iw)
+    audit.record("OUTBOUND_SHIP_ADDED", "iw", iw.pk, user=user, iw_id=iw.pk,
+                 after={"ship": sid, "destination": ship.destination_id, "ltr": ltr, "kg": kg, "nop": nop,
+                        "gross_kg": gross, "source": source})
+    return ship
+
+
+def _figures(doc_ltr, doc_kg, doc_nop, gross_kg):
     ltr, kg = _dec(doc_ltr, "LTR") or Decimal(0), _dec(doc_kg, "KG") or Decimal(0)
     if ltr == 0 and kg == 0:
         raise IwError("Enter the LTR and / or KG shown on the outbound Ship document.")
-    ship = OutboundShip.objects.create(iw=iw, ship_id=sid, destination=_org(destination), doc_ltr=ltr, doc_kg=kg,
-                                       doc_nop=_dec(doc_nop, "Packages"), source=source,
-                                       linked_by=user)
+    gross = _dec(gross_kg, "Gross weight")
+    if gross is not None and kg and kg == gross and ltr:
+        raise IwError(f"KG {kg} is the gross weight. 'KG' is only the quantity of KG products (putty, powder - UOM K); "
+                      "enter 0 there if all items are in litres, and put the gross weight in 'Gross weight (KG)'.")
+    return ltr, kg, _dec(doc_nop, "Packages"), gross
+
+
+@transaction.atomic
+def update_ship(user: User, ship_pk: int, *, doc_ltr="", doc_kg="", doc_nop="", gross_kg="", source="") -> OutboundShip:
+    """Correct the figures typed from the Ship document (or where its rows come from). The Ship must tally again."""
+    require(user, "MATERIAL_LINK")
+    ship = OutboundShip.objects.select_for_update().get(pk=ship_pk)
+    iw = Iw.objects.select_for_update().select_related("load_type").get(pk=ship.iw_id)
+    _require_outbound(iw)
+    before = {"ltr": ship.doc_ltr, "kg": ship.doc_kg, "nop": ship.doc_nop, "gross_kg": ship.gross_kg,
+              "source": ship.source}
+    ltr, kg, nop, gross = _figures(doc_ltr, doc_kg, doc_nop, gross_kg)
+    source = source or ship.source
+    if source not in OutboundSource.values:
+        raise IwError("Choose where the Ship's rows come from: Despatch report, destination SIT or manual entry.")
+    if source == OutboundSource.DESPATCH and not iw.despatch_reports.filter(kind=OutboundSource.DESPATCH).exists():
+        raise IwError("Upload the Despatch Detail Report first, or choose the destination SIT / manual entry.")
+    if source != ship.source:  # rows of the old source no longer belong to this Ship
+        ship.own_reports.all().delete()
+        ship.rows.update(outbound_ship=None)
+    ship.doc_ltr, ship.doc_kg, ship.doc_nop, ship.gross_kg, ship.source = ltr, kg, nop, gross, source
+    ship.status, ship.tallied_at = TrackStatus.LINKED, None
+    if ship.source != OutboundSource.DESPATCH and ship.rows.exists() and matches(ship, Totals.of(ship.rows.all())):
+        ship.status, ship.tallied_at = TrackStatus.ROWS_ASSIGNED, timezone.now()  # its saved rows still tally
+    ship.save()
     _refresh_status(iw)
-    audit.record("OUTBOUND_SHIP_ADDED", "iw", iw.pk, user=user, iw_id=iw.pk,
-                 after={"ship": sid, "destination": ship.destination_id, "ltr": ltr, "kg": kg, "nop": ship.doc_nop,
-                        "source": source})
+    audit.record("OUTBOUND_SHIP_CORRECTED", "iw", iw.pk, user=user, iw_id=iw.pk, before=before,
+                 after={"ship": ship.ship_id, "ltr": ltr, "kg": kg, "nop": nop, "gross_kg": gross, "source": source})
     return ship
+
+
+@transaction.atomic
+def remove_report(user: User, report_pk: int) -> None:
+    """Remove an uploaded Despatch report (e.g. loaded twice) - only while none of its rows is saved on a Ship."""
+    require(user, "MATERIAL_LINK")
+    report = DespatchReport.objects.get(pk=report_pk, kind=OutboundSource.DESPATCH)
+    iw = Iw.objects.select_for_update().select_related("load_type").get(pk=report.iw_id)
+    _require_outbound(iw)
+    if report.rows.filter(outbound_ship__isnull=False).exists():
+        raise IwError(f"{report.filename}: some rows are saved on a Ship - use 'Edit rows' on that Ship first.")
+    audit.record("DESPATCH_REPORT_REMOVED", "iw", iw.pk, user=user, iw_id=iw.pk,
+                 before={"file": report.filename, "rows": report.rows.count()})
+    report.delete()
 
 
 @transaction.atomic
@@ -189,6 +242,17 @@ class Totals:
         return t
 
 
+def mismatch(ship: OutboundShip, t: Totals, what: str) -> str:
+    nop = f", packages {t.nop} vs {ship.doc_nop}" if ship.doc_nop is not None else ""
+    msg = f"{what} do not tally with Ship {ship.ship_id}: LTR {t.ltr} vs {ship.doc_ltr}, KG {t.kg} vs {ship.doc_kg}{nop}."
+    if t.kg == 0 and ship.doc_kg and round_measure(t.ltr) == round_measure(ship.doc_ltr):
+        msg += (f" The LTR matches, but none of these rows is a KG product - KG {ship.doc_kg} looks like the gross "
+                "weight. Use 'Correct Ship figures': KG 0, gross weight in 'Gross weight (KG)'.")
+    elif t.ltr == 0 and ship.doc_ltr and round_measure(t.kg) == round_measure(ship.doc_kg):
+        msg += " The KG matches, but none of these rows is in litres - check the LTR entered for the Ship."
+    return msg
+
+
 def matches(ship: OutboundShip, t: Totals) -> bool:
     ok = round_measure(t.ltr) == round_measure(ship.doc_ltr) and round_measure(t.kg) == round_measure(ship.doc_kg)
     return ok and (ship.doc_nop is None or t.nop == ship.doc_nop)
@@ -216,9 +280,7 @@ def save_selection(user: User, ship_pk: int, row_ids: set[int], acknowledged: se
                       + " need the 'I checked' tick - confirm they are a different despatch.")
     t = Totals.of(chosen)
     if not matches(ship, t):
-        nop = f", packages {t.nop} vs {ship.doc_nop}" if ship.doc_nop is not None else ""
-        raise IwError(f"Ticked rows do not tally with Ship {ship.ship_id}: LTR {t.ltr} vs {ship.doc_ltr}, "
-                      f"KG {t.kg} vs {ship.doc_kg}{nop}.")
+        raise IwError(mismatch(ship, t, "Ticked rows"))
     DespatchRow.objects.filter(outbound_ship=ship).exclude(pk__in=row_ids).update(outbound_ship=None)
     for r in chosen:
         r.outbound_ship = ship
@@ -261,9 +323,7 @@ def _lock_own(user: User, ship_pk: int) -> tuple[OutboundShip, Iw]:
 def _tally_or_fail(ship: OutboundShip, rows: list[DespatchRow], what: str) -> Totals:
     t = Totals.of(rows)
     if not matches(ship, t):
-        nop = f", packages {t.nop} vs {ship.doc_nop}" if ship.doc_nop is not None else ""
-        raise IwError(f"{what} does not tally with Ship {ship.ship_id}: LTR {t.ltr} vs {ship.doc_ltr}, "
-                      f"KG {t.kg} vs {ship.doc_kg}{nop}. Nothing was saved.")
+        raise IwError(mismatch(ship, t, what) + " Nothing was saved.")
     return t
 
 
@@ -308,7 +368,7 @@ def load_destination_sit(user: User, ship_pk: int, path: Path, filename: str) ->
         pack_size=ln.pack_size, ltr=ln.measure if ln.family == MeasureFamily.VOLUME else 0,
         kg=ln.measure if ln.family == MeasureFamily.WEIGHT else 0)
         for (sid, _), ln in sit.lines.items() if sid == ship.ship_id]
-    t = _tally_or_fail(ship, rows, "The destination SIT")
+    t = _tally_or_fail(ship, rows, "The destination SIT rows")
     doc = documents.store(Path(path).read_bytes(), filename=filename, content_type="application/vnd.ms-excel",
                           doc_type="DESTINATION_SIT_REPORT", user=user, links=[("iw", iw.pk, "destination_sit")])
     report = _save_own(user, ship, iw, OutboundSource.DEST_SIT, rows, t, document=doc, filename=filename,

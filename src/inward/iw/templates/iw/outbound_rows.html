@@ -15,6 +15,7 @@
   <a href="?suggest=1">Suggest a matching combination</a></div>
 {% endif %}
 
+{% include "iw/_outbound_fix.html" %}
 <form method="post" id="tally-form" data-target-ltr="{{ ship.doc_ltr|stringformat:'s' }}" data-target-kg="{{ ship.doc_kg|stringformat:'s' }}" data-target-nop="{% if ship.doc_nop is not None %}{{ ship.doc_nop|stringformat:'s' }}{% endif %}">{% csrf_token %}
   <div class="tally card">
     <div class="tally-cell"><div class="kpi-label">LTR entered / ticked</div><div class="kpi-value">{{ ship.doc_ltr|floatformat:"-3" }} / <span id="t-ltr">{{ ticked_totals.ltr|floatformat:"-3" }}</span></div></div>

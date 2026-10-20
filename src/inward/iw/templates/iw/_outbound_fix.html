@@ -1,0 +1,14 @@
+<details class="card"{% if error %} open{% endif %}>
+  <summary><b>Correct Ship figures</b> <span class="muted">- if a number was typed wrong, or the rows should come from somewhere else</span></summary>
+  <form method="post" action="{% url 'iw:outbound_update_ship' ship.pk %}" class="form-grid">{% csrf_token %}
+    <div class="field"><label for="fx-ltr">LTR on document</label><input id="fx-ltr" name="doc_ltr" inputmode="decimal" value="{{ ship.doc_ltr|floatformat:'-3' }}"></div>
+    <div class="field"><label for="fx-kg">KG of KG products (UOM K)</label><input id="fx-kg" name="doc_kg" inputmode="decimal" value="{{ ship.doc_kg|floatformat:'-3' }}"><span class="muted small">0 if all items are in litres - not the gross weight.</span></div>
+    <div class="field"><label for="fx-gross">Gross weight (KG)</label><input id="fx-gross" name="gross_kg" inputmode="decimal" value="{% if ship.gross_kg is not None %}{{ ship.gross_kg|floatformat:'-3' }}{% endif %}"></div>
+    <div class="field"><label for="fx-nop">Packages (optional)</label><input id="fx-nop" name="doc_nop" inputmode="decimal" value="{% if ship.doc_nop is not None %}{{ ship.doc_nop|floatformat:'-3' }}{% endif %}"></div>
+    <div class="field"><label for="fx-src">Rows come from</label><select id="fx-src" name="source">
+      <option value="DESPATCH"{% if ship.source == "DESPATCH" %} selected{% endif %}>A · Despatch Detail Report (tick rows)</option>
+      <option value="DEST_SIT"{% if ship.source == "DEST_SIT" %} selected{% endif %}>B · Destination depot's SIT report</option>
+      <option value="MANUAL"{% if ship.source == "MANUAL" %} selected{% endif %}>C · Manual entry</option></select></div>
+    <div class="field"><label>&nbsp;</label><button type="submit" class="btn">Save corrected figures</button></div>
+  </form>
+</details>

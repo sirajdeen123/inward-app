@@ -1,0 +1,28 @@
+{% extends "web/base.html" %}
+{% block title %}Approvers & Sales Officers{% endblock %}
+{% block content %}
+<p><a href="{% url 'rma:index' %}">&larr; Material returns</a></p>
+<h1>Approvers &amp; Sales Officers</h1>
+<p class="muted">The names the RMA portal shows under "Pending At" are added here automatically from every portal upload. Give each one an e-mail so the pending-approval mails reach them. When someone leaves, tick "left" and choose who gets the mails instead - old pending requests still showing the old name go to the replacement.</p>
+<form method="post">{% csrf_token %}
+<div class="card"><h2>Portal approvers</h2>
+  <table class="tbl stack"><thead><tr><th>Name (as in the portal)</th><th>E-mail</th><th>Left - mails go to</th><th class="num">Pending now</th></tr></thead>
+  <tbody>{% for a in people %}<tr>
+    <td data-label="Name"><b>{{ a.name }}</b>{% if not a.email and not a.redirect_to %} <span class="chip chip-warn">no e-mail</span>{% endif %}</td>
+    <td data-label="E-mail"><input name="email_{{ a.pk }}" type="email" value="{{ a.email }}" class="input-inline" aria-label="E-mail of {{ a.name }}" placeholder="name@bergerindia.com"></td>
+    <td data-label="Left"><label class="check"><input type="checkbox" name="left_{{ a.pk }}" value="1"{% if not a.active %} checked{% endif %}> left</label>
+      <select name="redirect_{{ a.pk }}" aria-label="Replacement for {{ a.name }}"><option value="">-</option>{% for b in people %}{% if b.pk != a.pk %}<option value="{{ b.pk }}"{% if a.redirect_to_id == b.pk %} selected{% endif %}>{{ b.name }}</option>{% endif %}{% endfor %}</select></td>
+    <td data-label="Pending" class="num">{{ a.pending }}</td></tr>
+  {% empty %}<tr><td colspan="4" class="muted">No approver yet - they appear with the first RMA Portal Report upload.</td></tr>{% endfor %}</tbody></table>
+</div>
+<div class="card"><h2>Sales Officers by territory (TSI Master)</h2>
+  <p class="muted">Copied on the approval mails of their dealers ({{ sites }} Bill-To sites loaded from the Customer Master). Upload a new TSI Master on the Material returns screen; a corrected e-mail typed here stays until you clear it.</p>
+  <table class="tbl stack"><thead><tr><th>Territory</th><th>Sales Officer</th><th>BL</th><th>E-mail (TSI)</th><th>Corrected e-mail</th></tr></thead>
+  <tbody>{% for t in territories %}<tr><td data-label="Territory">{{ t.territory_no }}</td><td data-label="Sales Officer">{{ t.sales_officer|default:"-" }}</td><td data-label="BL">{{ t.business_line }}</td>
+    <td data-label="TSI e-mail">{{ t.email|default:"-" }}</td><td data-label="Corrected"><input name="so_{{ t.territory_no }}" type="email" value="{{ t.email_override }}" class="input-inline" aria-label="Corrected e-mail for territory {{ t.territory_no }}"></td></tr>
+  {% empty %}<tr><td colspan="5" class="muted">Upload the TSI Master.</td></tr>{% endfor %}</tbody></table>
+</div>
+<p><button type="submit" class="btn btn-primary">Save</button></p>
+</form>
+<p class="muted">Cc of the approval mails: Admin Officer and Godown; daily report: Admin Officer, Cc CFA Manager{% if cc_rcm %} and RCM{% else %} (RCM copy off){% endif %} - set under Notification e-mails.</p>
+{% endblock %}

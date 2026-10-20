@@ -1,0 +1,69 @@
+{% extends "web/base.html" %}
+{% block title %}Return {{ r.request_id }}{% endblock %}
+{% block content %}
+<p><a href="{% url 'rma:index' %}?stage={{ row.stage }}">&larr; Material returns</a></p>
+<h1>Return request {{ r.request_id }} <span class="chip{% if row.stage == 'CLOSED' %} chip-ok{% elif row.stage == 'REJECTED' %} chip-bad{% else %} chip-warn{% endif %}">{{ row.stage_label }}</span></h1>
+<p class="muted">{{ r.dealer_code }} · {{ r.dealer_name }} · invoice {{ r.invoice_no }} ({{ r.invoice_date|date:"d-M-Y" }}) · {{ r.return_type|title }} · Rs {{ r.total_value|floatformat:2 }}</p>
+
+<div class="kpis">
+  <div class="kpi"><div class="kpi-label">Portal status</div><div class="kpi-value" style="font-size:17px">{{ r.status|default:"-" }}</div><div class="muted">{{ r.pending_at }}</div></div>
+  <div class="kpi"><div class="kpi-label">Days pending (total / at this stage)</div><div class="kpi-value">{{ row.days|default_if_none:"-" }} / {{ row.days_at_stage|default_if_none:"-" }}</div></div>
+  <div class="kpi"><div class="kpi-label">RMA No</div><div class="kpi-value" style="font-size:17px">{{ r.rma_no|default:"-" }}</div><div class="muted">{{ r.rma_date|date:"d-M-Y" }}</div></div>
+  <div class="kpi"><div class="kpi-label">Check</div><div class="kpi-value" style="font-size:17px">{{ recon_text }}</div></div>
+</div>
+
+<div class="card"><h2>Approval</h2>
+  <table class="tbl tbl-compact"><tbody>
+    <tr><td>Requested</td><td>{{ r.requested_by|default:"-" }} · {{ r.requested_date|date:"d-M-Y" }}</td></tr>
+    <tr><td>ADMIN</td><td>{{ r.admin_by|default:"-" }} {{ r.admin_date|date:"d-M-Y" }}</td></tr>
+    <tr><td>RSM</td><td>{{ r.rsm_by|default:"-" }} {{ r.rsm_date|date:"d-M-Y" }}</td></tr>
+    <tr><td>RCM</td><td>{{ r.rcm_by|default:"-" }} {{ r.rcm_date|date:"d-M-Y" }}</td></tr>
+    {% if r.oracle_error %}<tr><td>Oracle</td><td class="warn-text">{{ r.oracle_status }} {{ r.oracle_error }}</td></tr>{% endif %}
+  </tbody></table>
+  {% if approvers %}<p><b>Pending with:</b> {% for x in approvers %}{{ x.name }} → {% if x.final and x.final.email %}{{ x.final.email }}{% if x.final != x.a %} <span class="muted">({{ x.final.name }} - replacement)</span>{% endif %}{% else %}<span class="warn-text">no e-mail - map on Approvers</span>{% endif %}{% if not forloop.last %}; {% endif %}{% endfor %}</p>{% endif %}
+  <p>Sales Officer (Cc): {% if row.sales_officer %}<b>{{ row.sales_officer.0 }}</b> (territory {{ row.sales_officer.2 }}) {{ row.sales_officer.1|default:"- no e-mail" }}{% else %}<span class="muted">not resolved</span>{% endif %}</p>
+  {% if sites|length > 1 %}<form method="post" action="{% url 'rma:bill_to' r.request_id %}" class="inline">{% csrf_token %}<label for="bt">Dealer has several Bill-To sites - this return is for</label>
+    <select id="bt" name="site"><option value="">- not chosen -</option>{% for s in sites %}<option value="{{ s.site_code }}"{% if s.site_code == r.bill_to_site %} selected{% endif %}>{{ s.site_code }} · territory {{ s.territory_no }} · {{ s.customer_type }}</option>{% endfor %}</select>
+    <button type="submit" class="btn btn-sm">Save</button></form>{% endif %}
+  {% if events %}<details><summary>Trail ({{ events|length }})</summary><table class="tbl tbl-compact"><tbody>{% for e in events %}<tr><td>{{ e.seen_at|date:"d-M-Y h:i A" }}</td><td>{{ e.status }}</td><td>{{ e.pending_at }}</td></tr>{% endfor %}</tbody></table></details>{% endif %}
+</div>
+
+<div class="card"><h2>SKU check - GRN / portal / Credit Note / IRR</h2>
+  <table class="tbl stack"><thead><tr><th>SKU</th><th>Condition</th><th class="num">GRN pcs</th><th class="num">Portal qty</th><th class="num">CN pcs</th><th class="num">IRR pcs</th><th>Check</th><th class="num">Requested / credited (Rs)</th></tr></thead>
+  <tbody>{% for ln in recon.lines %}<tr><td data-label="SKU"><span class="mono">{{ ln.sku }}</span><div class="muted">{{ ln.description }}</div></td><td data-label="Condition">{{ ln.condition|default:"-" }}</td>
+    <td data-label="GRN" class="num">{{ ln.grn|default:"-" }}</td><td data-label="Portal" class="num">{{ ln.portal|default:"-" }}</td><td data-label="CN" class="num">{{ ln.cn|default:"-" }}</td><td data-label="IRR" class="num">{{ ln.irr|default:"-" }}</td>
+    <td data-label="Check">{% if ln.status == "MATCH" %}<span class="chip chip-ok">agree</span>{% elif ln.status == "MISMATCH" %}<span class="chip chip-bad">differ</span>{% else %}<span class="chip">waiting</span>{% endif %}</td>
+    <td data-label="Rs" class="num">{{ ln.requested_value|floatformat:0 }}{% if recon.cn %} / {{ ln.credited_value|floatformat:0 }}{% endif %}</td></tr>{% endfor %}</tbody></table>
+  <p class="muted">GRN: {% for ln in grn_lines %}{% ifchanged ln.grn_id %}<a href="{% url 'rma:grn' ln.grn_id %}">{{ ln.grn.grn_no }}</a> {% endifchanged %}{% empty %}<span class="warn-text">no GRN linked - open the GRN and link this request</span>{% endfor %} · CN: {{ recon.cn|join:", "|default:"-" }} · IRR TRX: {{ recon.trx|join:", "|default:"-" }}</p>
+</div>
+
+{% if not r.closed_at and r.rma_no %}
+<div class="card"><h2>IRR receipt (Rma Receipt TRX)</h2>
+  {% for x in irr_links %}<form method="post" action="{% url 'rma:irr_remove' r.request_id x.pk %}" class="inline-form">{% csrf_token %}<b>{{ x.trx_number }}</b> <span class="muted">by {{ x.entered_by }}</span> <button type="submit" class="btn btn-sm">Remove</button></form>{% endfor %}
+  <form method="post" action="{% url 'rma:irr_add' r.request_id %}" class="inline">{% csrf_token %}<label for="trx">TRX No</label><input id="trx" name="trx" inputmode="numeric" class="input-inline"><button type="submit" class="btn btn-sm">Link</button></form>
+  {% if candidates %}<table class="tbl tbl-compact"><thead><tr><th>Suggested TRX</th><th>Date</th><th>SKUs (pcs)</th><th></th></tr></thead><tbody>{% for c in candidates %}<tr><td>{{ c.trx }}</td><td>{{ c.date|date:"d-M-Y" }}</td><td>{% for s, q in c.skus.items %}{{ s }} ({{ q|floatformat:"-3" }}){% if not forloop.last %}, {% endif %}{% endfor %}{% if c.exact %} <span class="chip chip-ok">{{ c.exact }} exact</span>{% endif %}</td>
+    <td><form method="post" action="{% url 'rma:irr_add' r.request_id %}" class="inline-form">{% csrf_token %}<input type="hidden" name="trx" value="{{ c.trx }}"><button type="submit" class="btn btn-sm">Link</button></form></td></tr>{% endfor %}</tbody></table>{% else %}<p class="muted">No 'Rma Receipt' with these SKUs in the imported IRR yet.</p>{% endif %}
+</div>
+{% endif %}
+
+{% if cn_lines %}<details class="card"><summary><b>Credit Note lines ({{ cn_lines|length }})</b></summary><table class="tbl tbl-compact"><thead><tr><th>CN</th><th>Date</th><th>SKU</th><th class="num">CN pcs</th><th class="num">Rate</th><th>Bill To</th></tr></thead><tbody>{% for c in cn_lines %}<tr><td>{{ c.cn_no }}</td><td>{{ c.cn_date|date:"d-M-Y" }}</td><td>{{ c.sku }}</td><td class="num">{{ c.cn_nop|floatformat:"-3" }}</td><td class="num">{{ c.cn_rate|floatformat:2 }}</td><td>{{ c.bill_to }}</td></tr>{% endfor %}</tbody></table></details>{% endif %}
+
+<div class="card"><h2>Godown check and closure</h2>
+  <p><a href="{% url 'rma:handover' r.request_id %}" class="btn btn-sm">Print handover sheet</a> {% for d in pdfs %}<a href="{% url 'rma:handover' r.request_id %}?doc={{ d.pk }}" class="muted">{{ d.created_at|date:"d-M h:i A" }}</a>{% if not forloop.last %} · {% endif %}{% endfor %}</p>
+  {% if r.closed_at %}<p><span class="chip chip-ok">Closed</span> {{ r.closed_at|date:"d-M-Y h:i A" }} by {{ r.closed_by }} · {{ r.close_kind|title }}{% if r.verified_by %} · checked by {{ r.verified_by }} on {{ r.verified_on|date:"d-M-Y" }}{% endif %}{% if r.close_note %} · {{ r.close_note }}{% endif %}</p>
+  {% elif row.stage == "REJECTED" %}
+    {% if can_close %}<form method="post" action="{% url 'rma:close' r.request_id %}" class="form-grid">{% csrf_token %}<input type="hidden" name="rejected" value="1">
+      <div class="field span-all"><label for="rn">What happened to the material? *</label><input id="rn" name="note" maxlength="500" placeholder="Sent back to the dealer on ... / raised again as request ..."></div>
+      <div><button type="submit" class="btn btn-primary">Close rejected request</button></div></form>{% else %}<p class="muted">The supervisor / CFA Manager closes it.</p>{% endif %}
+  {% else %}
+    {% for b in blockers %}<div class="alert alert-warning">{{ b }}</div>{% endfor %}
+    {% if can_close and not blockers %}<form method="post" action="{% url 'rma:close' r.request_id %}" class="form-grid">{% csrf_token %}
+      <div class="field"><label for="vb">Checked by (godown) *</label><input id="vb" name="verified_by" maxlength="120"></div>
+      <div class="field"><label for="vo">Checked on</label><input id="vo" type="date" name="verified_on"></div>
+      {% if recon.status == "MISMATCH" %}<div class="field span-all"><label class="check"><input type="checkbox" name="accept" value="1"> Accept the difference</label></div>{% endif %}
+      <div class="field span-all"><label for="cn">Note{% if recon.status == "MISMATCH" %} - why the difference is accepted *{% endif %}</label><input id="cn" name="note" maxlength="500"></div>
+      <div><button type="submit" class="btn btn-primary">Close request</button></div></form>
+    {% elif not can_close %}<p class="muted">The supervisor / CFA Manager closes it after the godown check.</p>{% endif %}
+  {% endif %}
+</div>
+{% endblock %}

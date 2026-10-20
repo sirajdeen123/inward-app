@@ -1,0 +1,36 @@
+<h3 style="margin:6px 0">Material returns - daily status - {{ r.day|date:"d-M-Y" }}</h3>
+<p>Open returns <b>{{ r.open_count }}</b> · value <b>Rs {{ r.open_value|floatformat:0 }}</b>{% if r.as_on %} · portal data: report as on {{ r.as_on.report|default:"-" }}, uploaded {{ r.as_on.uploaded|date:"d-M-Y h:i A" }}{% endif %}</p>
+{% if r.stale %}<p style="color:#8B1E2B"><b>The RMA Portal Report was not uploaded yesterday or today - the approval status below may be old.</b></p>{% endif %}
+
+<table class="rt"><tr><th>Stage</th><th>Requests</th><th>Value (Rs)</th><th>Over the red limit</th></tr>
+{% for s in r.by_stage %}<tr><td>{{ s.label }}</td><td>{{ s.count }}</td><td>{{ s.value|floatformat:0 }}</td><td>{{ s.overdue }}</td></tr>{% endfor %}
+<tr><td>GRN invoices not yet on the portal</td><td>{{ r.unlinked|length }}</td><td>-</td><td>-</td></tr></table>
+
+<h4>Approval pending - by approver</h4>
+{% if r.groups or r.unmapped %}<table class="rt"><tr><th>Approver</th><th>Requests</th><th>Value (Rs)</th><th>Oldest at stage (days)</th><th>Over the red limit</th></tr>
+{% for g in r.groups %}<tr><td>{{ g.approver.name }}</td><td>{{ g.rows|length }}</td><td>{{ g.value|floatformat:0 }}</td><td>{{ g.oldest }}</td><td>{{ g.overdue }}</td></tr>{% endfor %}
+{% for u in r.unmapped %}<tr><td style="color:#8B1E2B">{{ u.name }} - no e-mail, not chased</td><td>{{ u.rows|length }}</td><td>-</td><td>-</td><td>-</td></tr>{% endfor %}</table>{% else %}<p>None.</p>{% endif %}
+
+<h4>Approval pending - requests</h4>
+{% if r.approval %}<table class="rt"><tr><th>Request</th><th>Dealer</th><th>Invoice</th><th>Value (Rs)</th><th>Status</th><th>Pending at</th><th>Days total</th><th>Days at stage</th><th>GRN</th></tr>
+{% for x in r.approval %}<tr style="background:{% if x.stage_flag == 'RED' %}#F8D7DA{% elif x.stage_flag == 'AMBER' %}#FFF1D6{% else %}#fff{% endif %}"><td>{{ x.r.request_id }}</td><td>{{ x.r.dealer_name }}</td><td>{{ x.r.invoice_no }}</td><td>{{ x.r.total_value|floatformat:0 }}</td><td>{{ x.r.status }}</td><td>{{ x.r.pending_at }}</td><td>{{ x.days|default_if_none:"-" }}</td><td>{{ x.days_at_stage|default_if_none:"-" }}</td><td>{{ x.grns|join:", "|default:"-" }}</td></tr>{% endfor %}</table>{% else %}<p>None.</p>{% endif %}
+
+<h4>GRN received - portal request not raised yet</h4>
+{% if r.unlinked %}<table class="rt"><tr><th>GRN</th><th>GRN date</th><th>Dealer</th><th>Invoice</th><th>Pieces</th><th>Days</th></tr>
+{% for u in r.unlinked %}<tr style="background:{% if u.flag == 'RED' %}#F8D7DA{% elif u.flag == 'AMBER' %}#FFF1D6{% else %}#fff{% endif %}"><td>{{ u.grn.grn_no }}</td><td>{{ u.grn.grn_date|date:"d-M-Y" }}</td><td>{{ u.grn.dealer_name }}</td><td>{{ u.invoice_no }}</td><td>{{ u.pieces|floatformat:"-3" }}</td><td>{{ u.days }}</td></tr>{% endfor %}</table>{% else %}<p>None.</p>{% endif %}
+
+<h4>Approved - waiting for RMA No / Credit Note / IRR receipt</h4>
+{% if r.waiting %}<table class="rt"><tr><th>Request</th><th>Dealer</th><th>Value (Rs)</th><th>Waiting for</th><th>RMA No</th><th>Days total</th></tr>
+{% for x in r.waiting %}<tr><td>{{ x.r.request_id }}</td><td>{{ x.r.dealer_name }}</td><td>{{ x.r.total_value|floatformat:0 }}</td><td>{{ x.stage_label }}</td><td>{{ x.r.rma_no|default:"-" }}</td><td>{{ x.days|default_if_none:"-" }}</td></tr>{% endfor %}</table>{% else %}<p>None.</p>{% endif %}
+
+<h4>Ready for the godown check and closure</h4>
+{% if r.ready %}<table class="rt"><tr><th>Request</th><th>Dealer</th><th>Value (Rs)</th><th>RMA No</th></tr>{% for x in r.ready %}<tr><td>{{ x.r.request_id }}</td><td>{{ x.r.dealer_name }}</td><td>{{ x.r.total_value|floatformat:0 }}</td><td>{{ x.r.rma_no }}</td></tr>{% endfor %}</table>{% else %}<p>None.</p>{% endif %}
+
+<h4>Rejected - to be closed</h4>
+{% if r.rejected %}<table class="rt"><tr><th>Request</th><th>Dealer</th><th>Value (Rs)</th><th>Status</th></tr>{% for x in r.rejected %}<tr><td>{{ x.r.request_id }}</td><td>{{ x.r.dealer_name }}</td><td>{{ x.r.total_value|floatformat:0 }}</td><td>{{ x.r.status }}</td></tr>{% endfor %}</table>{% else %}<p>None.</p>{% endif %}
+
+<h4>Closed yesterday</h4>
+{% if r.closed %}<table class="rt"><tr><th>Request</th><th>Dealer</th><th>Value (Rs)</th><th>Closed as</th><th>Checked by</th></tr>{% for x in r.closed %}<tr><td>{{ x.r.request_id }}</td><td>{{ x.r.dealer_name }}</td><td>{{ x.r.total_value|floatformat:0 }}</td><td>{{ x.r.close_kind|title }}</td><td>{{ x.r.verified_by|default:"-" }}</td></tr>{% endfor %}</table>{% else %}<p>None.</p>{% endif %}
+
+{% if r.incomplete_grns %}<h4>GRNs with details still to fill (condition / gate entry)</h4>
+<p>{% for g in r.incomplete_grns %}{{ g.grn_no }}{% if not forloop.last %}, {% endif %}{% endfor %}</p>{% endif %}

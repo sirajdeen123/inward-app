@@ -34,6 +34,7 @@ def depot(request) -> dict:
             from inward.accounts.services import modes_for
             ctx["can_cash"] = "GRANT" in modes_for(user, "CASH_REGISTER")
             ctx["can_damage"] = "GRANT" in modes_for(user, "DAMAGE_REPORT")
+            ctx["can_rma"] = "GRANT" in modes_for(user, "RMA_WORK")
             ctx["cash_only"] = ctx["can_cash"] and "GRANT" not in modes_for(user, "SEARCH_REPORTS")
             if "GRANT" in modes_for(user, "PACKAGING_REVIEW"):
                 from inward.core.models import PackagingChange

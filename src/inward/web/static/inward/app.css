@@ -184,3 +184,4 @@ label.check input{margin-top:3px}
 @media (max-width:860px){.login-card{grid-template-columns:1fr}.login-flow{display:none}.login-art{padding:18px}.login-form{padding:24px 20px}}
 .pick-wrap{position:relative}.pick-list{position:absolute;left:0;right:0;top:100%;z-index:30;margin:2px 0 0;padding:4px 0;list-style:none;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,.12);max-height:320px;overflow-y:auto}
 .pick-list li{padding:8px 12px;cursor:pointer;font-size:14px}.pick-list li.on,.pick-list li:hover{background:var(--side)}
+.rag-RED{background:var(--bad-bg);color:var(--bad)}.rag-AMBER{background:var(--warn-bg);color:var(--warn)}.rag-GREEN{background:var(--ok-bg);color:var(--ok)}

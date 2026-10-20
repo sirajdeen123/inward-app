@@ -1,0 +1,59 @@
+{% extends "web/base.html" %}
+{% block title %}Material returns{% endblock %}
+{% block content %}
+<h1>Material returns</h1>
+<p class="muted">Dealer returns: upload the GRN PDF when the material arrives, raise the portal request, upload the RMA Portal Report every day - the app links them, chases the portal approvers by mail, and closes each return after the Credit Note, the IRR receipt and the godown check agree.</p>
+
+{% if unmapped %}<div class="alert alert-warning">{{ unmapped }} portal approver name{{ unmapped|pluralize }} without an e-mail - their pending mails cannot go. {% if can_master %}<a href="{% url 'rma:approvers' %}">Map them on Approvers</a>{% else %}Ask the CFA Manager to map them.{% endif %}</div>{% endif %}
+{% if not as_on %}<div class="alert alert-info">No RMA Portal Report uploaded yet - upload it below to start the approval tracking.</div>{% endif %}
+
+<div class="grid2">
+  <form method="post" action="{% url 'rma:upload' %}" enctype="multipart/form-data" class="card">{% csrf_token %}
+    <h2>1 · GRN (Goods Return Note)</h2>
+    <input type="hidden" name="kind" value="GRN">
+    <p class="muted">The Oracle GRN print as PDF - one GRN or a bulk export of many; GRNs already saved are skipped.</p>
+    <div class="field"><label for="g-file">GRN PDF *</label><input id="g-file" type="file" name="file" accept="application/pdf,.pdf" required></div>
+    <p><button type="submit" class="btn btn-primary">Upload GRN</button></p>
+  </form>
+  <form method="post" action="{% url 'rma:upload' %}" enctype="multipart/form-data" class="card">{% csrf_token %}
+    <h2>2 · Reports</h2>
+    <div class="field"><label for="u-kind">Report *</label><select id="u-kind" name="kind">{% for k, v in upload_kinds.items %}<option value="{{ k }}">{{ v.0 }}</option>{% endfor %}</select></div>
+    <div class="field"><label for="u-file">File (.xls / .xlsx) *</label><input id="u-file" type="file" name="file" accept=".xls,.xlsx" required></div>
+    <p><button type="submit" class="btn btn-primary">Upload report</button></p>
+    <table class="tbl tbl-compact"><tbody>{% for k, label, b in uploads %}<tr><td>{{ label }}</td><td class="muted">{% if b %}{{ b.uploaded_at|date:"d-M-Y h:i A" }}{% if k == "PORTAL" and b.summary.as_on %} · report as on {{ b.summary.as_on }}{% endif %}{% else %}not uploaded yet{% endif %}</td></tr>{% endfor %}</tbody></table>
+  </form>
+</div>
+
+<div class="kindbar">
+  {% for code, label, n in stages %}<a href="?stage={{ code }}{% if q %}&q={{ q|urlencode }}{% endif %}" class="chip kind{% if code == stage %} chip-ok{% endif %}">{{ label }} · {{ n }}</a>{% endfor %}
+  <a href="?stage=GRN" class="chip kind{% if stage == 'GRN' %} chip-ok{% endif %}">GRNs · {{ unlinked|length }} not on portal</a>
+</div>
+<form method="get" class="filters"><input type="hidden" name="stage" value="{{ stage }}"><label for="q">Search</label><input id="q" name="q" value="{{ q }}" placeholder="Request / dealer / invoice / RMA / GRN / approver"><button type="submit" class="btn btn-sm">Find</button>
+  <a href="{% url 'rma:register' %}" class="btn btn-sm">Register (Excel)</a> <a href="{% url 'rma:daily_preview' %}" class="btn btn-sm">Today's report</a>{% if can_master %} <a href="{% url 'rma:approvers' %}" class="btn btn-sm">Approvers &amp; Sales Officers</a>{% endif %}</form>
+
+{% if stage == "GRN" %}
+<div class="card"><h2>GRN invoices not yet raised on the portal</h2>
+  <table class="tbl stack"><thead><tr><th>GRN</th><th>Dealer</th><th>Invoice</th><th class="num">Lines / pcs</th><th>Days</th></tr></thead>
+  <tbody>{% for u in unlinked %}<tr><td data-label="GRN"><a href="{% url 'rma:grn' u.grn.pk %}"><b>{{ u.grn.grn_no }}</b></a><div class="muted">{{ u.grn.grn_date|date:"d-M-Y" }}</div></td>
+    <td data-label="Dealer">{{ u.grn.dealer_code }} · {{ u.grn.dealer_name }}</td><td data-label="Invoice">{{ u.invoice_no }} <span class="muted">{{ u.invoice_date|date:"d-M-Y" }}</span></td>
+    <td data-label="Lines / pcs" class="num">{{ u.lines }} / {{ u.pieces|floatformat:"-3" }}</td><td data-label="Days"><span class="chip rag-{{ u.flag }}">{{ u.days }}</span></td></tr>
+  {% empty %}<tr><td colspan="5" class="muted">Every GRN invoice is linked to its portal request.</td></tr>{% endfor %}</tbody></table></div>
+<div class="card"><h2>Recent GRNs</h2>
+  <table class="tbl stack"><thead><tr><th>GRN</th><th>Dealer</th><th>Invoices</th><th>Gate entry</th></tr></thead>
+  <tbody>{% for g in grns %}<tr><td data-label="GRN"><a href="{% url 'rma:grn' g.pk %}"><b>{{ g.grn_no }}</b></a><div class="muted">{{ g.grn_date|date:"d-M-Y" }}</div></td><td data-label="Dealer">{{ g.dealer_name }}</td>
+    <td data-label="Invoices">{% regroup g.lines.all by invoice_no as invs %}{% for i in invs %}{{ i.grouper }}{% if not forloop.last %}, {% endif %}{% endfor %}</td><td data-label="Gate entry">{{ g.gate_entry_no|default:"-" }}</td></tr>
+  {% empty %}<tr><td colspan="4" class="muted">No GRN yet.</td></tr>{% endfor %}</tbody></table></div>
+{% else %}
+<div class="card"><table class="tbl stack">
+  <thead><tr><th>Request</th><th>Dealer / invoice</th><th class="num">Value (Rs)</th><th>Status / pending at</th><th>Days (total / at stage)</th><th>GRN</th></tr></thead>
+  <tbody>{% for x in rows %}<tr>
+    <td data-label="Request"><a href="{% url 'rma:detail' x.r.request_id %}"><b>{{ x.r.request_id }}</b></a><div class="muted">{{ x.r.requested_date|date:"d-M-Y" }} · {{ x.r.return_type|title }}</div></td>
+    <td data-label="Dealer / invoice">{{ x.r.dealer_name }}<div class="muted">{{ x.r.dealer_code }} · inv {{ x.r.invoice_no }}</div></td>
+    <td data-label="Value (Rs)" class="num">{{ x.r.total_value|floatformat:0 }}</td>
+    <td data-label="Status">{{ x.r.status }}{% if x.r.pending_at %}<div class="muted">{{ x.r.pending_at }}</div>{% endif %}{% if x.r.rma_no %}<div class="muted">RMA {{ x.r.rma_no }}</div>{% endif %}</td>
+    <td data-label="Days">{% if x.days is not None %}<span class="chip rag-{{ x.flag }}">{{ x.days }}</span> / <span class="chip rag-{{ x.stage_flag }}">{{ x.days_at_stage|default_if_none:"-" }}</span>{% else %}-{% endif %}</td>
+    <td data-label="GRN">{% for g in x.grns %}{{ g }}{% if not forloop.last %}, {% endif %}{% empty %}<span class="warn-text">no GRN</span>{% endfor %}</td></tr>
+  {% empty %}<tr><td colspan="6" class="muted">Nothing here.</td></tr>{% endfor %}</tbody></table></div>
+{% endif %}
+<p class="muted">Daily report at 09:30 to the Admin Officer, Cc CFA Manager{% if cc_rcm %} and RCM{% else %} (RCM copy switched off){% endif %}. Approvers get their pending list at 09:30 and a mail the same day a request reaches them.</p>
+{% endblock %}

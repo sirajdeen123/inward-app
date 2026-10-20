@@ -1,0 +1,8 @@
+{% extends "web/base.html" %}
+{% block title %}Material returns - daily report{% endblock %}
+{% block content %}
+<p><a href="{% url 'rma:index' %}">&larr; Material returns</a></p>
+<h1>Daily report - as it would go now</h1>
+<p class="muted">Sent automatically at 09:30. To: {{ to|join:", "|default:"-" }} · Cc: {{ cc|join:", "|default:"-" }}{% if missing %} · <span class="warn-text">no e-mail for {{ missing|join:", " }}</span>{% endif %}. The RCM copy is switched on / off under Notification e-mails.</p>
+<div class="card report">{% include "rma/_daily.html" %}</div>
+{% endblock %}

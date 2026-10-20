@@ -13,6 +13,8 @@
         <td data-label="Receives">{% for label, kind, mandatory in uses %}<div>{{ label }} <span class="muted">({{ kind }}{% if mandatory %}, mandatory{% endif %})</span></div>{% endfor %}</td></tr>
     {% endfor %}</tbody>
   </table>
+  <h2>Material returns daily report</h2>
+  <p><label class="check"><input type="checkbox" name="rma_cc_rcm" value="1"{% if rma_cc_rcm %} checked{% endif %}> Copy the <b>RCM</b> on the 09:30 Material returns daily report (to the Admin Officer, Cc CFA Manager)</label></p>
   <h2>Default Cc on every MRA mail</h2>
   <p class="muted">Copied on every MRA sent to a source, vendor or sender, in addition to the source's own Cc. Several addresses separated by commas. Leave empty for none.</p>
   <div class="field"><label for="mra-cc">MRA default Cc</label><textarea id="mra-cc" name="mra_cc" rows="2" placeholder="name@example.com, other@example.com">{{ mra_cc }}</textarea></div>

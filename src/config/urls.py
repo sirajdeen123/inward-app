@@ -23,6 +23,7 @@ urlpatterns = [
     path("cash/", include("inward.cash.urls")),
     path("damage/", include("inward.damage.urls")),
     path("irr-recon/", include("inward.irrecon.urls")),
+    path("returns/", include("inward.rma.urls")),
     path("masters/", include("inward.core.urls")),
     path("", include("inward.web.urls")),
 ]

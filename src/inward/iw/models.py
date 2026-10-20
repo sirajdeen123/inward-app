@@ -495,6 +495,8 @@ class MailMessage(models.Model):
         DAMAGE_APPROVAL = "IDR_APPR", "Internal damage approval request"
         DAMAGE_REMINDER = "IDR_REMIND", "Internal damage approval reminder"
         IRR_EXCEPTIONS = "IRR_EXC", "IRR reconciliation exceptions"
+        RMA_APPROVAL = "RMA_APPR", "Material return approval pending"
+        RMA_DAILY = "RMA_DAILY", "Material returns daily report"
 
     class Status(models.TextChoices):
         PENDING = "PENDING", "Waiting to send"

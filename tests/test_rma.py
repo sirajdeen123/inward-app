@@ -1,0 +1,289 @@
+"""Material returns module (21-Oct-2026): GRN -> portal request -> approver mails -> CN -> IRR -> closure."""
+from datetime import date, datetime
+from decimal import Decimal
+
+import openpyxl
+import pytest
+from django.urls import reverse
+from django.utils import timezone
+
+from inward.core.models import FeatureFlag, ImportBatch, NotificationRecipient
+from inward.importers.common import ImportFailed
+from inward.iw.models import MailMessage
+from inward.rma import importers as imp
+from inward.rma import mails
+from inward.rma import services as svc
+from inward.rma.models import Approver, Grn, GrnLine, Request, StageEvent
+from tests.conftest import sample
+from tests.helpers import verified_client
+
+pytestmark = pytest.mark.django_db
+
+GRN_TEXT = """GOODS RETURN NOTE
+BERGER PAINTS INDIA LTD Return Depot : 035:Coimbatore Original S.F.NO.9/1A2, THUDIYALUR POST
+Coimbatore Pin-641034
+Transporter : RAINBOW LOGISTICS ( PRIMARY ) Receipt  No : RTN/2627/287Tamil Nadu Tin-33680720088 Receipt Date : 17/09/2026
+Cst-41040 Ph- 9244545442 Vehicle No. : OTHERS - CARRY Receipt Time : 10:30:33
+TRX Type : RMA Payment Term : PAID - RATE PER KG
+TRX No TRX Date Dealer Summary
+12403 31-AUG-26
+1187422 - NATARAJA MARKETING
+CORPORATION A/C VAISHNAVI
+ENTERPRISES (1792722)
+Inv Nop Ret Nop Drum/Bkt Crtn Bags Loose Wt
+F006980D98020000 - SEAL-O-PRIME-HS-20 L 4 4 4 0 0 0 117
+F00D390991020000 - WC LONGLIFE 10 P0 New BS-.-20 L 4 4 4 0 0 0 99
+TOTAL 8 0 0 0 216
+Sign of Godown Keeper Sign of Transporter"""
+
+
+def test_grn_page_is_read():
+    g = imp.parse_grn_page(GRN_TEXT)
+    assert (g.grn_no, g.grn_date, g.depot, g.dealer_code, g.site_code) == ("RTN/2627/287", date(2026, 9, 17), "035",
+                                                                          "1187422", "1792722")
+    assert g.dealer_name == "NATARAJA MARKETING CORPORATION A/C VAISHNAVI ENTERPRISES"
+    assert [(ln.invoice_no, ln.sku, ln.ret_nop, ln.weight) for ln in g.lines] == [
+        ("12403", "F006980D98020000", 4, 117), ("12403", "F00D390991020000", 4, 99)]
+    assert g.lines[1].description == "WC LONGLIFE 10 P0 New BS-.-20 L" and g.lines[0].invoice_date == date(2026, 8, 31)
+    assert imp.parse_grn_page("some other document") is None
+
+
+@pytest.mark.samples
+def test_real_grn_pdfs():
+    one = imp.parse_grn_pdf(sample("RMA/280 GRN.pdf").read_bytes())
+    bulk = imp.parse_grn_pdf(sample("RMA/BPILREPORT_DSP_RETURN_883099566_1.PDF").read_bytes())
+    assert [g.grn_no for g in one] == ["RTN/2627/280"]
+    assert [g.grn_no for g in bulk] == [f"RTN/2627/{n}" for n in (292, 287, 288, 289, 290, 291)]
+    assert all(g.lines and g.site_code for g in one + bulk)
+
+# ---------------------------------------------------------------- fixtures: report files
+
+
+def _book(path, sheets: dict):
+    wb = openpyxl.Workbook()
+    wb.remove(wb.active)
+    for name, rows in sheets.items():
+        ws = wb.create_sheet(name)
+        for r in rows:
+            ws.append(r)
+    wb.save(path)
+    return path
+
+
+SUM_HEAD = ["Request Id", "Region", "Depot", "Dealer", "Invoice No", "Invoice Date", "Total Value", "Return Type",
+            "Material Receipt Date", "Status", "Pending At", "Requested By", "Requested Date", "ADMIN Action By",
+            "ADMIN Action Date", "RSM Action By", "RSM Action Date", "RCM Action By", "RCM Action Date", "RMA No",
+            "RMA Date", "CN No", "CN Date", "CN Value", "Oracle Status", "Oracle Error"]
+DET_HEAD = ["Request Id", "Region", "Depot", "Dealer", "Invoice No", "Invoice Date", "SKU Code", "SKU Desc", "Quantity",
+            "Value", "Volume", "Return Type", "Status", "RMA Depot", "Sub Inventory", "Loactor", "RMA No", "RMA Date"]
+
+
+def portal(tmp_path, name, reqs, depot="Coimbatore-035"):
+    """reqs: (request_id, dealer, invoice, status, pending_at, rma_no, [(sku, qty, value)])"""
+    summ = [["Report as on - 19/09/2026 | From: 01/06/2026 To: 19/09/2026", None, None, "RMA Summary Report"], SUM_HEAD]
+    det = [["Report as on - 19/09/2026"], DET_HEAD]
+    for rid, dealer, inv, status, pending, rma, lines in reqs:
+        total = sum(v for _, _, v in lines)
+        summ.append([rid, "S2-TN", depot, dealer, inv, datetime(2026, 8, 31), total, "DAMAGE CUSTOMER RETURN", None,
+                     status, pending, "Clerk", datetime(2026, 9, 18), None, None, None, None, None, None, rma,
+                     datetime(2026, 9, 25) if rma else None, None, None, None, None, None])
+        for sku, qty, val in lines:
+            det.append([rid, "S2-TN", depot, dealer, inv, datetime(2026, 8, 31), sku, "PAINT", str(qty), val, 80,
+                        "DAMAGE CUSTOMER RETURN", status, None, "035RCV", None, rma, None])
+    return _book(tmp_path / name, {"RMA Summary": summ, "RMA Details": det})
+
+
+def cn_report(tmp_path, rma, lines, org="035"):
+    rows = [["XXGST BPIL RMA CN INV REPORT"], [], ["From Date 01-JUN-26 to 18-SEP-26"], [f"Organization Code :: {org}"], [],
+            ["Cust Code", "Cust Name", "Bill To", None, "Return Order", None, "Inv\xa0 Order", None, "Cn\xa0 Nunber", None,
+             "Cn\xa0 Date", None, "Inv\xa0 Number", None, "Inv Date", None, None, "Return\xa0 Reason", None, "Sku", None,
+             "Pack", None, "Uom", None, "CN Nop", None, "INV\xa0 Nop", None, "Cn Rate"]]
+    for sku, nop in lines:
+        r = [1187422, "NATARAJA", 1792722, None, rma, None, 1, None, "035-1800", None, datetime(2026, 9, 26), None,
+             "035-12403", None, datetime(2026, 8, 31), None, None, "DAMAGE", None, sku, None, 20, None, "L", None, nop,
+             None, nop, None, 1000]
+        rows += [r, list(r)]          # Oracle repeats the line - counted once
+    return _book(tmp_path / "cn.xlsx", {"CN": rows})
+
+
+@pytest.fixture
+def env(seeded, make_user, settings, tmp_path):
+    settings.DOCUMENT_ROOT = tmp_path / "docs"
+    for label, mail in (("Admin Officer", "ao@example.com"), ("Godown", "godown@example.com"),
+                        ("CFA Manager", "cfa@example.com"), ("RCM", "rcm@example.com")):
+        NotificationRecipient.objects.filter(role_label=label).update(email=mail)
+    clerk, cfa = make_user("clerk_rma", "DEPOT_CLERK"), make_user("cfa_rma", "CFA_MANAGER")
+    _book(tmp_path / "cust.xlsx", {"S": [["BPIL Customer Master Summary Report"], ["Location: 035:Coimbatore"], [],
+                                         ["TERRITORY", "BL TYPE", "ACCOUNT NUMBER", "CUSTOMER NAME", "SITE TYPE",
+                                          "SITE CODE", "CUSTOMER TYPE"],
+                                         ["S.S1.035.19 ", "Retail", 1187422, "NATARAJA", "BILL_TO", 1792722, "Dealer"],
+                                         ["S.S1.035.29 ", "Retail", 1187422, "NATARAJA", "BILL_TO", 2129131, "Site Ops"]]})
+    _book(tmp_path / "tsi.xlsx", {"S": [["Territory", "Sales rep", "BL", "Email"], [19, "Prasad", "RETAIL", "prasath@example.com>"],
+                                        [29, "Other", "RETAIL", None]]})
+    svc.import_customer_master(clerk, tmp_path / "cust.xlsx", "cust.xlsx")
+    svc.import_tsi(clerk, tmp_path / "tsi.xlsx", "tsi.xlsx")
+    return {"clerk": clerk, "cfa": cfa, "tmp": tmp_path}
+
+
+def _grn(env, monkeypatch, text=GRN_TEXT):
+    monkeypatch.setattr(imp, "parse_grn_pdf", lambda data: [imp.parse_grn_page(text)])
+    return svc.upload_grn(env["clerk"], b"%PDF-1.4 test", "grn.pdf")
+
+
+LINES = [("F006980D98020000", 4, 40000), ("F00D390991020000", 4, 36000)]
+
+
+def test_full_flow(env, monkeypatch):
+    clerk, cfa, tmp = env["clerk"], env["cfa"], env["tmp"]
+    res = _grn(env, monkeypatch)
+    g = res["created"][0]
+    assert g.grn_no == "RTN/2627/287" and g.lines.count() == 2 and not res["linked"]
+    assert _grn(env, monkeypatch)["skipped"] == ["RTN/2627/287"]                   # the same GRN again
+    assert svc.SalesOfficers().for_site("1792722") == ("Prasad", "prasath@example.com", "19")
+    assert [u["invoice_no"] for u in svc.unlinked_grns()] == ["12403"]
+
+    # the clerk raised the portal request; the upload links it to the GRN (dealer + invoice)
+    r1 = svc.import_portal(clerk, portal(tmp, "p1.xlsx", [("28990", "1187422-NATARAJA", "12403", "ADMIN Pending",
+                                                         "Muraleedharan K M", "", LINES)]), "p1.xlsx")
+    assert (r1["new"], r1["linked"], r1["unmapped"]) == (1, 1, 1)
+    r = Request.objects.get(pk="28990")
+    assert GrnLine.objects.filter(request=r).count() == 2 and svc.stage(r) == "APPROVAL"
+    assert StageEvent.objects.get().notified            # first upload ever: the 09:30 digest tells them
+    with pytest.raises(svc.RmaError, match="already uploaded"):
+        svc.import_portal(clerk, tmp / "p1.xlsx", "p1.xlsx")
+
+    # map the approver; the 09:30 digest goes to him, Cc Admin Officer + godown + Sales Officer
+    a = Approver.objects.get(key="MURALEEDHARAN K M")
+    svc.save_approver(cfa, a.pk, "murali@example.com", True)
+    morning = timezone.make_aware(datetime(2026, 9, 26, 9, 0))
+    assert mails.due(morning) == {}
+    out = mails.due(timezone.make_aware(datetime(2026, 9, 26, 9, 40)))
+    assert out["digests"] == 1 and out["daily"] == 1
+    m = MailMessage.objects.get(purpose="RMA_APPR")
+    assert m.to == ["murali@example.com"] and m.cc == ["ao@example.com", "godown@example.com", "prasath@example.com"]
+    assert "28990" in m.html_body and "pending your approval" in m.subject
+    d = MailMessage.objects.get(purpose="RMA_DAILY")
+    assert d.to == ["ao@example.com"] and d.cc == ["cfa@example.com", "rcm@example.com"] and d.attachments.count() == 1
+    assert mails.due(timezone.make_aware(datetime(2026, 9, 26, 11, 0))) == {}      # once a day only
+
+    # later the same day the request moves to the DM: a 'new pending' mail to him only
+    svc.save_approver(cfa, svc.approver_for("S Muthusamy").pk, "dm@example.com", True)
+    svc.import_portal(clerk, portal(tmp, "p2.xlsx", [("28990", "1187422-NATARAJA", "12403", "DM Pending",
+                                                    "S Muthusamy", "", LINES)]), "p2.xlsx")
+    assert mails.due(timezone.make_aware(datetime(2026, 9, 26, 15, 0))) == {"new": 1}
+    new = MailMessage.objects.filter(purpose="RMA_APPR").latest("id")
+    assert new.to == ["dm@example.com"] and "New material return" in new.subject
+
+    # RCM copy switched off -> next day's report goes without the RCM
+    FeatureFlag.objects.filter(key="rma_daily_cc_rcm").update(value={"value": False})
+    mails.due(timezone.make_aware(datetime(2026, 9, 27, 9, 45)))
+    assert MailMessage.objects.filter(purpose="RMA_DAILY").latest("id").cc == ["cfa@example.com"]
+
+    # approved -> RMA No, Credit Note, IRR receipt -> reconciled -> closed after the godown check
+    svc.import_portal(clerk, portal(tmp, "p3.xlsx", [("28990", "1187422-NATARAJA", "12403", "Processed", "", "15999",
+                                                    LINES)]), "p3.xlsx")
+    r.refresh_from_db()
+    assert svc.stage(r) == "CN"
+    res = svc.import_cn(clerk, cn_report(tmp, 15999, [("F006980D98020000", 4), ("F00D390991020000", 4)]), "cn.xlsx")
+    assert (res["lines"], res["duplicates"]) == (2, 2) and svc.stage(r) == "IRR"
+    from inward.irr.models import IrrTransaction
+    b = ImportBatch.objects.create(kind="IRR", source="MANUAL", filename="irr.xlsx", sha256="x" * 64)
+    for sku in ("F006980D98020000", "F00D390991020000"):
+        IrrTransaction.objects.create(batch=b, type="Rma Receipt", type_key="RMA RECEIPT", trx_number="43100",
+                                      trx_date=date(2026, 9, 27), sku=sku, no_of_pack=Decimal(4),
+                                      transaction_type="Receipt", source_subinv="035RMA", source_locator="WH1.RM.C1.1")
+    assert svc.irr_candidates(r)[0]["trx"] == "43100"
+    with pytest.raises(svc.RmaError, match="not an 'Rma Receipt'"):
+        svc.add_irr(clerk, "28990", "999")
+    svc.add_irr(clerk, "28990", "43100")
+    rec = svc.reconcile(r)
+    assert rec["status"] == "MATCH" and rec["credited_value"] == "8000.00"
+    assert "pick Good / Damaged" in " ".join(svc.close_blockers(r, rec))
+    svc.update_grn(clerk, g.pk, {"gate_entry_no": "ge-77", "transport_mode": "DEALER", "freight": "350"},
+                   {ln.pk: "GOOD" for ln in g.lines.all()})
+    with pytest.raises(Exception):
+        svc.close(clerk, "28990", "Murugan", "")                 # the clerk cannot close
+    svc.close(cfa, "28990", "Murugan", "")
+    r.refresh_from_db()
+    assert r.closed_at and r.close_kind == "RECONCILED" and svc.stage(r) == "CLOSED"
+
+
+def test_mismatch_needs_a_reason_and_rejected_closure(env, monkeypatch):
+    clerk, cfa, tmp = env["clerk"], env["cfa"], env["tmp"]
+    _grn(env, monkeypatch)
+    svc.import_portal(clerk, portal(tmp, "p.xlsx", [
+        ("28990", "1187422-NATARAJA", "12403", "Processed", "", "15999", [("F006980D98020000", 4, 1), ("F00D390991020000", 3, 1)]),
+        ("28991", "1187422-NATARAJA", "99999", "DM Rejected", "", "", [("F006980D98020000", 1, 1)])]), "p.xlsx")
+    svc.import_cn(clerk, cn_report(tmp, 15999, [("F006980D98020000", 4), ("F00D390991020000", 3)]), "cn.xlsx")
+    from inward.irr.models import IrrTransaction
+    b = ImportBatch.objects.create(kind="IRR", source="MANUAL", filename="irr.xlsx", sha256="y" * 64)
+    IrrTransaction.objects.create(batch=b, type="Rma Receipt", type_key="RMA RECEIPT", trx_number="43101",
+                                  trx_date=date(2026, 9, 27), sku="F006980D98020000", no_of_pack=Decimal(4))
+    IrrTransaction.objects.create(batch=b, type="Rma Receipt", type_key="RMA RECEIPT", trx_number="43101",
+                                  trx_date=date(2026, 9, 27), sku="F00D390991020000", no_of_pack=Decimal(3))
+    svc.add_irr(clerk, "28990", "43101")
+    g = Grn.objects.get()
+    svc.update_grn(clerk, g.pk, {"gate_entry_no": "1"}, {ln.pk: "DAMAGED" for ln in g.lines.all()})
+    r = Request.objects.get(pk="28990")
+    assert svc.reconcile(r)["status"] == "MISMATCH"         # GRN says 4 pieces of the second SKU, the rest 3
+    with pytest.raises(svc.RmaError, match="accept the difference"):
+        svc.close(cfa, "28990", "Murugan", "")
+    svc.close(cfa, "28990", "Murugan", "", "one pail short-credited, dealer informed", accept=True)
+    assert Request.objects.get(pk="28990").close_kind == "ACCEPTED"
+    with pytest.raises(svc.RmaError, match="what happened"):
+        svc.close_rejected(cfa, "28991", "")
+    svc.close_rejected(cfa, "28991", "sent back to the dealer on 30-09")
+    assert Request.objects.get(pk="28991").close_kind == "REJECTED"
+
+
+def test_other_depot_files_refused(env):
+    tmp = env["tmp"]
+    with pytest.raises(ImportFailed, match="not Depot 035"):
+        imp.parse_portal(portal(tmp, "mdu.xlsx", [("1", "1-X", "1", "DM Pending", "A", "", LINES)], depot="Madurai-037"))
+    with pytest.raises(ImportFailed, match="not Depot 035"):
+        imp.parse_cn(cn_report(tmp, 1, [("F006980D98020000", 1)], org="037"))
+    other = GRN_TEXT.replace("Return Depot : 035:Coimbatore", "Return Depot : 037:Madurai")
+    assert imp.parse_grn_page(other).depot == "037"
+
+
+def test_left_approver_redirects(env, monkeypatch):
+    clerk, cfa, tmp = env["clerk"], env["cfa"], env["tmp"]
+    svc.import_portal(clerk, portal(tmp, "p.xlsx", [("1", "1187422-NATARAJA", "5", "RSM Pending", "Old Rsm , B Maniganda",
+                                                    "", LINES)]), "p.xlsx")
+    old, b = Approver.objects.get(key="OLD RSM"), Approver.objects.get(key="B MANIGANDA")
+    new = svc.approver_for("New Rsm")
+    svc.save_approver(cfa, new.pk, "new@example.com", True)
+    svc.save_approver(cfa, b.pk, "bm@example.com", True)
+    with pytest.raises(svc.RmaError, match="replacement"):
+        svc.save_approver(cfa, old.pk, "", False)
+    svc.save_approver(cfa, old.pk, "", False, str(new.pk))
+    groups, unmapped = svc.pending_by_approver(svc.rows())
+    assert sorted(g["approver"].email for g in groups) == ["bm@example.com", "new@example.com"] and not unmapped
+
+
+def test_screens(client, env, monkeypatch):
+    _grn(env, monkeypatch)
+    svc.import_portal(env["clerk"], portal(env["tmp"], "p.xlsx", [("28990", "1187422-NATARAJA", "12403", "ADMIN Pending",
+                                                               "Jagan V", "", LINES)]), "p.xlsx")
+    c = verified_client(client, env["cfa"])
+    page = c.get(reverse("rma:index")).content.decode()
+    assert "Material returns" in page and "28990" in page and "without an e-mail" in page
+    assert "RTN/2627/287" in c.get(reverse("rma:index") + "?stage=GRN").content.decode()
+    g = Grn.objects.get()
+    assert "Pick Good / Damaged" in c.get(reverse("rma:grn", args=[g.pk])).content.decode()
+    resp = c.post(reverse("rma:grn", args=[g.pk]), {"gate_entry_no": "5", "transport_mode": "CFA",
+                                                    **{f"cond_{ln.pk}": "GOOD" for ln in g.lines.all()}}, follow=True)
+    assert "saved" in resp.content.decode()
+    page = c.get(reverse("rma:detail", args=["28990"])).content.decode()
+    assert "Jagan V" in page and "no e-mail" in page and "Prasad" in page
+    assert c.get(reverse("rma:register")).status_code == 200
+    assert "Approval pending - by approver" in c.get(reverse("rma:daily_preview")).content.decode()
+    a = Approver.objects.get(key="JAGAN V")
+    c.post(reverse("rma:approvers"), {f"email_{a.pk}": "jagan@example.com", f"redirect_{a.pk}": "",
+                                      "so_29": "other@example.com"})
+    assert Approver.objects.get(pk=a.pk).email == "jagan@example.com"
+    assert svc.Territory.objects.get(pk="29").mail == "other@example.com"
+    assert "Copy the <b>RCM</b>" in c.get(reverse("core:notifications")).content.decode()
+    clerk = verified_client(client, env["clerk"])
+    assert clerk.get(reverse("rma:approvers")).status_code == 403
+    assert "Material returns" in clerk.get(reverse("rma:index")).content.decode()

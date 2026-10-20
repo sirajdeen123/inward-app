@@ -24,6 +24,8 @@ PURPOSES = {
     "MONTHLY_MIS": "Monthly MIS (1st of the month)",
     "SED_REPORT": "Monthly SED report (1st of the month)",
     "IRR_RECON_REPORT": "IRR Reconciliation Report (when an IW is closed)",
+    "RMA_APPROVAL": "Material return approval pending - copy of the mails to the portal approvers",
+    "RMA_DAILY": "Material returns daily report (09:30)",
 }
 EMAIL = re.compile(r"^[^@\s,;]+@[^@\s,;]+\.[^@\s,;]+$")
 MRA_CC = "MRA_CC"   # default Cc of every MRA mail (21-Oct-2026); one row per address, not a role
@@ -65,10 +67,12 @@ def notification_emails(request):
                 errors.append(f"{role}: '{value}' is not a valid e-mail address.")
             changes[role] = value
         mra_cc = request.POST.get("mra_cc", "")
+        rcm_on = bool(request.POST.get("rma_cc_rcm"))
         if not errors:
             try:
                 with transaction.atomic():
                     save_mra_cc(request.user, mra_cc)
+                    _save_rcm_switch(request.user, rcm_on)
             except ValueError as exc:
                 errors.append(str(exc))
         if errors:
@@ -89,4 +93,22 @@ def notification_emails(request):
                    if r.role_label == role] for role in roles}
     return render(request, "core/notifications.html", {
         "people": [(i, role, current[role], uses[role]) for i, role in enumerate(roles)],
-        "missing": [role for role in roles if not current[role]], "mra_cc": mra_cc})
+        "missing": [role for role in roles if not current[role]], "mra_cc": mra_cc, "rma_cc_rcm": _rcm_on()})
+
+
+def _rcm_on() -> bool:
+    from inward.core.models import FeatureFlag
+    f = FeatureFlag.objects.filter(key="rma_daily_cc_rcm").first()
+    v = (f.value or {}).get("value") if f else None
+    return True if v is None else bool(v)
+
+
+def _save_rcm_switch(user, on: bool) -> None:
+    """Material returns daily report: copy the RCM or not (decision 21-Oct-2026 - switchable at any time)."""
+    from inward.core.models import FeatureFlag
+    if on == _rcm_on():
+        return
+    FeatureFlag.objects.update_or_create(key="rma_daily_cc_rcm", defaults={
+        "value": {"value": on}, "description": "Material returns: copy the RCM on the daily report"})
+    audit.record("RMA_DAILY_RCM_CC", "feature_flag", "rma_daily_cc_rcm", user=user, before={"on": not on},
+                 after={"on": on})

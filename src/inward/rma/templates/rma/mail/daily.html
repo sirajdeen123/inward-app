@@ -1,0 +1,6 @@
+{% extends "iw/mail/_base.html" %}
+{% block body %}
+<style>.rt{border-collapse:collapse;font-size:12px;margin:4px 0 10px}.rt th,.rt td{border:1px solid #bbb;padding:3px 6px;text-align:left;vertical-align:top}.rt th{background:#eee}</style>
+{% include "rma/_daily.html" %}
+<p style="font-size:12px">The Materials Return Register (Excel) is attached. Red rows are over the red limit at their current stage, amber ones are approaching it.</p>
+{% endblock %}

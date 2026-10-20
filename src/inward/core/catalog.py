@@ -13,6 +13,9 @@ STAFF_ROLES = {"CFA_MANAGER", "ADMINISTRATOR"}  # may open the Django admin area
 
 PERMISSIONS = {
     "IRR_RECON_MARK": "IRR reconciliation engine: run it, explain exceptions",
+    "RMA_WORK": "Material returns: GRN, portal / CN / master uploads, links, IRR TRX",
+    "RMA_CLOSE": "Material returns: close a return after the godown check (or a rejected one)",
+    "RMA_MASTER": "Material returns: portal approver e-mails, Sales Officer e-mails",
     "DAMAGE_REPORT": "Internal damage: list damaged material with photos, send for approval",
     "DAMAGE_TRX": "Internal damage: enter the DMG transfer TRX No, reconcile, decide reason codes",
     "CASH_REGISTER": "Cash register: receive cash, expenses, handovers, statement",
@@ -75,6 +78,9 @@ MATRIX: dict[str, dict[str, str]] = {
     "DAMAGE_TRX": {"SYSTEM_SUPERVISOR": G, "CFA_MANAGER": G},
     "IRR_RECON_MARK": {"SYSTEM_SUPERVISOR": G, "CFA_MANAGER": G},
     "CASH_MANAGE": {"CFA_MANAGER": G},
+    "RMA_WORK": {"DEPOT_CLERK": G, "SYSTEM_SUPERVISOR": G, "CFA_MANAGER": G},
+    "RMA_CLOSE": {"SYSTEM_SUPERVISOR": G, "CFA_MANAGER": G},
+    "RMA_MASTER": {"SYSTEM_SUPERVISOR": G, "CFA_MANAGER": G},
 }
 
 LOAD_TYPES = [
@@ -112,6 +118,11 @@ BUSINESS_LINE_WAREHOUSE = {
 }
 
 FEATURE_FLAGS = {
+    "rma_approval_time": ("09:30", "Material returns: approval-pending digest to each portal approver after this time"),
+    "rma_daily_time": ("09:30", "Material returns: daily report to the Admin Officer after this time"),
+    "rma_daily_cc_rcm": (True, "Material returns: copy the RCM on the daily report (switch on Notification e-mails)"),
+    "rma_amber_days": (7, "Material returns: days pending before a request turns amber"),
+    "rma_red_days": (15, "Material returns: days pending before a request turns red"),
     "colour_bank_erp_tracked": (False, "Colour Bank tracks go through ERP/IRR reconciliation (reserved, OFF)"),
     "claim_approval_threshold_rs": (None, "SED claim value above which CFA Manager approval is needed (null = off)"),
     "mail_pending_release_after_hours": (2, "Hours a mandatory mail must be pending before Mail-Pending Release"),
@@ -144,6 +155,9 @@ NOTIFICATION_PURPOSES = {
     "DAILY_UNLOADING": [("CFA Manager", "TO")],
     "DAMAGE_APPROVAL": [("Depot Manager", "TO"), ("Admin Officer", "TO"), ("CFA Manager", "CC")],
     "IRR_EXCEPTIONS": [("System Supervisor", "TO"), ("CFA Manager", "TO"), ("Admin Officer", "TO")],
+    # material returns (21-Oct-2026): the approvers themselves are mapped on the Approvers screen
+    "RMA_APPROVAL": [("Admin Officer", "CC"), ("Godown", "CC")],
+    "RMA_DAILY": [("Admin Officer", "TO"), ("CFA Manager", "CC"), ("RCM", "CC")],
 }
 
 # internal damage reasons the app starts with (code, name, photo required, remarks required, order)

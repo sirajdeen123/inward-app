@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     "inward.cash",
     "inward.damage",
     "inward.irrecon",
+    "inward.rma",
     "inward.web",
 ]
 

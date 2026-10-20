@@ -1,0 +1,43 @@
+{% extends "web/base.html" %}
+{% block title %}{{ g.grn_no }}{% endblock %}
+{% block content %}
+<p><a href="{% url 'rma:index' %}?stage=GRN">&larr; Material returns</a></p>
+<h1>GRN {{ g.grn_no }}</h1>
+<p class="muted">{{ g.grn_date|date:"d-M-Y" }}{% if g.receipt_time %} {{ g.receipt_time }}{% endif %} · {{ g.dealer_code }} · {{ g.dealer_name }}{% if g.site_code %} (site {{ g.site_code }}){% endif %} · vehicle {{ g.vehicle_no|default:"-" }} · <a href="{% url 'rma:grn_pdf' g.pk %}">GRN PDF</a></p>
+<p>Sales Officer: {% if so %}<b>{{ so.0 }}</b> (territory {{ so.2 }}){% if so.1 %} · {{ so.1 }}{% else %} · <span class="warn-text">no e-mail</span>{% endif %}{% else %}<span class="muted">not found - upload the Customer Master and TSI Master</span>{% endif %}</p>
+{% if missing %}<div class="alert alert-warning">Still to fill: {{ missing|join:" " }}</div>{% endif %}
+
+<form method="post" class="card">{% csrf_token %}
+  <h2>Receipt details and material condition</h2>
+  <div class="form-grid">
+    <div class="field"><label for="g-ge">Gate entry No *</label><input id="g-ge" name="gate_entry_no" value="{{ g.gate_entry_no }}" class="caps" maxlength="40"></div>
+    <div class="field"><label for="g-gd">Gate entry date</label><input id="g-gd" type="date" name="gate_entry_date" value="{{ g.gate_entry_date|date:'Y-m-d' }}"></div>
+    <div class="field"><label for="g-tm">Came by *</label><select id="g-tm" name="transport_mode"><option value="">-</option>{% for v, l in modes %}<option value="{{ v }}"{% if v == g.transport_mode %} selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
+    <div class="field"><label for="g-lr">LR No</label><input id="g-lr" name="lr_no" value="{{ g.lr_no }}" class="caps" maxlength="40"></div>
+    <div class="field"><label for="g-ld">LR date</label><input id="g-ld" type="date" name="lr_date" value="{{ g.lr_date|date:'Y-m-d' }}"></div>
+    <div class="field"><label for="g-fr">Freight (Rs)</label><input id="g-fr" name="freight" inputmode="decimal" value="{{ g.freight|default_if_none:'' }}"></div>
+    <div class="field span-all"><label for="g-rm">Remarks</label><input id="g-rm" name="remarks" value="{{ g.remarks }}" maxlength="500"></div>
+  </div>
+  <table class="tbl stack"><thead><tr><th>Invoice</th><th>SKU</th><th class="num">Inv / returned pcs</th><th class="num">Drum · Ctn · Bag · Loose</th><th>Condition *</th></tr></thead>
+  <tbody>{% for inv in invoices %}{% for ln in inv.lines %}<tr>
+    <td data-label="Invoice">{{ ln.invoice_no }} <span class="muted">{{ ln.invoice_date|date:"d-M-Y" }}</span></td>
+    <td data-label="SKU"><span class="mono">{{ ln.sku }}</span><div class="muted">{{ ln.description }}</div></td>
+    <td data-label="Pcs" class="num">{{ ln.inv_nop|floatformat:"-3" }} / <b>{{ ln.ret_nop|floatformat:"-3" }}</b></td>
+    <td data-label="Packages" class="num">{{ ln.drums|floatformat:"-2" }} · {{ ln.cartons|floatformat:"-2" }} · {{ ln.bags|floatformat:"-2" }} · {{ ln.loose|floatformat:"-2" }}</td>
+    <td data-label="Condition"><select name="cond_{{ ln.pk }}" aria-label="Condition of {{ ln.sku }}"><option value="">- pick -</option>{% for v, l in conditions %}<option value="{{ v }}"{% if v == ln.condition %} selected{% endif %}>{{ l }}</option>{% endfor %}</select></td></tr>
+  {% endfor %}{% endfor %}</tbody></table>
+  <p><button type="submit" class="btn btn-primary">Save</button></p>
+</form>
+
+<div class="card"><h2>Portal request for each invoice</h2>
+  <p class="muted">Raise the RMA Portal request for each invoice, then upload the RMA Portal Report - it links by dealer and invoice automatically. Link by hand only when the automatic link cannot decide.</p>
+  <table class="tbl stack"><thead><tr><th>Invoice</th><th>Portal request</th><th></th></tr></thead>
+  <tbody>{% for inv in invoices %}<tr><td data-label="Invoice"><b>{{ inv.no }}</b> <span class="muted">{{ inv.date|date:"d-M-Y" }} · {{ inv.lines|length }} SKU</span></td>
+    <td data-label="Request">{% if inv.request %}<a href="{% url 'rma:detail' inv.request.request_id %}"><b>{{ inv.request.request_id }}</b></a> · {{ inv.request.status }}{% if inv.request.invoice_no != inv.no %} <span class="warn-text">(portal invoice {{ inv.request.invoice_no }})</span>{% endif %}{% else %}<span class="warn-text">not raised / not uploaded yet</span>{% endif %}</td>
+    <td data-label="">{% if inv.request %}<form method="post" action="{% url 'rma:grn_link' g.pk %}" class="inline-form">{% csrf_token %}<input type="hidden" name="invoice_no" value="{{ inv.no }}"><input type="hidden" name="request_id" value=""><button type="submit" class="btn btn-sm">Unlink</button></form>
+      {% else %}<form method="post" action="{% url 'rma:grn_link' g.pk %}" class="inline">{% csrf_token %}<input type="hidden" name="invoice_no" value="{{ inv.no }}">
+        <label class="sr-only" for="lk-{{ forloop.counter }}">Request Id</label><input id="lk-{{ forloop.counter }}" name="request_id" list="cand-{{ forloop.counter }}" placeholder="Request Id" class="input-inline">
+        <datalist id="cand-{{ forloop.counter }}">{% for c in inv.candidates %}<option value="{{ c.request_id }}">inv {{ c.invoice_no }} · {{ c.status }} · Rs {{ c.total_value|floatformat:0 }}</option>{% endfor %}</datalist>
+        <button type="submit" class="btn btn-sm">Link</button></form>{% endif %}</td></tr>{% endfor %}</tbody></table>
+</div>
+{% endblock %}

@@ -643,6 +643,10 @@ def send_reminders(now=None) -> int:
 def run_once(transport, read_inbox: bool = True) -> dict:
     from inward.iw import reports
     stats = {"reports": len(reports.due_reports())}
+    from inward.rma import mails as rma_mails
+    rma = rma_mails.due()   # material returns: approver digests / new-pending mails / 09:30 daily report
+    if rma:
+        stats["rma"] = rma
     if MailMessage.objects.exclude(status__in=[M.SENT, M.FAILED]).exists():
         stats.update(process_outbox(transport))  # Gmail is contacted only when something waits
     from inward.damage.services import send_reminders as damage_reminders, waiting_replies

@@ -9,7 +9,7 @@
       <div class="login-brand"><img src="{% static 'inward/company_logo.png' %}" alt="{{ depot.company|default:'Company' }} logo">
         <div><div class="login-company">{{ depot.company|default:"BERGER PAINTS INDIA LIMITED" }}</div>
           <div class="login-depot">Depot {{ depot.code }} · {{ depot.name }}{% if depot.cfa %} · operated by {{ depot.cfa }}{% endif %}</div></div></div>
-      <img src="{% static 'inward/login-flow.svg' %}" alt="Stock inward flow: SIT and Ship linking, unloading and SED, MRA and e-mails, ERP and IRR reconciliation, closure and reports" class="login-flow">
+      <img src="{% static 'inward/login-flow.svg' %}" alt="Depot receiving dock: a truck unloading paint consignments, checked by the supervisor - gate-in, unloading, SED check, MRA mail, ERP and IRR" class="login-flow">
     </section>
     <section class="login-form">
       <img src="{% static 'inward/icon-192.png' %}" alt="" class="login-icon">

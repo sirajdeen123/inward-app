@@ -1,47 +1,120 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 420" role="img" aria-label="Stock inward flow: SIT and Ship linking, unloading and SED, MRA and e-mails, ERP and IRR reconciliation, closure and reports">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 430" role="img" aria-label="Depot receiving dock: a truck unloading paint consignments, checked by the supervisor - gate-in, unloading, SED check, MRA, ERP and IRR reconciliation">
   <defs>
-    <linearGradient id="ring" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#4FC3D9"/><stop offset=".35" stop-color="#9B6BE0"/>
-      <stop offset=".7" stop-color="#F06BA8"/><stop offset="1" stop-color="#F7A54A"/>
-    </linearGradient>
-    <filter id="sh" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity=".15"/></filter>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#cfe0f3"/><stop offset="1" stop-color="#eef3f9"/></linearGradient>
+    <linearGradient id="wall" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e8ecf2"/><stop offset="1" stop-color="#d5dbe4"/></linearGradient>
+    <linearGradient id="road" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6b7380"/><stop offset="1" stop-color="#4f5663"/></linearGradient>
+    <linearGradient id="box" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#2a5db0"/><stop offset="1" stop-color="#1d4688"/></linearGradient>
+    <linearGradient id="inside" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1e2430"/><stop offset="1" stop-color="#363e4d"/></linearGradient>
+    <linearGradient id="pailR" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#b8242c"/><stop offset=".45" stop-color="#e2434b"/><stop offset="1" stop-color="#a51f27"/></linearGradient>
+    <linearGradient id="pailB" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#1d4f9c"/><stop offset=".45" stop-color="#3a78d0"/><stop offset="1" stop-color="#17417f"/></linearGradient>
+    <linearGradient id="pailW" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#cfd5de"/><stop offset=".45" stop-color="#ffffff"/><stop offset="1" stop-color="#bcc3cd"/></linearGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#c8955a"/><stop offset="1" stop-color="#b07e45"/></linearGradient>
+    <filter id="sh" x="-10%" y="-10%" width="120%" height="130%"><feDropShadow dx="0" dy="2" stdDeviation="2.5" flood-color="#1b2533" flood-opacity=".22"/></filter>
+    <pattern id="clad" width="8" height="8" patternUnits="userSpaceOnUse"><rect width="8" height="8" fill="none"/><path d="M0 7.5h8" stroke="#c4ccd7" stroke-width="1"/></pattern>
+    <pattern id="slat" width="6" height="6" patternUnits="userSpaceOnUse"><rect width="6" height="6" fill="#aab4c2"/><path d="M0 5.5h6" stroke="#8f9aaa" stroke-width="1"/></pattern>
+    <g id="pail">
+      <ellipse cx="0" cy="0" rx="13" ry="4"/>
+      <path d="M-13 0v24a13 4 0 0 0 26 0V0"/>
+    </g>
   </defs>
-  <!-- centre -->
-  <circle cx="140" cy="210" r="118" fill="none" stroke="url(#ring)" stroke-width="12"/>
-  <circle cx="140" cy="210" r="96" fill="#f7f8fb" filter="url(#sh)"/>
-  <text x="140" y="196" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="21" font-weight="800" fill="#2E2560">STOCK</text>
-  <text x="140" y="222" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="21" font-weight="800" fill="#2E2560">INWARD</text>
-  <text x="140" y="246" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="600" fill="#5b5e6b">MANAGEMENT</text>
-  <!-- steps -->
-  <g font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="700" fill="#2b2d36">
-    <path d="M230 128 C260 100 280 86 304 86" fill="none" stroke="#4FC3D9" stroke-width="2"/>
-    <circle cx="230" cy="128" r="6" fill="#4FC3D9"/>
-    <rect x="300" y="64" width="208" height="44" rx="22" fill="#fff" stroke="#4FC3D9" stroke-width="2" filter="url(#sh)"/>
-    <circle cx="322" cy="86" r="18" fill="#4FC3D9"/><text x="322" y="91" text-anchor="middle" fill="#fff" font-size="14">1</text>
-    <text x="348" y="91">SIT &amp; SHIP LINKING</text>
 
-    <path d="M256 168 C280 156 296 150 320 150" fill="none" stroke="#9B6BE0" stroke-width="2"/>
-    <circle cx="256" cy="168" r="6" fill="#9B6BE0"/>
-    <rect x="316" y="128" width="192" height="44" rx="22" fill="#fff" stroke="#9B6BE0" stroke-width="2" filter="url(#sh)"/>
-    <circle cx="338" cy="150" r="18" fill="#9B6BE0"/><text x="338" y="155" text-anchor="middle" fill="#fff" font-size="14">2</text>
-    <text x="364" y="155">UNLOADING &amp; SED</text>
+  <!-- scene -->
+  <rect width="560" height="330" rx="16" fill="url(#sky)"/>
+  <circle cx="92" cy="58" r="22" fill="#fff4d6" opacity=".9"/>
+  <path d="M30 96c14-10 34-10 46 0 10-8 28-6 34 6H24c0-3 2-5 6-6z" fill="#fff" opacity=".8"/>
+  <path d="M380 56c12-8 28-8 38 0 9-6 23-4 28 5h-72c1-3 3-4 6-5z" fill="#fff" opacity=".75"/>
 
-    <path d="M262 214 L328 214" fill="none" stroke="#5B7BE8" stroke-width="2"/>
-    <circle cx="262" cy="214" r="6" fill="#5B7BE8"/>
-    <rect x="324" y="192" width="184" height="44" rx="22" fill="#fff" stroke="#5B7BE8" stroke-width="2" filter="url(#sh)"/>
-    <circle cx="346" cy="214" r="18" fill="#5B7BE8"/><text x="346" y="219" text-anchor="middle" fill="#fff" font-size="14">3</text>
-    <text x="372" y="219">MRA &amp; E-MAILS</text>
+  <!-- warehouse -->
+  <path d="M168 128 L560 104 V312 H168 Z" fill="url(#wall)"/>
+  <path d="M168 128 L560 104 V312 H168 Z" fill="url(#clad)"/>
+  <path d="M160 130 L560 100 V108 L168 136 Z" fill="#8a96a8"/>
+  <rect x="300" y="128" width="190" height="26" rx="4" fill="#1f4fa3" filter="url(#sh)"/>
+  <text x="395" y="146" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="12.5" font-weight="700" fill="#fff" letter-spacing="1.5">RECEIVING DOCK</text>
 
-    <path d="M254 260 C280 272 296 278 320 278" fill="none" stroke="#F06BA8" stroke-width="2"/>
-    <circle cx="254" cy="260" r="6" fill="#F06BA8"/>
-    <rect x="316" y="256" width="192" height="44" rx="22" fill="#fff" stroke="#F06BA8" stroke-width="2" filter="url(#sh)"/>
-    <circle cx="338" cy="278" r="18" fill="#F06BA8"/><text x="338" y="283" text-anchor="middle" fill="#fff" font-size="14">4</text>
-    <text x="364" y="276" font-size="12">ERP &amp; IRR</text><text x="364" y="290" font-size="12">RECONCILIATION</text>
+  <!-- dock doors -->
+  <g font-family="Segoe UI, Arial, sans-serif" font-size="10" font-weight="700" fill="#5b6575">
+    <rect x="214" y="176" width="86" height="112" fill="url(#inside)"/>
+    <rect x="214" y="176" width="86" height="22" fill="url(#slat)"/>
+    <rect x="322" y="176" width="86" height="112" fill="url(#slat)"/>
+    <rect x="430" y="176" width="86" height="112" fill="url(#inside)"/>
+    <rect x="430" y="176" width="86" height="40" fill="url(#slat)"/>
+    <g fill="none" stroke="#7b8698" stroke-width="3"><rect x="212" y="174" width="90" height="116"/><rect x="320" y="174" width="90" height="116"/><rect x="428" y="174" width="90" height="116"/></g>
+    <text x="257" y="169" text-anchor="middle">DOCK 1</text><text x="365" y="169" text-anchor="middle">DOCK 2</text><text x="473" y="169" text-anchor="middle">DOCK 3</text>
+    <!-- racking inside dock 3 -->
+    <g stroke="#e09a2b" stroke-width="2"><path d="M440 288V222M506 288V222M440 246h66M440 268h66"/></g>
+    <rect x="446" y="232" width="18" height="13" fill="#c8955a"/><rect x="467" y="234" width="16" height="11" fill="#b07e45"/><rect x="486" y="231" width="16" height="14" fill="#c8955a"/>
+    <rect x="446" y="254" width="16" height="13" fill="#3a78d0"/><rect x="465" y="254" width="16" height="13" fill="#e2434b"/><rect x="484" y="254" width="18" height="13" fill="#e8ecf2"/>
+  </g>
+  <!-- dock platform -->
+  <rect x="168" y="288" width="392" height="24" fill="#9aa4b3"/>
+  <rect x="168" y="288" width="392" height="4" fill="#b8c0cc"/>
+  <g fill="#f2c230"><path d="M168 304h392v3H168z"/></g>
+  <g fill="#2b2f36"><rect x="222" y="292" width="10" height="16" rx="2"/><rect x="282" y="292" width="10" height="16" rx="2"/><rect x="330" y="292" width="10" height="16" rx="2"/><rect x="390" y="292" width="10" height="16" rx="2"/></g>
 
-    <path d="M228 302 C260 328 280 342 304 342" fill="none" stroke="#F7A54A" stroke-width="2"/>
-    <circle cx="228" cy="302" r="6" fill="#F7A54A"/>
-    <rect x="300" y="320" width="208" height="44" rx="22" fill="#fff" stroke="#F7A54A" stroke-width="2" filter="url(#sh)"/>
-    <circle cx="322" cy="342" r="18" fill="#F7A54A"/><text x="322" y="347" text-anchor="middle" fill="#fff" font-size="14">5</text>
-    <text x="348" y="347">CLOSURE &amp; REPORTS</text>
+  <!-- yard -->
+  <path d="M0 312H560V330a16 16 0 0 1-16 16H16A16 16 0 0 1 0 330Z" fill="url(#road)"/>
+  <g fill="#f2c230" opacity=".85"><rect x="18" y="325" width="34" height="4" rx="2"/><rect x="80" y="325" width="34" height="4" rx="2"/><rect x="142" y="325" width="34" height="4" rx="2"/></g>
+
+  <!-- truck backed onto dock 1 -->
+  <g filter="url(#sh)">
+    <rect x="70" y="178" width="146" height="112" rx="4" fill="url(#box)"/>
+    <rect x="70" y="244" width="146" height="9" fill="#fff" opacity=".9"/>
+    <rect x="70" y="253" width="146" height="5" fill="#e2434b"/>
+    <path d="M14 232h56v58H8v-34c0-8 3-15 6-24z" fill="#e9edf3"/>
+    <path d="M18 238h30v20H12c1-7 3-14 6-20z" fill="#9cc3ea"/>
+    <rect x="52" y="238" width="14" height="22" rx="2" fill="#c6d0dc"/>
+    <rect x="4" y="276" width="14" height="10" rx="2" fill="#f2c230"/>
+    <rect x="8" y="288" width="208" height="8" rx="2" fill="#2b2f36"/>
+    <g fill="#23272e"><circle cx="38" cy="300" r="15"/><circle cx="150" cy="300" r="15"/><circle cx="184" cy="300" r="15"/></g>
+    <g fill="#a9b2bf"><circle cx="38" cy="300" r="6"/><circle cx="150" cy="300" r="6"/><circle cx="184" cy="300" r="6"/></g>
+  </g>
+  <text x="143" y="226" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="800" fill="#fff" opacity=".95" letter-spacing="1">INWARD</text>
+
+  <!-- pallet of pails and cartons on the dock -->
+  <g filter="url(#sh)">
+    <rect x="322" y="280" width="88" height="8" fill="#a8783f"/>
+    <g fill="#8a612f"><rect x="326" y="288" width="10" height="3"/><rect x="361" y="288" width="10" height="3"/><rect x="396" y="288" width="10" height="3"/></g>
+    <g fill="url(#pailR)" transform="translate(338 252)"><use href="#pail"/></g>
+    <g fill="url(#pailB)" transform="translate(366 252)"><use href="#pail"/></g>
+    <g fill="url(#pailW)" transform="translate(394 252)"><use href="#pail"/></g>
+    <g fill="none" stroke="#7b8698" stroke-width="1.2"><path d="M327 252c0-9 22-9 22 0M355 252c0-9 22-9 22 0M383 252c0-9 22-9 22 0"/></g>
+    <g fill="#ffffff" opacity=".85"><rect x="331" y="262" width="14" height="8" rx="1"/><rect x="359" y="262" width="14" height="8" rx="1"/></g>
+    <rect x="387" y="262" width="14" height="8" rx="1" fill="#1f4fa3" opacity=".8"/>
+    <rect x="326" y="222" width="38" height="28" fill="url(#card)"/><rect x="366" y="226" width="34" height="24" fill="url(#card)"/>
+    <path d="M326 230h38M366 233h34" stroke="#8a612f" stroke-width="1.5"/>
+    <rect x="338" y="236" width="14" height="8" fill="#fff" opacity=".85"/>
+  </g>
+
+  <!-- supervisor with tablet -->
+  <g>
+    <rect x="452" y="262" width="9" height="28" rx="3" fill="#2f3a4d"/><rect x="464" y="262" width="9" height="28" rx="3" fill="#2f3a4d"/>
+    <rect x="448" y="286" width="13" height="5" rx="2" fill="#23272e"/><rect x="464" y="286" width="13" height="5" rx="2" fill="#23272e"/>
+    <path d="M448 228c0-8 6-12 14-12s14 4 14 12v36h-28z" fill="#f08a24"/>
+    <path d="M450 244h24M450 252h24" stroke="#e7ecef" stroke-width="2.5"/>
+    <circle cx="462" cy="206" r="9" fill="#c98b5e"/>
+    <path d="M452 203a10 9 0 0 1 20 0z" fill="#f2c230"/><rect x="450" y="202" width="24" height="3" rx="1.5" fill="#e0ad18"/>
+    <path d="M474 232l12 10" stroke="#f08a24" stroke-width="7" stroke-linecap="round"/>
+    <rect x="480" y="226" width="22" height="30" rx="3" fill="#2b2f36" transform="rotate(12 491 241)"/>
+    <rect x="483" y="229" width="16" height="23" rx="2" fill="#e8f2fd" transform="rotate(12 491 241)"/>
+    <path d="M486 241l4 4 7-8" fill="none" stroke="#1f8a4c" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" transform="rotate(12 491 241)"/>
+  </g>
+
+  <!-- inward steps -->
+  <g font-family="Segoe UI, Arial, sans-serif" text-anchor="middle">
+    <rect x="0" y="356" width="560" height="74" rx="14" fill="#fff" filter="url(#sh)"/>
+    <path d="M56 382H504" stroke="#d6dce6" stroke-width="3"/>
+    <path d="M56 382H504" stroke="#2b6cb0" stroke-width="3" stroke-dasharray="6 6" opacity=".35"/>
+    <g font-size="11.5" font-weight="700" fill="#2b2d36">
+      <circle cx="56" cy="382" r="13" fill="#1f4fa3"/><path d="M50 382h12M57 377l5 5-5 5" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="56" y="414">Gate-in</text>
+      <circle cx="168" cy="382" r="13" fill="#1f4fa3"/><rect x="162" y="377" width="12" height="10" rx="1.5" fill="none" stroke="#fff" stroke-width="2"/><path d="M162 381h12" stroke="#fff" stroke-width="2"/>
+      <text x="168" y="414">Unloading</text>
+      <circle cx="280" cy="382" r="13" fill="#e2434b"/><path d="M280 375v8M280 387.5v.5" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/>
+      <text x="280" y="414">SED check</text>
+      <circle cx="392" cy="382" r="13" fill="#1f4fa3"/><rect x="385" y="377" width="14" height="10" rx="1.5" fill="none" stroke="#fff" stroke-width="2"/><path d="M385.5 378l6.5 5 6.5-5" fill="none" stroke="#fff" stroke-width="2"/>
+      <text x="392" y="414">MRA mail</text>
+      <circle cx="504" cy="382" r="13" fill="#1f8a4c"/><path d="M498 382l4 4 8-8" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="504" y="414">ERP &amp; IRR</text>
+    </g>
   </g>
 </svg>

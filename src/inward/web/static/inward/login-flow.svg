@@ -1,120 +1,68 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 430" role="img" aria-label="Depot receiving dock: a truck unloading paint consignments, checked by the supervisor - gate-in, unloading, SED check, MRA, ERP and IRR reconciliation">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 540" role="img" aria-label="Every inward, checked together: five paint-dipped hands around a paint drop with a tick - gate-in, unloading, SED check, MRA mail, ERP and IRR">
   <defs>
-    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#cfe0f3"/><stop offset="1" stop-color="#eef3f9"/></linearGradient>
-    <linearGradient id="wall" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e8ecf2"/><stop offset="1" stop-color="#d5dbe4"/></linearGradient>
-    <linearGradient id="road" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6b7380"/><stop offset="1" stop-color="#4f5663"/></linearGradient>
-    <linearGradient id="box" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#2a5db0"/><stop offset="1" stop-color="#1d4688"/></linearGradient>
-    <linearGradient id="inside" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1e2430"/><stop offset="1" stop-color="#363e4d"/></linearGradient>
-    <linearGradient id="pailR" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#b8242c"/><stop offset=".45" stop-color="#e2434b"/><stop offset="1" stop-color="#a51f27"/></linearGradient>
-    <linearGradient id="pailB" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#1d4f9c"/><stop offset=".45" stop-color="#3a78d0"/><stop offset="1" stop-color="#17417f"/></linearGradient>
-    <linearGradient id="pailW" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#cfd5de"/><stop offset=".45" stop-color="#ffffff"/><stop offset="1" stop-color="#bcc3cd"/></linearGradient>
-    <linearGradient id="card" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#c8955a"/><stop offset="1" stop-color="#b07e45"/></linearGradient>
-    <filter id="sh" x="-10%" y="-10%" width="120%" height="130%"><feDropShadow dx="0" dy="2" stdDeviation="2.5" flood-color="#1b2533" flood-opacity=".22"/></filter>
-    <pattern id="clad" width="8" height="8" patternUnits="userSpaceOnUse"><rect width="8" height="8" fill="none"/><path d="M0 7.5h8" stroke="#c4ccd7" stroke-width="1"/></pattern>
-    <pattern id="slat" width="6" height="6" patternUnits="userSpaceOnUse"><rect width="6" height="6" fill="#aab4c2"/><path d="M0 5.5h6" stroke="#8f9aaa" stroke-width="1"/></pattern>
-    <g id="pail">
-      <ellipse cx="0" cy="0" rx="13" ry="4"/>
-      <path d="M-13 0v24a13 4 0 0 0 26 0V0"/>
-    </g>
+    <linearGradient id="drop" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3b82e0"/><stop offset="1" stop-color="#173d80"/></linearGradient>
+    <filter id="sh" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="3" stdDeviation="3.5" flood-color="#1b2533" flood-opacity=".18"/></filter>
   </defs>
 
-  <!-- scene -->
-  <rect width="560" height="330" rx="16" fill="url(#sky)"/>
-  <circle cx="92" cy="58" r="22" fill="#fff4d6" opacity=".9"/>
-  <path d="M30 96c14-10 34-10 46 0 10-8 28-6 34 6H24c0-3 2-5 6-6z" fill="#fff" opacity=".8"/>
-  <path d="M380 56c12-8 28-8 38 0 9-6 23-4 28 5h-72c1-3 3-4 6-5z" fill="#fff" opacity=".75"/>
-
-  <!-- warehouse -->
-  <path d="M168 128 L560 104 V312 H168 Z" fill="url(#wall)"/>
-  <path d="M168 128 L560 104 V312 H168 Z" fill="url(#clad)"/>
-  <path d="M160 130 L560 100 V108 L168 136 Z" fill="#8a96a8"/>
-  <rect x="300" y="128" width="190" height="26" rx="4" fill="#1f4fa3" filter="url(#sh)"/>
-  <text x="395" y="146" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="12.5" font-weight="700" fill="#fff" letter-spacing="1.5">RECEIVING DOCK</text>
-
-  <!-- dock doors -->
-  <g font-family="Segoe UI, Arial, sans-serif" font-size="10" font-weight="700" fill="#5b6575">
-    <rect x="214" y="176" width="86" height="112" fill="url(#inside)"/>
-    <rect x="214" y="176" width="86" height="22" fill="url(#slat)"/>
-    <rect x="322" y="176" width="86" height="112" fill="url(#slat)"/>
-    <rect x="430" y="176" width="86" height="112" fill="url(#inside)"/>
-    <rect x="430" y="176" width="86" height="40" fill="url(#slat)"/>
-    <g fill="none" stroke="#7b8698" stroke-width="3"><rect x="212" y="174" width="90" height="116"/><rect x="320" y="174" width="90" height="116"/><rect x="428" y="174" width="90" height="116"/></g>
-    <text x="257" y="169" text-anchor="middle">DOCK 1</text><text x="365" y="169" text-anchor="middle">DOCK 2</text><text x="473" y="169" text-anchor="middle">DOCK 3</text>
-    <!-- racking inside dock 3 -->
-    <g stroke="#e09a2b" stroke-width="2"><path d="M440 288V222M506 288V222M440 246h66M440 268h66"/></g>
-    <rect x="446" y="232" width="18" height="13" fill="#c8955a"/><rect x="467" y="234" width="16" height="11" fill="#b07e45"/><rect x="486" y="231" width="16" height="14" fill="#c8955a"/>
-    <rect x="446" y="254" width="16" height="13" fill="#3a78d0"/><rect x="465" y="254" width="16" height="13" fill="#e2434b"/><rect x="484" y="254" width="18" height="13" fill="#e8ecf2"/>
-  </g>
-  <!-- dock platform -->
-  <rect x="168" y="288" width="392" height="24" fill="#9aa4b3"/>
-  <rect x="168" y="288" width="392" height="4" fill="#b8c0cc"/>
-  <g fill="#f2c230"><path d="M168 304h392v3H168z"/></g>
-  <g fill="#2b2f36"><rect x="222" y="292" width="10" height="16" rx="2"/><rect x="282" y="292" width="10" height="16" rx="2"/><rect x="330" y="292" width="10" height="16" rx="2"/><rect x="390" y="292" width="10" height="16" rx="2"/></g>
-
-  <!-- yard -->
-  <path d="M0 312H560V330a16 16 0 0 1-16 16H16A16 16 0 0 1 0 330Z" fill="url(#road)"/>
-  <g fill="#f2c230" opacity=".85"><rect x="18" y="325" width="34" height="4" rx="2"/><rect x="80" y="325" width="34" height="4" rx="2"/><rect x="142" y="325" width="34" height="4" rx="2"/></g>
-
-  <!-- truck backed onto dock 1 -->
-  <g filter="url(#sh)">
-    <rect x="70" y="178" width="146" height="112" rx="4" fill="url(#box)"/>
-    <rect x="70" y="244" width="146" height="9" fill="#fff" opacity=".9"/>
-    <rect x="70" y="253" width="146" height="5" fill="#e2434b"/>
-    <path d="M14 232h56v58H8v-34c0-8 3-15 6-24z" fill="#e9edf3"/>
-    <path d="M18 238h30v20H12c1-7 3-14 6-20z" fill="#9cc3ea"/>
-    <rect x="52" y="238" width="14" height="22" rx="2" fill="#c6d0dc"/>
-    <rect x="4" y="276" width="14" height="10" rx="2" fill="#f2c230"/>
-    <rect x="8" y="288" width="208" height="8" rx="2" fill="#2b2f36"/>
-    <g fill="#23272e"><circle cx="38" cy="300" r="15"/><circle cx="150" cy="300" r="15"/><circle cx="184" cy="300" r="15"/></g>
-    <g fill="#a9b2bf"><circle cx="38" cy="300" r="6"/><circle cx="150" cy="300" r="6"/><circle cx="184" cy="300" r="6"/></g>
-  </g>
-  <text x="143" y="226" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="800" fill="#fff" opacity=".95" letter-spacing="1">INWARD</text>
-
-  <!-- pallet of pails and cartons on the dock -->
-  <g filter="url(#sh)">
-    <rect x="322" y="280" width="88" height="8" fill="#a8783f"/>
-    <g fill="#8a612f"><rect x="326" y="288" width="10" height="3"/><rect x="361" y="288" width="10" height="3"/><rect x="396" y="288" width="10" height="3"/></g>
-    <g fill="url(#pailR)" transform="translate(338 252)"><use href="#pail"/></g>
-    <g fill="url(#pailB)" transform="translate(366 252)"><use href="#pail"/></g>
-    <g fill="url(#pailW)" transform="translate(394 252)"><use href="#pail"/></g>
-    <g fill="none" stroke="#7b8698" stroke-width="1.2"><path d="M327 252c0-9 22-9 22 0M355 252c0-9 22-9 22 0M383 252c0-9 22-9 22 0"/></g>
-    <g fill="#ffffff" opacity=".85"><rect x="331" y="262" width="14" height="8" rx="1"/><rect x="359" y="262" width="14" height="8" rx="1"/></g>
-    <rect x="387" y="262" width="14" height="8" rx="1" fill="#1f4fa3" opacity=".8"/>
-    <rect x="326" y="222" width="38" height="28" fill="url(#card)"/><rect x="366" y="226" width="34" height="24" fill="url(#card)"/>
-    <path d="M326 230h38M366 233h34" stroke="#8a612f" stroke-width="1.5"/>
-    <rect x="338" y="236" width="14" height="8" fill="#fff" opacity=".85"/>
-  </g>
-
-  <!-- supervisor with tablet -->
-  <g>
-    <rect x="452" y="262" width="9" height="28" rx="3" fill="#2f3a4d"/><rect x="464" y="262" width="9" height="28" rx="3" fill="#2f3a4d"/>
-    <rect x="448" y="286" width="13" height="5" rx="2" fill="#23272e"/><rect x="464" y="286" width="13" height="5" rx="2" fill="#23272e"/>
-    <path d="M448 228c0-8 6-12 14-12s14 4 14 12v36h-28z" fill="#f08a24"/>
-    <path d="M450 244h24M450 252h24" stroke="#e7ecef" stroke-width="2.5"/>
-    <circle cx="462" cy="206" r="9" fill="#c98b5e"/>
-    <path d="M452 203a10 9 0 0 1 20 0z" fill="#f2c230"/><rect x="450" y="202" width="24" height="3" rx="1.5" fill="#e0ad18"/>
-    <path d="M474 232l12 10" stroke="#f08a24" stroke-width="7" stroke-linecap="round"/>
-    <rect x="480" y="226" width="22" height="30" rx="3" fill="#2b2f36" transform="rotate(12 491 241)"/>
-    <rect x="483" y="229" width="16" height="23" rx="2" fill="#e8f2fd" transform="rotate(12 491 241)"/>
-    <path d="M486 241l4 4 7-8" fill="none" stroke="#1f8a4c" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" transform="rotate(12 491 241)"/>
-  </g>
-
-  <!-- inward steps -->
-  <g font-family="Segoe UI, Arial, sans-serif" text-anchor="middle">
-    <rect x="0" y="356" width="560" height="74" rx="14" fill="#fff" filter="url(#sh)"/>
-    <path d="M56 382H504" stroke="#d6dce6" stroke-width="3"/>
-    <path d="M56 382H504" stroke="#2b6cb0" stroke-width="3" stroke-dasharray="6 6" opacity=".35"/>
-    <g font-size="11.5" font-weight="700" fill="#2b2d36">
-      <circle cx="56" cy="382" r="13" fill="#1f4fa3"/><path d="M50 382h12M57 377l5 5-5 5" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
-      <text x="56" y="414">Gate-in</text>
-      <circle cx="168" cy="382" r="13" fill="#1f4fa3"/><rect x="162" y="377" width="12" height="10" rx="1.5" fill="none" stroke="#fff" stroke-width="2"/><path d="M162 381h12" stroke="#fff" stroke-width="2"/>
-      <text x="168" y="414">Unloading</text>
-      <circle cx="280" cy="382" r="13" fill="#e2434b"/><path d="M280 375v8M280 387.5v.5" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/>
-      <text x="280" y="414">SED check</text>
-      <circle cx="392" cy="382" r="13" fill="#1f4fa3"/><rect x="385" y="377" width="14" height="10" rx="1.5" fill="none" stroke="#fff" stroke-width="2"/><path d="M385.5 378l6.5 5 6.5-5" fill="none" stroke="#fff" stroke-width="2"/>
-      <text x="392" y="414">MRA mail</text>
-      <circle cx="504" cy="382" r="13" fill="#1f8a4c"/><path d="M498 382l4 4 8-8" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
-      <text x="504" y="414">ERP &amp; IRR</text>
+  <g transform="translate(270 238)">
+    <!-- paint drops between the hands -->
+    <g fill="#e2343d" opacity=".9">
+      <g transform="rotate(36)"><ellipse cx="-7" cy="-188" rx="6" ry="8"/><ellipse cx="8" cy="-176" rx="4" ry="5.5"/></g>
+      <g transform="rotate(108)" fill="#f5b51b"><ellipse cx="-7" cy="-188" rx="6" ry="8"/><ellipse cx="8" cy="-176" rx="4" ry="5.5"/></g>
+      <g transform="rotate(180)" fill="#13a8b4"><ellipse cx="-7" cy="-188" rx="6" ry="8"/><ellipse cx="8" cy="-176" rx="4" ry="5.5"/></g>
+      <g transform="rotate(252)" fill="#1f4fa3"><ellipse cx="-7" cy="-188" rx="6" ry="8"/><ellipse cx="8" cy="-176" rx="4" ry="5.5"/></g>
+      <g transform="rotate(324)"><ellipse cx="-7" cy="-188" rx="6" ry="8"/><ellipse cx="8" cy="-176" rx="4" ry="5.5"/></g>
     </g>
+
+    <!-- five hands, each dipped in paint, the paint running from the wrist towards the centre -->
+    <g filter="url(#sh)">
+      <g transform="rotate(0) translate(0 -66)">
+        <path fill="#e2343d" d="M-28-8C-35-38-31-60-24-70H24C31-60 35-38 28-8 17 6-17 6-28-8Z"/>
+        <g fill="none" stroke="#e2343d" stroke-linecap="round" stroke-width="17"><path d="M-17-62L-29-116"/><path d="M-3-68V-130"/><path d="M11-66L19-124"/><path d="M23-58L37-104"/><path d="M-25-30L-55-62"/></g>
+        <path fill="#b8242c" d="M28-8C35-38 31-60 24-70H15C23-54 23-30 14-4 20-4 25-5 28-8Z"/>
+        <path fill="#e2343d" d="M-27-8C-22 0-19 3-17 4-17 11-16 15-12 15-8 15-8 10-8 6-3 7 2 7 6 6 6 13 7 19 11 19 15 19 15 13 15 4 20 2 24-2 27-8Z"/>
+      </g>
+      <g transform="rotate(72) translate(0 -66)">
+        <path fill="#1f4fa3" d="M-28-8C-35-38-31-60-24-70H24C31-60 35-38 28-8 17 6-17 6-28-8Z"/>
+        <g fill="none" stroke="#1f4fa3" stroke-linecap="round" stroke-width="17"><path d="M-17-62L-29-116"/><path d="M-3-68V-130"/><path d="M11-66L19-124"/><path d="M23-58L37-104"/><path d="M-25-30L-55-62"/></g>
+        <path fill="#173d80" d="M28-8C35-38 31-60 24-70H15C23-54 23-30 14-4 20-4 25-5 28-8Z"/>
+        <path fill="#1f4fa3" d="M-27-8C-22 0-19 3-17 4-17 11-16 15-12 15-8 15-8 10-8 6-3 7 2 7 6 6 6 13 7 19 11 19 15 19 15 13 15 4 20 2 24-2 27-8Z"/>
+      </g>
+      <g transform="rotate(144) translate(0 -66)">
+        <path fill="#f5b51b" d="M-28-8C-35-38-31-60-24-70H24C31-60 35-38 28-8 17 6-17 6-28-8Z"/>
+        <g fill="none" stroke="#f5b51b" stroke-linecap="round" stroke-width="17"><path d="M-17-62L-29-116"/><path d="M-3-68V-130"/><path d="M11-66L19-124"/><path d="M23-58L37-104"/><path d="M-25-30L-55-62"/></g>
+        <path fill="#d99a0c" d="M28-8C35-38 31-60 24-70H15C23-54 23-30 14-4 20-4 25-5 28-8Z"/>
+        <path fill="#f5b51b" d="M-27-8C-22 0-19 3-17 4-17 11-16 15-12 15-8 15-8 10-8 6-3 7 2 7 6 6 6 13 7 19 11 19 15 19 15 13 15 4 20 2 24-2 27-8Z"/>
+      </g>
+      <g transform="rotate(216) translate(0 -66)">
+        <path fill="#13a8b4" d="M-28-8C-35-38-31-60-24-70H24C31-60 35-38 28-8 17 6-17 6-28-8Z"/>
+        <g fill="none" stroke="#13a8b4" stroke-linecap="round" stroke-width="17"><path d="M-17-62L-29-116"/><path d="M-3-68V-130"/><path d="M11-66L19-124"/><path d="M23-58L37-104"/><path d="M-25-30L-55-62"/></g>
+        <path fill="#0e8590" d="M28-8C35-38 31-60 24-70H15C23-54 23-30 14-4 20-4 25-5 28-8Z"/>
+        <path fill="#13a8b4" d="M-27-8C-22 0-19 3-17 4-17 11-16 15-12 15-8 15-8 10-8 6-3 7 2 7 6 6 6 13 7 19 11 19 15 19 15 13 15 4 20 2 24-2 27-8Z"/>
+      </g>
+      <g transform="rotate(288) translate(0 -66)">
+        <path fill="#263b5e" d="M-28-8C-35-38-31-60-24-70H24C31-60 35-38 28-8 17 6-17 6-28-8Z"/>
+        <g fill="none" stroke="#263b5e" stroke-linecap="round" stroke-width="17"><path d="M-17-62L-29-116"/><path d="M-3-68V-130"/><path d="M11-66L19-124"/><path d="M23-58L37-104"/><path d="M-25-30L-55-62"/></g>
+        <path fill="#1a2a45" d="M28-8C35-38 31-60 24-70H15C23-54 23-30 14-4 20-4 25-5 28-8Z"/>
+        <path fill="#263b5e" d="M-27-8C-22 0-19 3-17 4-17 11-16 15-12 15-8 15-8 10-8 6-3 7 2 7 6 6 6 13 7 19 11 19 15 19 15 13 15 4 20 2 24-2 27-8Z"/>
+      </g>
+    </g>
+
+    <!-- centre: paint drop with a tick -->
+    <circle r="40" fill="#fff" filter="url(#sh)"/>
+    <path d="M0-30C10-17 20-7 20 6A20 20 0 0 1-20 6C-20-7-10-17 0-30Z" fill="url(#drop)"/>
+    <path d="M-8 6l6 6 11-12" fill="none" stroke="#fff" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <ellipse cx="-9" cy="-5" rx="3" ry="5" fill="#fff" opacity=".35" transform="rotate(25 -9 -5)"/>
+  </g>
+
+  <!-- tagline and the inward steps -->
+  <g font-family="Segoe UI, Arial, sans-serif" text-anchor="middle">
+    <text x="270" y="460" font-size="22" font-weight="800" fill="#263b5e">Every inward, checked together</text>
+    <path d="M150 474h240" stroke="#e2343d" stroke-width="3" stroke-linecap="round"/>
+    <g font-size="12" font-weight="700" fill="#5b5e6b">
+      <text x="62" y="512">Gate-in</text><text x="166" y="512">Unloading</text><text x="270" y="512">SED check</text><text x="374" y="512">MRA mail</text><text x="478" y="512">ERP &amp; IRR</text>
+    </g>
+    <path d="M62 494H478" stroke="#d6dce6" stroke-width="2"/>
+    <g><circle cx="62" cy="494" r="6" fill="#e2343d"/><circle cx="166" cy="494" r="6" fill="#1f4fa3"/><circle cx="270" cy="494" r="6" fill="#f5b51b"/><circle cx="374" cy="494" r="6" fill="#13a8b4"/><circle cx="478" cy="494" r="6" fill="#263b5e"/></g>
   </g>
 </svg>

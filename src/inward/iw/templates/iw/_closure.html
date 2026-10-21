@@ -3,7 +3,7 @@
   <div class="grid2">{% for role, label, docs in scan_rows %}
     <div><h3>{{ label }}{% if role == 'lr_scan' and not lr_required %} <span class="muted">(not required)</span>{% endif %}</h3>
       {% for d in docs %}<div><a href="{% url 'iw:scan_file' iw.pk d.pk %}" target="_blank" rel="noopener">{{ d.original_filename }}</a> <span class="muted">{{ d.created_at|date:"d-M-Y h:i A" }}</span></div>{% empty %}<p class="warn-text">not uploaded</p>{% endfor %}
-      {% if iw.status != 'CLOSED' and open %}<form method="post" action="{% url 'iw:scan_add' iw.pk %}" enctype="multipart/form-data" class="photo-form" data-crop>{% csrf_token %}<input type="hidden" name="role" value="{{ role }}">
+      {% if iw.status != 'CLOSED' and open and can_scan %}<form method="post" action="{% url 'iw:scan_add' iw.pk %}" enctype="multipart/form-data" class="photo-form" data-crop>{% csrf_token %}<input type="hidden" name="role" value="{{ role }}">
         <label class="btn btn-sm">Scan / photo / PDF<input type="file" name="file" accept="application/pdf,image/*" capture="environment" multiple class="visually-hidden"></label>
         <button type="submit" class="btn btn-sm btn-primary">Upload</button></form>{% endif %}</div>
   {% endfor %}</div>

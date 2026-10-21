@@ -33,6 +33,7 @@ PERMISSIONS = {
     "SED_TRX_LSCRR": "Enter SED TRX No; record the LSCCR No",
     "IMPORT_RECONCILE": "Import SIT / IRR; run reconciliation",
     "IW_CLOSE": "Close IW",
+    "SCAN_UPLOAD": "Upload the signed MRA / LR scans (final documents)",
     "IW_REOPEN": "Reopen closed IW",
     "IW_VOID": "VOID IW (before MRA only)",
     "MAIL_PENDING_RELEASE": "Mail-Pending Release",
@@ -62,6 +63,7 @@ MATRIX: dict[str, dict[str, str]] = {
     "SED_TRX_LSCRR": {"DEPOT_CLERK": G, "SYSTEM_SUPERVISOR": G, "CFA_MANAGER": G},
     "IMPORT_RECONCILE": {"DEPOT_CLERK": G, "SYSTEM_SUPERVISOR": G, "CFA_MANAGER": G},
     "IW_CLOSE": {"DEPOT_CLERK": G, "CFA_MANAGER": G},
+    "SCAN_UPLOAD": {"DEPOT_CLERK": G, "SYSTEM_SUPERVISOR": G, "CFA_MANAGER": G},   # 22-Oct-2026: supervisors too
     "IW_REOPEN": {"DEPOT_CLERK": R, "SYSTEM_SUPERVISOR": R, "CFA_MANAGER": A},
     "IW_VOID": {"DEPOT_CLERK": R, "SYSTEM_SUPERVISOR": R, "CFA_MANAGER": A},
     "MAIL_PENDING_RELEASE": {"CFA_MANAGER": G},

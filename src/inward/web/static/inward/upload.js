@@ -185,6 +185,13 @@
           try { next = JSON.parse(xhr.responseText).redirect; } catch (e) { next = null; }
           if (xhr.status === 200 && next) { button.textContent = "Saved"; window.location.href = next; }
           else if (xhr.status === 200 && xhr.responseURL) { window.location.href = xhr.responseURL; }
+          else if (xhr.status === 403) {
+            button.disabled = false;
+            button.textContent = label;
+            status(form, "Not uploaded - your user is not allowed to upload here, or the page has expired. Reload the " +
+                         "page; if it happens again, ask the CFA Manager to check your role.", true);
+          }
+          else if (xhr.status === 413) { failed("the file is too large"); }
           else { failed("server said " + xhr.status); }
         };
         xhr.onerror = function () { failed("network error"); };

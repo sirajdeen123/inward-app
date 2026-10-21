@@ -52,7 +52,7 @@ def lr_required(iw: Iw) -> bool:
 def add_scans(user: User, iw_pk: int, role: str, files: list[tuple[bytes, str, str]]) -> list:
     """files: (data, filename, content type). A PDF is stored as it is; the photos of one upload are converted
     into ONE PDF (one page per photo, decision 17-Oct-2026), so every final document on file is a PDF."""
-    require(user, "IW_CLOSE")
+    require(user, "SCAN_UPLOAD")   # clerk, supervisor or CFA Manager (22-Oct-2026)
     iw = Iw.objects.get(pk=iw_pk)
     if role not in SCAN_ROLES:
         raise IwError("Unknown document.")

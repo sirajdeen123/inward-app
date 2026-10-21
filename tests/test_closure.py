@@ -153,3 +153,20 @@ def test_detailed_report_with_locators(client, reconciled):
     page = c.get(reverse("iw:recon_detail", args=[w["iw"].pk])).content.decode()
     assert "DETAILED RECONCILIATION REPORT" in page and "035RCK WH1.R2.C4.2" in page and "All reconciled" in page
     assert "Detailed report (SKUs &amp; locators)" in c.get(reverse("iw:erp", args=[w["iw"].pk])).content.decode()
+
+
+def test_supervisor_uploads_signed_mra(client, reconciled, make_user):
+    """Live 22-Oct-2026: the System Supervisor got 'Server-403' - scan upload has its own permission now."""
+    w = reconciled
+    from django.core.files.uploadedfile import SimpleUploadedFile
+    sup = make_user("sup_scan", "SYSTEM_SUPERVISOR")
+    c = verified_client(client, sup)
+    assert 'name="role" value="signed_mra"' in c.get(reverse("iw:erp", args=[w["iw"].pk])).content.decode()
+    resp = c.post(reverse("iw:scan_add", args=[w["iw"].pk]),
+                  {"role": "signed_mra", "file": SimpleUploadedFile("cam.jpg", _jpeg(), content_type="image/jpeg")},
+                  HTTP_X_REQUESTED_WITH="XMLHttpRequest")
+    assert resp.status_code == 200 and closure.scans(w["iw"])["signed_mra"]
+    client.logout()
+    v = verified_client(client, make_user("viewer_scan", "VIEWER"))
+    assert 'name="role" value="signed_mra"' not in v.get(reverse("iw:erp", args=[w["iw"].pk])).content.decode()
+    assert v.post(reverse("iw:scan_add", args=[w["iw"].pk]), {"role": "signed_mra"}).status_code == 403

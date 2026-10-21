@@ -27,6 +27,7 @@ def erp_page(request, pk):
         "scan_rows": [(role, label, sc[role]) for role, label in closure.SCAN_ROLES.items()],
         "lr_required": closure.lr_required(iw), "closures": list(iw.closures.select_related("closed_by", "report")),
         "can_reopen": bool(modes_for(request.user, "IW_REOPEN") & {"REQUEST", "APPROVE"}),
+        "can_scan": "GRANT" in modes_for(request.user, "SCAN_UPLOAD"),
         "ships": iw.ship_links.select_related("ship").prefetch_related("receipts").order_by("linked_at"),
         "vendors": iw.vendor_consignments.prefetch_related("receipts"), "memos": erp.memos(iw), "run": run,
         "live": live})
@@ -110,7 +111,7 @@ def recon_run(request, pk):
 
 
 @require_POST
-@needs("IW_CLOSE")
+@needs("SCAN_UPLOAD")
 def scan_add(request, pk):
     files = request.FILES.getlist("file")
     try:

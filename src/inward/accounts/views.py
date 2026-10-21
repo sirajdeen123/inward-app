@@ -80,7 +80,7 @@ def two_factor_view(request):
                 return render(request, "accounts/recovery_codes.html", {"codes": codes, "next": _next(request)})
         return render(request, "accounts/two_factor_enrol.html", {
             "form": form, "error": error, "qr_svg": twofactor.qr_svg(pending),
-            "secret": pending.bin_key.hex(), "next": _next(request, "")})
+            "secret": twofactor.manual_key(pending), "next": _next(request, "")})
     if request.method == "POST" and form.is_valid():
         used = twofactor.verify(user, form.cleaned_data["code"])
         if used is None:

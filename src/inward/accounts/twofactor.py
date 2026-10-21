@@ -2,6 +2,7 @@
 trusted devices that may skip the code for TRUSTED_DEVICE_DAYS, and audited resets."""
 from __future__ import annotations
 
+import base64
 import hashlib
 import io
 import secrets
@@ -38,6 +39,12 @@ def pending_totp(user: User) -> TOTPDevice:
     if device is None:
         device = TOTPDevice.objects.create(user=user, name="Authenticator app", confirmed=False)
     return device
+
+
+def manual_key(device: TOTPDevice) -> str:
+    """The secret as authenticator apps expect it when typed in: base32, in groups of four."""
+    key = base64.b32encode(device.bin_key).decode().rstrip("=")
+    return " ".join(key[i:i + 4] for i in range(0, len(key), 4))
 
 
 def qr_svg(device: TOTPDevice) -> str:

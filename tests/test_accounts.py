@@ -125,3 +125,11 @@ def test_two_users_in_one_browser_keep_their_trust(client, seeded, make_user):
         resp = _sign_in(client, u.username)
         assert reverse("accounts:two_factor") not in resp["Location"], u.username
         client.post(reverse("accounts:logout"))
+
+
+def test_manual_key_is_base32(seeded, make_user):
+    """The key shown under "Can't scan?" must be base32 - authenticator apps reject the hex form."""
+    import base64
+    device = twofactor.pending_totp(make_user("keyuser", "DEPOT_CLERK"))
+    key = twofactor.manual_key(device).replace(" ", "")
+    assert base64.b32decode(key + "=" * (-len(key) % 8)) == device.bin_key

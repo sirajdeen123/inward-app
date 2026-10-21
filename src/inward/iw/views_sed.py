@@ -1,6 +1,8 @@
 """Screen 04 part A views - unloading, SED and physical verification (thin; rules in sed.py)."""
 from __future__ import annotations
 
+from decimal import Decimal
+
 from django.contrib import messages
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -16,13 +18,13 @@ from inward.domain.normalize import clean_code
 from inward.web.views import needs, upload_done
 
 FIELDS = ("short_qty", "excess_qty", "damage_qty", "damage_kind", "damage_pct", "container_type", "container_count",
-          "short_value", "damage_value", "excess_value", "short_remarks", "excess_remarks", "damage_remarks")
+          "short_rate", "damage_rate", "excess_rate", "short_remarks", "excess_remarks", "damage_remarks")
 
 
 KIND_FIELDS = {
-    "SHORT": ("short_qty", "short_value", "short_remarks"),
-    "EXCESS": ("excess_qty", "excess_value", "excess_remarks"),
-    "DAMAGE": ("damage_qty", "damage_kind", "damage_pct", "container_type", "container_count", "damage_value",
+    "SHORT": ("short_qty", "short_rate", "short_remarks"),
+    "EXCESS": ("excess_qty", "excess_rate", "excess_remarks"),
+    "DAMAGE": ("damage_qty", "damage_kind", "damage_pct", "container_type", "container_count", "damage_rate",
                "damage_remarks"),
 }
 
@@ -41,7 +43,7 @@ def _kind_input(iw: Iw, post) -> tuple[sed.SedInput, SedLine | None]:
         if not sku:
             raise IwError("Select the SKU from the documents.")
     line = SedLine.objects.filter(iw=iw, source_key=source_key, sku=sku).first()
-    values = {f: _fmt(getattr(line, f)) for f in FIELDS} if line else {f: "" for f in FIELDS}
+    values = _line_values(line) if line else {f: "" for f in FIELDS}
     for f in KIND_FIELDS[kind]:
         values[f] = post.get(f, "")
     return sed.SedInput(source_key=source_key, sku=sku, **values), line
@@ -112,10 +114,21 @@ def sed_edit(request, line_pk):
             return redirect("iw:unloading", pk=line.iw_id)
         except (IwError, PermissionDenied) as exc:
             error = str(exc)
-    post = request.POST if request.method == "POST" else {f: _fmt(getattr(line, f)) for f in FIELDS}
+    post = request.POST if request.method == "POST" else _line_values(line)
     return render(request, "iw/sed_edit.html", {"iw": line.iw, "line": line, "post": post, "error": error,
                                                 "kinds": SedLine.DamageKind.choices,
                                                 "can_value": "GRANT" in modes_for(request.user, "SED_VALUE")})
+
+
+def _line_values(line: SedLine) -> dict:
+    """A saved line as form values; a line saved before rates existed shows its rate as value / pieces."""
+    v = {f: _fmt(getattr(line, f)) for f in FIELDS}
+    for k in ("short", "damage", "excess"):
+        if v[f"{k}_rate"] == "" and getattr(line, f"{k}_value") is not None:
+            n = line.container_count if k == "damage" and line.container_type else getattr(line, f"{k}_qty")
+            if n:
+                v[f"{k}_rate"] = _fmt((getattr(line, f"{k}_value") / n).quantize(Decimal("0.01")))
+    return v
 
 
 def _fmt(value) -> str:

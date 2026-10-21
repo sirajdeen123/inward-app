@@ -114,7 +114,8 @@ def gates(iw: Iw, results=None) -> list[Gate]:
             bad = [f"{r.track}: {r.status}" for r in items if not r.ok]
             out.append(Gate(label, not bad, "; ".join(bad)))
     rev = iw.mras.first()
-    mails = list(rev.mails.filter(purpose__in=[MailMessage.Purpose.MRA, MailMessage.Purpose.SED_NOTIFY])) if rev else []
+    mails = list(rev.mails.filter(purpose__in=[MailMessage.Purpose.MRA, MailMessage.Purpose.SED_NOTIFY,
+                                                  MailMessage.Purpose.SED_APPROVAL])) if rev else []
     unsent = [m.get_purpose_display() for m in mails if m.status != MailMessage.Status.SENT]
     out.append(Gate("Mandatory mails SENT", bool(mails) and not unsent,
                     ", ".join(unsent) if unsent else ("" if mails else "MRA mail not sent")))

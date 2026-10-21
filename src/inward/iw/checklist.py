@@ -56,6 +56,7 @@ class Line:
     pieces_only: bool = False
     verify_note: str = ""
     packaging_missing: bool = False
+    parts: list = field(default_factory=list)   # (source, pieces) when the same SKU came on several documents
 
     def as_dict(self) -> dict:
         return {"source": self.source, "sku": self.sku, "floor_sku": self.floor_sku,
@@ -64,7 +65,30 @@ class Line:
                 "measure_family": self.measure_family, "measure": _num(self.measure), "group": self.group,
                 "group_name": self.group_name, "units": self.units, "full": self.full, "loose": _num(self.loose),
                 "pieces_only": self.pieces_only, "verify_note": self.verify_note,
-                "packaging_missing": self.packaging_missing}
+                "packaging_missing": self.packaging_missing,
+                "parts": [{"source": s, "pieces": _num(p)} for s, p in self.parts] if len(self.parts) > 1 else []}
+
+
+def _merge(lines: list[Line]) -> list[Line]:
+    """One row per SKU on a warehouse sheet (22-Oct-2026): the unloading team counts the SKU once; the Ship /
+    challan split is kept in the 'From' column. Outbound sheets are never merged (they stay with their Ship)."""
+    out: dict[tuple, Line] = {}
+    for ln in lines:
+        key = (ln.sku, ln.group == EMPTY)
+        m = out.get(key)
+        if m is None:
+            ln.parts = [(ln.source, ln.pieces)]
+            out[key] = ln
+            continue
+        m.pieces += ln.pieces
+        m.measure += ln.measure
+        m.full += ln.full
+        m.loose += ln.loose
+        m.parts.append((ln.source, ln.pieces))
+    for m in out.values():
+        if len(m.parts) > 1:
+            m.source = " + ".join(s for s, _ in m.parts)
+    return list(out.values())
 
 
 @dataclass
@@ -158,6 +182,7 @@ def build(iw: Iw) -> Build:
     for ln in all_lines:
         _pack(ln, packs, groups)
     b.missing_packaging = sorted({ln.sku: ln for ln in all_lines if ln.packaging_missing}.values(), key=lambda x: x.sku)
+    by_wh = {k: _merge(v) for k, v in by_wh.items()}   # after packing: packages are counted per document, then added
 
     for key, title in WAREHOUSE_SHEETS:
         if by_wh[key]:

@@ -77,7 +77,8 @@ def build(iw: Iw) -> dict:
                       f"Manual evidence uploaded by {ap.evidence_by.username} - awaiting CFA Manager check"
                       if ap.evidence_by else ""),
             "evidence": _file(ap.evidence)})
-    mails = [_mail(m) for m in iw.mails.filter(purpose__in=[MailMessage.Purpose.MRA, MailMessage.Purpose.SED_NOTIFY])
+    mails = [_mail(m) for m in iw.mails.filter(purpose__in=[MailMessage.Purpose.MRA, MailMessage.Purpose.SED_NOTIFY,
+                                                  MailMessage.Purpose.SED_APPROVAL])
              .select_related("eml").order_by("id")]
     return {"iw": iw, "c": content, "logo": branding.logo_data_uri(), "declaration": iw.sed_declaration or {},
             "mras": [{"label": r.label, "issued": _t(r.issued_at), "by": r.issued_by.username, "reason": r.reason,

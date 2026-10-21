@@ -130,7 +130,7 @@ def test_screens(client, unloading):
     assert "XG9 991" in c.get(url + "?add=damage").content.decode()
     assert "XG9 991" in c.get(url + "?add=damage").content.decode()
     resp = c.post(url, {"pick": f"{w['ship_key']}|{EASYCLEAN}", "damage_qty": "2", "damage_kind": "MATERIAL",
-                        "damage_remarks": "leaking", "damage_value": "450"}, follow=True)
+                        "damage_remarks": "leaking", "damage_rate": "225"}, follow=True)
     assert "Now take the damage photo" in resp.content.decode() and "photo needed" in resp.content.decode()
     line = w["iw"].sed_lines.get()
     resp = c.post(reverse("iw:sed_photo_add", args=[line.pk]),
@@ -140,7 +140,7 @@ def test_screens(client, unloading):
     img = c.get(reverse("iw:sed_photo", args=[photo.pk, "preview"]))
     assert img["Content-Type"] == "image/jpeg"
     page = c.get(reverse("iw:sed_edit", args=[line.pk])).content.decode()
-    assert 'value="450"' in page
+    assert 'value="225"' in page and line.damage_value == Decimal("450.00")   # 2 pcs x Rs 225 (22-Oct-2026)
     resp = c.post(reverse("iw:verification_confirm", args=[w["iw"].pk]), {"confirm": ["sed_complete"]}, follow=True)
     assert "Tick both declarations" in resp.content.decode()
     resp = c.post(reverse("iw:verification_confirm", args=[w["iw"].pk]),
@@ -181,12 +181,12 @@ def test_three_buttons_merge_into_one_line(client, unloading):
     url = reverse("iw:unloading", args=[w["iw"].pk])
     assert "SHORT" in c.get(url + "?add=short").content.decode()
     pick = f"{w['ship_key']}|{EASYCLEAN}"
-    resp = c.post(url, {"kind": "SHORT", "pick": pick, "short_qty": "3", "short_value": "150"}, follow=True)
+    resp = c.post(url, {"kind": "SHORT", "pick": pick, "short_qty": "3", "short_rate": "50"}, follow=True)
     assert "Short saved for XG9 991" in resp.content.decode()
     c.post(url, {"kind": "DAMAGE", "pick": pick, "damage_qty": "2", "damage_kind": "MATERIAL",
-                 "damage_remarks": "leaking", "damage_value": "90"})
+                 "damage_remarks": "leaking", "damage_rate": "100"})
     line = w["iw"].sed_lines.get()
-    assert (line.short_qty, line.damage_qty, line.short_value) == (3, 2, 150)
+    assert (line.short_qty, line.damage_qty, line.short_value, line.damage_value) == (3, 2, 150, 200)   # rate x pcs
     resp = c.post(url, {"kind": "EXCESS", "came_with": w["ship_key"], "sku": EASYCLEAN.lower(), "excess_qty": "1"},
                   follow=True)
     assert "both short and excess" in resp.content.decode()
@@ -236,5 +236,16 @@ def test_refused_entry_saved_later_is_cleared(client, unloading):
     c.post(url, {"kind": "DAMAGE", "pick": pick, "damage_qty": "2", "damage_kind": "MATERIAL"})   # no remarks
     assert sed.rejected_attempts(w["iw"])
     c.post(url, {"kind": "DAMAGE", "pick": pick, "damage_qty": "2", "damage_kind": "MATERIAL",
-                 "damage_remarks": "leaking", "damage_value": "90"})
+                 "damage_remarks": "leaking", "damage_rate": "45"})
     assert sed.rejected_attempts(w["iw"]) == []
+
+
+
+def test_rate_times_pieces(unloading):
+    """IW-2627-000003 (22-Oct-2026): 2 damaged pieces at Rs 100 must claim Rs 200, not Rs 100."""
+    w = unloading
+    line = sed.save_line(w["clerk"], w["iw"].pk, _in(w, EASYCLEAN, damage_qty="2", damage_kind="MATERIAL",
+                                                     damage_remarks="dented", damage_rate="100", short_qty="1",
+                                                     short_rate="40.5"))
+    assert (line.damage_rate, line.damage_value, line.short_value) == (100, Decimal("200.00"), Decimal("40.50"))
+    assert sed.totals(w["iw"]).claimable == Decimal("240.50")

@@ -17,7 +17,7 @@
       </select></div>
     {% if add == 'short' %}
       <div class="field"><label for="f-short">Short (pieces) *</label><input id="f-short" name="short_qty" inputmode="numeric" required value="{{ post.short_qty }}"></div>
-      {% if can_value %}<div class="field"><label for="f-sval">Short value (Rs)</label><input id="f-sval" name="short_value" inputmode="decimal" value="{{ post.short_value }}"></div>{% endif %}
+      {% if can_value %}<div class="field"><label for="f-sval">Short rate per piece (Rs)</label><input id="f-sval" name="short_rate" inputmode="decimal" value="{{ post.short_rate }}"><span class="muted small">value = rate x short pieces</span></div>{% endif %}
       <div class="field"><label for="f-srem">Remarks</label><input id="f-srem" name="short_remarks" value="{{ post.short_remarks }}" placeholder="Short received - n pcs"></div>
     {% else %}
       <div class="field"><label for="f-damage">Damaged (pieces) *</label><input id="f-damage" name="damage_qty" inputmode="numeric" required value="{{ post.damage_qty }}"></div>
@@ -26,7 +26,7 @@
       <div class="field"><label for="f-ctype">Container (only for container damage)</label><select id="f-ctype" name="container_type"><option value="">-</option><option value="CARTON"{% if post.container_type == 'CARTON' %} selected{% endif %}>Carton</option><option value="DRUM"{% if post.container_type == 'DRUM' %} selected{% endif %}>Drum</option></select></div>
       <div class="field"><label for="f-ccount">Damaged containers</label><input id="f-ccount" name="container_count" inputmode="numeric" value="{{ post.container_count }}"></div>
       <div class="field"><label for="f-pct">Damage % (optional)</label><input id="f-pct" name="damage_pct" inputmode="decimal" value="{{ post.damage_pct }}"></div>
-      {% if can_value %}<div class="field"><label for="f-dval">Damage value (Rs)</label><input id="f-dval" name="damage_value" inputmode="decimal" value="{{ post.damage_value }}" placeholder="blank = container charge"></div>{% endif %}
+      {% if can_value %}<div class="field"><label for="f-dval">Damage rate (Rs) - per piece, or per container for container damage</label><input id="f-dval" name="damage_rate" inputmode="decimal" value="{{ post.damage_rate }}" placeholder="container damage: blank = master charge"><span class="muted small">value = rate x damaged pieces (containers)</span></div>{% endif %}
       <div class="field span-all"><label for="f-drem">Damage remarks *</label><input id="f-drem" name="damage_remarks" required value="{{ post.damage_remarks }}" placeholder="e.g. 2 tins dented and leaking, carton wet"></div>
       <p class="muted span-all">After saving, take the damage photo(s) on the line above.</p>
     {% endif %}
@@ -42,7 +42,7 @@
       <datalist id="sku-options"></datalist>
       <div id="x-desc" class="muted" aria-live="polite"></div></div>
     <div class="field"><label for="x-qty">Excess (pieces) *</label><input id="x-qty" name="excess_qty" inputmode="numeric" required value="{{ post.excess_qty }}"></div>
-    {% if can_value %}<div class="field"><label for="x-val">Excess value (Rs) <span class="muted">- information, not claimable</span></label><input id="x-val" name="excess_value" inputmode="decimal" value="{{ post.excess_value }}"></div>{% endif %}
+    {% if can_value %}<div class="field"><label for="x-val">Excess rate per piece (Rs) <span class="muted">- information, not claimable</span></label><input id="x-val" name="excess_rate" inputmode="decimal" value="{{ post.excess_rate }}"></div>{% endif %}
     <div class="field span-all"><label for="x-rem">Remarks</label><input id="x-rem" name="excess_remarks" value="{{ post.excess_remarks }}" placeholder="Excess received - n pcs / wrong item received"></div>
     <div class="span-all"><button type="submit" class="btn btn-primary">Save EXCESS</button> <a class="btn" href="?#add">Cancel</a></div>
   </form>

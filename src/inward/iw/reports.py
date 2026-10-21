@@ -55,7 +55,7 @@ def daily_escalation(day: date | None = None) -> dict:
     ships = SitShip.objects.filter(pre_go_live=False, status__in=[SitShip.Status.PARTIAL, SitShip.Status.REMOVED_NO_RECEIPT,
                                                                    SitShip.Status.REMOVED_NEVER_LINKED]).order_by("status", "ship_id")
     releases = [r for r in MailRelease.objects.select_related("iw") if r.iw.mails.exclude(status=MailMessage.Status.SENT)
-                .filter(purpose__in=[P.MRA, P.SED_NOTIFY]).exists()]
+                .filter(purpose__in=[P.MRA, P.SED_NOTIFY, P.SED_APPROVAL]).exists()]
     claim = sum((ln.claimable for r in open_sed for ln in r.iw.sed_lines.all()), Decimal(0))
     return {"day": day, "open": rows, "aged": aged, "erp_pending": erp_pending, "irr_problem": irr_problem,
             "open_sed": open_sed, "approvals": approvals, "ships": list(ships[:200]), "releases": releases,

@@ -14,7 +14,7 @@
     <tbody>{% for ln in g.lines %}
       <tr><td class="num">{{ forloop.counter }}</td><td class="floor">{{ ln.floor_sku }}<div class="sku">{{ ln.sku }}</div></td>
       <td>{{ ln.description }}{% if ln.verify_note %}<div class="flag">&#9888; VERIFY PHYSICALLY: {{ ln.units }} per package in the list</div>{% endif %}{% if ln.packaging_missing %}<div class="flag">&#9888; packaging not set - count pieces</div>{% endif %}</td>
-      <td class="src">{{ ln.source }}</td><td class="num">{{ ln.pack_size }}{% if ln.uom %} {{ ln.uom }}{% endif %}</td><td class="num">{{ ln.pieces }}</td>
+      <td class="src">{% if ln.parts %}{% for p in ln.parts %}<div>{{ p.source }}: <b>{{ p.pieces }}</b> pcs</div>{% endfor %}{% else %}{{ ln.source }}{% endif %}</td><td class="num">{{ ln.pack_size }}{% if ln.uom %} {{ ln.uom }}{% endif %}</td><td class="num">{{ ln.pieces }}</td>
       <td class="num pk">{% if ln.pieces_only %}{{ ln.pieces }} pcs{% else %}{% if ln.full %}{{ ln.full|packages:ln.group }}{% if ln.loose != "0" %} + {% endif %}{% endif %}{% if ln.loose != "0" %}{{ ln.loose }} loose{% endif %}{% endif %}</td>
       <td class="count"></td><td class="rem"></td></tr>
     {% endfor %}</tbody>

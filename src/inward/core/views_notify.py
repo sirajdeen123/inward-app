@@ -15,7 +15,7 @@ from inward.core.models import NotificationRecipient
 from inward.web.views import needs
 
 PURPOSES = {
-    "SED_IMMEDIATE": "Internal SED notification - with every MRA that has Short / Excess / Damage",
+    "SED_IMMEDIATE": "SED mail - copied (one mail with the approval request) for every MRA with Short / Excess / Damage",
     "SED_APPROVAL": "SED approval request - the Depot Manager approves by replying from this address",
     "DAMAGE_APPROVAL": "Internal damage approval - the Depot Manager or Admin Officer approves by replying",
     "IRR_EXCEPTIONS": "IRR Reconciliation Summary (daily, as soon as the IRR mail is imported)",

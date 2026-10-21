@@ -145,6 +145,9 @@ class SedInput:
     short_value: object = ""
     damage_value: object = ""
     excess_value: object = ""
+    short_rate: object = ""     # Rs per piece - the screen enters rates; value = rate x pieces (22-Oct-2026)
+    damage_rate: object = ""    # Rs per piece (material) or per container (container damage)
+    excess_rate: object = ""
     short_remarks: str = ""
     excess_remarks: str = ""
     damage_remarks: str = ""
@@ -210,21 +213,32 @@ def save_line(user: User, iw_pk: int, data: SedInput, line_pk: int | None = None
             if rate is None:
                 raise IwError(f"No {container.lower()} damage charge is set in the Damage Charge Master for this date.")
 
+    short_rate = _money(data.short_rate, "Short rate per piece") if short else None
+    damage_rate = _money(data.damage_rate, "Damage rate") if damage else None
+    excess_rate = _money(data.excess_rate, "Excess rate per piece") if excess else None
     short_value = _money(data.short_value, "Short value") if short else None
     damage_value = _money(data.damage_value, "Damage value") if damage else None
     excess_value = _money(data.excess_value, "Excess value") if excess else None
     if "GRANT" not in modes_for(user, "SED_VALUE"):  # e.g. System Supervisor: quantities only
-        old_short, old_damage = (line.short_value, line.damage_value) if line else (None, None)
-        old_excess = line.excess_value if line else None
-        if (short_value is not None and short_value != old_short) or \
-                (damage_value is not None and damage_value != old_damage) or \
-                (excess_value is not None and excess_value != old_excess):
+        old = {k: getattr(line, k) if line else None for k in ("short_rate", "damage_rate", "excess_rate",
+                                                                "short_value", "damage_value", "excess_value")}
+        new = {"short_rate": short_rate, "damage_rate": damage_rate, "excess_rate": excess_rate,
+               "short_value": short_value, "damage_value": damage_value, "excess_value": excess_value}
+        if any(v is not None and v != old[k] for k, v in new.items()):
             raise PermissionDenied("You may record SED quantities but not their financial values.")
-        short_value = old_short if short else None
-        damage_value = old_damage if damage else None
-        excess_value = old_excess if excess else None
-    if damage_value is None and rate is not None:
-        damage_value = (rate * count).quantize(Decimal("0.01"))  # the container charge pre-fills the value
+        short_rate, short_value = (old["short_rate"], old["short_value"]) if short else (None, None)
+        damage_rate, damage_value = (old["damage_rate"], old["damage_value"]) if damage else (None, None)
+        excess_rate, excess_value = (old["excess_rate"], old["excess_value"]) if excess else (None, None)
+    # value = rate x pieces (container damage: rate x containers; blank rate = the Damage Charge Master rate)
+    if kind == SedLine.DamageKind.CONTAINER and damage_rate is None and damage_value is None and rate is not None:
+        damage_rate = rate
+    cent = Decimal("0.01")
+    if short_rate is not None:
+        short_value = (short_rate * short).quantize(cent)
+    if damage_rate is not None:
+        damage_value = (damage_rate * (count if kind == SedLine.DamageKind.CONTAINER else damage)).quantize(cent)
+    if excess_rate is not None:
+        excess_value = (excess_rate * excess).quantize(cent)
 
     pcs = lambda q: f"{q.normalize():f} pcs"  # noqa: E731
     values = dict(
@@ -235,7 +249,8 @@ def save_line(user: User, iw_pk: int, data: SedInput, line_pk: int | None = None
                      or SkuPackaging.objects.filter(sku=sku).values_list("description", flat=True).first() or "")[:200],
         short_qty=short, excess_qty=excess, damage_qty=damage, damage_kind=kind, damage_pct=pct,
         container_type=container, container_count=count, container_rate=rate, short_value=short_value,
-        damage_value=damage_value, excess_value=excess_value,
+        damage_value=damage_value, excess_value=excess_value, short_rate=short_rate, damage_rate=damage_rate,
+        excess_rate=excess_rate,
         short_remarks=(clean_text(data.short_remarks) or f"Short received - {pcs(short)}") if short else "",
         excess_remarks=(clean_text(data.excess_remarks)
                         or (f"Wrong item received - {pcs(excess)}" if extra else f"Excess received - {pcs(excess)}"))
@@ -260,7 +275,8 @@ def _snap(line: SedLine) -> dict:
     return {"source": line.source_label, "sku": line.sku, "short": line.short_qty, "excess": line.excess_qty,
             "damage": line.damage_qty, "damage_kind": line.damage_kind, "container": line.container_type,
             "containers": line.container_count, "rate": line.container_rate, "short_value": line.short_value,
-            "damage_value": line.damage_value, "excess_value": line.excess_value, "extra": line.is_extra}
+            "damage_value": line.damage_value, "excess_value": line.excess_value, "extra": line.is_extra,
+            "rates": [str(line.short_rate or ""), str(line.damage_rate or ""), str(line.excess_rate or "")]}
 
 
 @transaction.atomic

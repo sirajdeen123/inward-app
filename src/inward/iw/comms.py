@@ -275,14 +275,18 @@ def send_mra(user: User, iw_pk: int, extra_cc: str = "") -> list[MailMessage]:
                     f"MRA {iw.iw_no} {rev.label} - {iw.vehicle_no} - Depot {c['depot']['code']} {c['depot']['name']}",
                     "iw/mail/mra.html", {"c": c}, [rev.pdf], user)]
     if sed.totals(iw).any:
+        # one SED mail (22-Oct-2026): the approval request To the Depot Manager carries the full SED notification;
+        # everyone on the SED notification list is copied - no second mail with the same content
         photos = _photos(iw)
-        n_to, n_cc, _ = internal("SED_IMMEDIATE")
-        mails.append(_queue(iw, P.SED_NOTIFY, rev, f"{iw.iw_no} SED-{rev.label}", n_to, n_cc,
-                            f"SED {iw.iw_no} {rev.label} - claimable Rs {c['sed_totals']['claimable']} - {iw.vehicle_no}",
-                            "iw/mail/sed_notify.html", {"c": c}, [rev.pdf, *photos], user))
         a_to, a_cc, _ = internal("SED_APPROVAL")
-        req = _queue(iw, P.SED_APPROVAL, rev, f"SED-APPR {iw.iw_no} {rev.label}", a_to, a_cc,
-                     f"SED Approval Request {iw.iw_no} {rev.label} - {iw.vehicle_no}",
+        n_to, n_cc, _ = internal("SED_IMMEDIATE")
+        cc = []
+        for e in a_cc + n_to + n_cc:
+            if e not in a_to and e not in cc:
+                cc.append(e)
+        req = _queue(iw, P.SED_APPROVAL, rev, f"SED-APPR {iw.iw_no} {rev.label}", a_to, cc,
+                     f"SED {iw.iw_no} {rev.label} - claimable Rs {c['sed_totals']['claimable']} - approval requested - "
+                     f"{iw.vehicle_no}",
                      "iw/mail/sed_approval.html", {"c": c, "reminder": False}, [rev.pdf, *photos], user)
         mails.append(req)
         SedApproval.objects.create(iw=iw, mra=rev, request_mail=req)
@@ -315,8 +319,8 @@ def gates(iw: Iw) -> list[Gate]:
     out.append(Gate("G04-MAIL", "MRA e-mail SENT", bool(m and m.status == M.SENT),
                     m.get_status_display() if m else "not sent"))
     if sed.totals(iw).any:
-        n = _mail_state(rev, P.SED_NOTIFY)
-        out.append(Gate("G04-SEDMAIL", "Internal SED notification SENT", bool(n and n.status == M.SENT),
+        n = _mail_state(rev, P.SED_APPROVAL) or _mail_state(rev, P.SED_NOTIFY)   # one SED mail since 22-Oct-2026
+        out.append(Gate("G04-SEDMAIL", "SED mail (notification + approval request) SENT", bool(n and n.status == M.SENT),
                         n.get_status_display() if n else "not sent"))
     return out
 
@@ -344,7 +348,7 @@ def release_blockers(iw: Iw) -> list[str]:
         if not gs[code].ok:
             out.append(f"{gs[code].label} is not complete - it cannot be released.")
     rev = iw.mras.first()
-    pending = [m for m in (rev.mails.filter(purpose__in=[P.MRA, P.SED_NOTIFY]) if rev else []) if m.status != M.SENT]
+    pending = [m for m in (rev.mails.filter(purpose__in=[P.MRA, P.SED_NOTIFY, P.SED_APPROVAL]) if rev else []) if m.status != M.SENT]
     if not rev or not rev.mails.filter(purpose=P.MRA).exists():
         out.append("The MRA has not been sent yet.")
     elif not pending:
@@ -368,7 +372,7 @@ def release(user: User, iw_pk: int, reason: str) -> Iw:
     if problems:
         raise IwError(" ".join(problems))
     rev = iw.mras.first()
-    pending = [m.stamp for m in rev.mails.filter(purpose__in=[P.MRA, P.SED_NOTIFY]).exclude(status=M.SENT)]
+    pending = [m.stamp for m in rev.mails.filter(purpose__in=[P.MRA, P.SED_NOTIFY, P.SED_APPROVAL]).exclude(status=M.SENT)]
     MailRelease.objects.create(iw=iw, reason=reason.strip(), pending=pending, released_by=user)
     iw.status = Iw.Status.MRA_ISSUED
     iw.version += 1

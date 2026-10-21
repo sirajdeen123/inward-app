@@ -110,12 +110,13 @@ def sent(issued):
 def test_send_queues_mra_and_sed_mails(sent):
     w = sent
     purposes = [m.purpose for m in w["mails"]]
-    assert purposes == ["MRA", "SED_NOTIFY", "SED_APPROVAL"]
+    assert purposes == ["MRA", "SED_APPROVAL"]      # one SED mail (22-Oct-2026), no separate notification
     m = w["mails"][0]
     assert m.to == ["h@example.com"] and m.cc == ["h.cc@example.com", "clerk.copy@example.com"]
     assert m.stamp == f"{w['iw'].iw_no} MRA-R01 #C-{m.pk:06d}" and "BERGER PAINTS INDIA LTD" in m.html_body
-    appr = w["mails"][2]
-    assert appr.stamp.startswith(f"SED-APPR {w['iw'].iw_no} R01") and appr.to == [DM] and appr.cc == ["ao@example.com"]
+    appr = w["mails"][1]
+    assert appr.stamp.startswith(f"SED-APPR {w['iw'].iw_no} R01") and appr.to == [DM]
+    assert appr.cc == ["ao@example.com", "cfa@example.com"] and "claimable Rs" in appr.subject
     assert appr.attachments.count() == 2      # MRA PDF + damage photo preview
     assert SedApproval.objects.get(iw=w["iw"]).status == "REQUESTED"
     with pytest.raises(IwError, match="already been sent"):
@@ -127,7 +128,7 @@ def test_worker_confirms_and_completes_screen04(sent):
     w, g = sent, sent["gmail"]
     g.confirm = False
     stats = comms.process_outbox(g)
-    assert stats["queued"] == 3 and set(MailMessage.objects.values_list("status", flat=True)) == {M.QUEUED}
+    assert stats["queued"] == 2 and set(MailMessage.objects.values_list("status", flat=True)) == {M.QUEUED}
     built = g.sent[w["mails"][0].stamp]
     assert built["Subject"].endswith(f"[{w['mails'][0].stamp}]") and built["X-Inward-Stamp"] == w["mails"][0].stamp
     parts = [p.get_content_type() for p in built.walk()]
@@ -163,7 +164,7 @@ def test_permanent_failure_retry_and_unconfirmed(sent):
 
 
 def _approval_subject(w):
-    return f"Re: SED Approval Request {w['iw'].iw_no} R01 [{w['mails'][2].stamp}]"
+    return f"Re: SED {w['iw'].iw_no} R01 [{w['mails'][1].stamp}]"
 
 
 def test_depot_manager_reply(sent):

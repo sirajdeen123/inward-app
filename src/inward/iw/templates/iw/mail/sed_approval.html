@@ -1,7 +1,8 @@
 {% extends "iw/mail/_base.html" %}
 {% block body %}
 {% if reminder %}<p style="color:#b00020"><b>REMINDER - your approval is still awaited.</b></p>{% endif %}
-<p><b>SED Approval Request - {{ c.iw.no }} {{ mra.label }}</b></p>
+<p><b>SED notification and approval request - {{ c.iw.no }} {{ mra.label }}</b> · claimable <b>Rs {{ c.sed_totals.claimable }}</b></p>
+<p style="font-size:12px;color:#555">The Depot Manager approves by reply; the persons in copy receive it for information. The MRA and the damage photos are attached.</p>
 <p>Vehicle <b>{{ c.iw.vehicle }}</b> · {{ c.iw.load_type }} · source {{ c.iw.source_org|default:"-" }} · arrived {{ c.iw.arrival }}<br>
 References: {% for r in c.references %}{{ r.kind }} {{ r.ref }}{% if not forloop.last %}; {% endif %}{% endfor %}</p>
 {% include "iw/mail/_sed_table.html" %}

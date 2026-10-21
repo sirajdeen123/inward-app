@@ -326,6 +326,10 @@ class SedLine(models.Model):
     short_value = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)   # Rs
     damage_value = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)  # Rs
     excess_value = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)  # Rs, information only
+    # 22-Oct-2026: the clerk enters the rate; value = rate x pieces (damage to containers: x containers)
+    short_rate = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
+    damage_rate = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
+    excess_rate = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
     short_remarks = models.CharField(max_length=300, blank=True)
     excess_remarks = models.CharField(max_length=300, blank=True)
     damage_remarks = models.CharField(max_length=300, blank=True)

@@ -112,3 +112,20 @@ def test_screens(client, world):
     assert "RETAIL WAREHOUSE" in page and "Operated by: RAINBOW LOGISTICS (CFA)" in page and "BERGER PAINTS INDIA LTD" in page and "XG9 991" in page
     assert "KEEP SEPARATE" in page and "print.js" in page
     assert "24 Boxes + 1 loose" in page and "× 4 pcs" not in page                 # what the team counts
+
+
+def test_same_sku_on_two_ships_is_one_row(world):
+    """IW-2627-000003 (22-Oct-2026): the hamalis count a SKU once - one row, the Ship split in 'From'; packages are
+    worked out per Ship and added (97 pcs = 24 ctn + 1, 3 pcs = 3 loose -> 24 ctn + 4 loose)."""
+    sit.import_sit_file(sit_html(world["tmp"] / "s2.xls", [
+        ("'390:Hindupur - Mfg", "52497521", "14-JUN-2026", "F00XG90991003600", "EASY CLEAN . W1 BASE-.-3.6 L",
+         "RETAIL", "L", "3.6", "3")]), source="MANUAL")
+    linking.link_ship(world["clerk"], world["iw"].pk, "52497521", gross_kg="20")
+    _tally(world)
+    b = checklist.build(world["iw"])
+    lines = [ln for g in b.sheets[0]["groups"] for ln in g["lines"] if ln.sku == "F00XG90991003600"]
+    assert len(lines) == 1
+    ln = lines[0]
+    assert (ln.pieces, ln.full, ln.loose) == (100, 24, 4)
+    assert ln.as_dict()["parts"] == [{"source": "Ship 52497520", "pieces": "97"}, {"source": "Ship 52497521", "pieces": "3"}]
+    assert b.sheets[0]["lines"] == 2                       # Weathercoat + one Easy Clean row

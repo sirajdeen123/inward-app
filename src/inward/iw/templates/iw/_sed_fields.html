@@ -11,7 +11,7 @@
   <div class="field"><label for="f-erem">Excess remarks</label><input id="f-erem" name="excess_remarks" value="{{ post.excess_remarks }}" placeholder="Excess received - n pcs"></div>
   <div class="field"></div>
   {% if can_value %}
-  <div class="field"><label for="f-sval">Short value (Rs)</label><input id="f-sval" name="short_value" inputmode="decimal" value="{{ post.short_value }}"></div>
-  <div class="field"><label for="f-xval">Excess value (Rs) - not claimable</label><input id="f-xval" name="excess_value" inputmode="decimal" value="{{ post.excess_value }}"></div>
-  <div class="field"><label for="f-dval">Damage value (Rs)</label><input id="f-dval" name="damage_value" inputmode="decimal" value="{{ post.damage_value }}" placeholder="blank = container charge"></div>
+  <div class="field"><label for="f-sval">Short rate per piece (Rs)</label><input id="f-sval" name="short_rate" inputmode="decimal" value="{{ post.short_rate }}"><span class="muted small">value = rate x short pieces</span></div>
+  <div class="field"><label for="f-xval">Excess rate per piece (Rs) - not claimable</label><input id="f-xval" name="excess_rate" inputmode="decimal" value="{{ post.excess_rate }}"></div>
+  <div class="field"><label for="f-dval">Damage rate (Rs) - per piece, or per container for container damage</label><input id="f-dval" name="damage_rate" inputmode="decimal" value="{{ post.damage_rate }}" placeholder="container damage: blank = master charge"><span class="muted small">value = rate x damaged pieces (containers)</span></div>
   {% else %}<p class="muted span-all">Financial values are entered by the depot clerk or CFA Manager.</p>{% endif %}

@@ -16,7 +16,7 @@
   {% empty %}<tr><td colspan="4" class="muted">No approver yet - they appear with the first RMA Portal Report upload.</td></tr>{% endfor %}</tbody></table>
 </div>
 <div class="card"><h2>Sales Officers by territory (TSI Master)</h2>
-  <p class="muted">Copied on the approval mails of their dealers ({{ sites }} Bill-To sites loaded from the Customer Master). Upload a new TSI Master on the Material returns screen; a corrected e-mail typed here stays until you clear it.</p>
+  <p class="muted">Copied on the approval mails of their dealers ({{ sites }} Bill-To sites loaded from the Customer Master). Upload a new TSI Master or Dealer master under <a href="{% url 'rma:index' %}">Material returns &rarr; Uploads</a>; a corrected e-mail typed here stays until you clear it.</p>
   <table class="tbl stack"><thead><tr><th>Territory</th><th>Sales Officer</th><th>BL</th><th>E-mail (TSI)</th><th>Corrected e-mail</th></tr></thead>
   <tbody>{% for t in territories %}<tr><td data-label="Territory">{{ t.territory_no }}</td><td data-label="Sales Officer">{{ t.sales_officer|default:"-" }}</td><td data-label="BL">{{ t.business_line }}</td>
     <td data-label="TSI e-mail">{{ t.email|default:"-" }}</td><td data-label="Corrected"><input name="so_{{ t.territory_no }}" type="email" value="{{ t.email_override }}" class="input-inline" aria-label="Corrected e-mail for territory {{ t.territory_no }}"></td></tr>

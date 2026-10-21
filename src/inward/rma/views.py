@@ -21,7 +21,29 @@ from inward.web.views import needs, upload_done
 
 ERRORS = (svc.RmaError, ImportFailed, PermissionDenied)
 UPLOADS = {"PORTAL": ("RMA Portal Report", svc.import_portal), "CN": ("RMA CN INV Report", svc.import_cn),
-           "CUSTOMER": ("Customer Master", svc.import_customer_master), "TSI": ("TSI Master", svc.import_tsi)}
+           "CUSTOMER": ("Dealer master (Customer Master)", svc.import_customer_master),
+           "TSI": ("TSI Master", svc.import_tsi)}
+UPLOAD_HELP = [
+    ("GRN", "GRN - Goods Return Note (PDF)", "When the material arrives", "Oracle GRN print; one GRN or a bulk file"),
+    ("PORTAL", None, "Every day", "Both sheets: RMA Summary and RMA Details"),
+    ("CN", None, "When credit notes are raised", "Oracle XXGST BPIL RMA CN INV Report"),
+    ("CUSTOMER", None, "Monthly, or when dealers / territories change",
+     "BPIL Customer Master Summary - dealer Bill-To site -> territory"),
+    ("TSI", None, "When a Sales Officer changes", "Territory, Sales rep, BL, Email"),
+]
+
+
+def upload_rows() -> list[dict]:
+    from inward.rma.models import CustomerSite, Grn, Territory
+    counts = {"GRN": f"{Grn.objects.count()} GRN(s) saved" if Grn.objects.exists() else "",
+              "CUSTOMER": f"{CustomerSite.objects.count()} Bill-To sites" if CustomerSite.objects.exists() else "",
+              "TSI": f"{Territory.objects.count()} territories" if Territory.objects.exists() else ""}
+    out = []
+    for kind, label, when, note in UPLOAD_HELP:
+        out.append({"kind": kind, "label": label or UPLOADS[kind][0], "when": when, "note": note,
+                    "batch": None if kind == "GRN" else svc.last_upload(f"RMA_{kind}"), "count": counts.get(kind, ""),
+                    "accept": "application/pdf,.pdf" if kind == "GRN" else ".xls,.xlsx"})
+    return out
 MAX_BYTES = 50 * 1024 * 1024
 
 
@@ -47,10 +69,10 @@ def index(request):
     shown.sort(key=lambda x: -(x.days_at_stage or 0))
     unlinked = svc.unlinked_grns()
     unmapped = Approver.objects.filter(active=True, email="", redirect_to__isnull=True).count()
-    uploads = [(k, label, svc.last_upload(f"RMA_{k}")) for k, (label, _) in UPLOADS.items()]
+    uploads = upload_rows()
     return render(request, "rma/index.html", {
         "stage": stage, "q": q, "stages": [(c, label, counts.get(c, 0)) for c, label in svc.STAGES], "rows": shown[:300],
-        "unlinked": unlinked, "unmapped": unmapped, "uploads": uploads, "upload_kinds": UPLOADS,
+        "unlinked": unlinked, "unmapped": unmapped, "uploads": uploads,
         "grns": Grn.objects.prefetch_related("lines")[:60] if stage == "GRN" else [],
         "can_master": _can(request.user, "RMA_MASTER"), "cc_rcm": mails.cc_rcm(), "as_on": mails.as_on()})
 

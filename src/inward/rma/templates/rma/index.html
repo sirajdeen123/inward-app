@@ -7,21 +7,16 @@
 {% if unmapped %}<div class="alert alert-warning">{{ unmapped }} portal approver name{{ unmapped|pluralize }} without an e-mail - their pending mails cannot go. {% if can_master %}<a href="{% url 'rma:approvers' %}">Map them on Approvers</a>{% else %}Ask the CFA Manager to map them.{% endif %}</div>{% endif %}
 {% if not as_on %}<div class="alert alert-info">No RMA Portal Report uploaded yet - upload it below to start the approval tracking.</div>{% endif %}
 
-<div class="grid2">
-  <form method="post" action="{% url 'rma:upload' %}" enctype="multipart/form-data" class="card">{% csrf_token %}
-    <h2>1 · GRN (Goods Return Note)</h2>
-    <input type="hidden" name="kind" value="GRN">
-    <p class="muted">The Oracle GRN print as PDF - one GRN or a bulk export of many; GRNs already saved are skipped.</p>
-    <div class="field"><label for="g-file">GRN PDF *</label><input id="g-file" type="file" name="file" accept="application/pdf,.pdf" required></div>
-    <p><button type="submit" class="btn btn-primary">Upload GRN</button></p>
-  </form>
-  <form method="post" action="{% url 'rma:upload' %}" enctype="multipart/form-data" class="card">{% csrf_token %}
-    <h2>2 · Reports</h2>
-    <div class="field"><label for="u-kind">Report *</label><select id="u-kind" name="kind">{% for k, v in upload_kinds.items %}<option value="{{ k }}">{{ v.0 }}</option>{% endfor %}</select></div>
-    <div class="field"><label for="u-file">File (.xls / .xlsx) *</label><input id="u-file" type="file" name="file" accept=".xls,.xlsx" required></div>
-    <p><button type="submit" class="btn btn-primary">Upload report</button></p>
-    <table class="tbl tbl-compact"><tbody>{% for k, label, b in uploads %}<tr><td>{{ label }}</td><td class="muted">{% if b %}{{ b.uploaded_at|date:"d-M-Y h:i A" }}{% if k == "PORTAL" and b.summary.as_on %} · report as on {{ b.summary.as_on }}{% endif %}{% else %}not uploaded yet{% endif %}</td></tr>{% endfor %}</tbody></table>
-  </form>
+<div class="card"><h2>Uploads</h2>
+  <table class="tbl stack"><thead><tr><th>File</th><th>When</th><th>Last upload</th><th>Upload</th></tr></thead><tbody>
+  {% for u in uploads %}<tr>
+    <td data-label="File"><b>{{ u.label }}</b>{% if u.note %}<div class="muted">{{ u.note }}</div>{% endif %}</td>
+    <td data-label="When">{{ u.when }}</td>
+    <td data-label="Last upload" class="muted">{% if u.batch %}{{ u.batch.uploaded_at|date:"d-M-Y h:i A" }}{% if u.kind == "PORTAL" and u.batch.summary.as_on %}<br>report as on {{ u.batch.summary.as_on }}{% endif %}{% if u.count %}<br>{{ u.count }}{% endif %}{% elif u.kind == "GRN" %}{% if u.count %}{{ u.count }}{% else %}none yet{% endif %}{% else %}<span class="warn-text">not uploaded yet</span>{% endif %}</td>
+    <td data-label="Upload"><form method="post" action="{% url 'rma:upload' %}" enctype="multipart/form-data" class="inline">{% csrf_token %}<input type="hidden" name="kind" value="{{ u.kind }}">
+      <label class="sr-only" for="up-{{ u.kind }}">{{ u.label }}</label><input id="up-{{ u.kind }}" type="file" name="file" accept="{{ u.accept }}" required>
+      <button type="submit" class="btn btn-sm{% if u.kind == 'GRN' or u.kind == 'PORTAL' %} btn-primary{% endif %}">Upload</button></form></td></tr>{% endfor %}
+  </tbody></table>
 </div>
 
 <div class="kindbar">

@@ -268,6 +268,9 @@ def test_screens(client, env, monkeypatch):
     c = verified_client(client, env["cfa"])
     page = c.get(reverse("rma:index")).content.decode()
     assert "Material returns" in page and "28990" in page and "without an e-mail" in page
+    for kind in ("GRN", "PORTAL", "CN", "CUSTOMER", "TSI"):          # one visible upload per file (UAT 21-Oct-2026)
+        assert f'id="up-{kind}"' in page
+    assert "Dealer master (Customer Master)" in page and "TSI Master" in page and "2 Bill-To sites" in page
     assert "RTN/2627/287" in c.get(reverse("rma:index") + "?stage=GRN").content.decode()
     g = Grn.objects.get()
     assert "Pick Good / Damaged" in c.get(reverse("rma:grn", args=[g.pk])).content.decode()

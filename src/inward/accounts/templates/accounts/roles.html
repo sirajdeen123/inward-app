@@ -18,7 +18,7 @@
 <form method="post" class="card" id="matrix">{% csrf_token %}<input type="hidden" name="action" value="matrix">
   <h2>What each role may do</h2>
   <p class="muted"><b>Do it</b> = may do it directly · <b>Ask</b> = may request it, someone else approves · <b>Approve</b> = decides such requests · <b>View</b> = see only · <b>-</b> = no access. Nobody can approve their own request.</p>
-  <div class="scroll"><table class="tbl tbl-compact">
+  <div class="freeze"><table class="tbl tbl-compact">
     <thead><tr><th>Permission</th>{% for r in roles %}<th>{{ r.name }}</th>{% endfor %}</tr></thead>
     <tbody>{% for row in rows %}<tr><td><b class="mono">{{ row.p.code }}</b><div class="muted">{{ row.p.description }}</div></td>
       {% for c in row.cells %}<td>{% if c.locked %}<span class="chip chip-ok" title="Always - otherwise nobody could manage users">Do it</span><input type="hidden" name="m_{{ c.role }}_{{ row.p.code }}" value="GRANT">

@@ -14,6 +14,7 @@ urlpatterns = [
     path("request/<str:request_id>/irr/<int:link_pk>/remove/", views.irr_remove, name="irr_remove"),
     path("request/<str:request_id>/bill-to/", views.bill_to, name="bill_to"),
     path("request/<str:request_id>/close/", views.close, name="close"),
+    path("request/<str:request_id>/track/", views.track, name="track"),
     path("request/<str:request_id>/handover/", views.handover, name="handover"),
     path("approvers/", views.approvers, name="approvers"),
     path("register.xlsx", views.register_xlsx, name="register"),

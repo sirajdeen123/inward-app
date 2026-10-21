@@ -65,13 +65,27 @@ def index(request):
     counts = {code: 0 for code, _ in svc.STAGES}
     for x in all_rows:
         counts[x.stage] += 1
-    shown = [x for x in all_rows if x.stage == stage] if stage != "GRN" else []
+    if stage == "BEFORE":
+        shown = svc.rows(qs.filter(tracked=False), untracked=True)
+    else:
+        shown = [x for x in all_rows if x.stage == stage] if stage != "GRN" else []
     shown.sort(key=lambda x: -(x.days_at_stage or 0))
+    shown = shown[:300]
+    if stage == "IRR":
+        for x in shown:
+            x.suggestions = len(svc.irr_candidates(x.r))
+    if stage == "CLOSE":
+        for x in shown:
+            x.recon = svc.reconcile(x.r)
+            x.recon_text = svc.RECON_TEXT.get(x.recon["status"], x.recon["status"])
+            x.blockers = svc.close_blockers(x.r, x.recon)
     unlinked = svc.unlinked_grns()
     unmapped = Approver.objects.filter(active=True, email="", redirect_to__isnull=True).count()
     uploads = upload_rows()
     return render(request, "rma/index.html", {
-        "stage": stage, "q": q, "stages": [(c, label, counts.get(c, 0)) for c, label in svc.STAGES], "rows": shown[:300],
+        "stage": stage, "q": q, "stages": [(c, label, counts.get(c, 0)) for c, label in svc.STAGES], "rows": shown,
+        "before": Request.objects.filter(tracked=False).count(), "can_close": _can(request.user, "RMA_CLOSE"),
+        "go_live": svc.go_live(),
         "unlinked": unlinked, "unmapped": unmapped, "uploads": uploads,
         "grns": Grn.objects.prefetch_related("lines")[:60] if stage == "GRN" else [],
         "can_master": _can(request.user, "RMA_MASTER"), "cc_rcm": mails.cc_rcm(), "as_on": mails.as_on()})
@@ -123,13 +137,17 @@ def upload(request):
                 path.unlink(missing_ok=True)
             if kind == "PORTAL":
                 messages.success(request, f"{label}: {res['requests']} request(s) - {res['new']} new, {res['changed']} "
-                                          f"moved to another stage / approver; {res['linked']} GRN invoice(s) linked.")
+                                          f"moved to another stage / approver; {res['linked']} GRN invoice(s) linked"
+                                          + (f"; {res['irr_linked']} IRR receipt(s) linked automatically" if res["irr_linked"] else "")
+                                          + (f"; {res['before_go_live']} already processed / rejected before go-live kept "
+                                             "for reference only" if res["before_go_live"] else "") + ".")
                 if res["unmapped"]:
                     messages.warning(request, f"{res['unmapped']} approver name(s) have no e-mail yet - map them on "
                                               "Approvers so the pending mails reach them.")
             elif kind == "CN":
                 messages.success(request, f"{label}: {res['lines']} line(s) of {res['credit_notes']} credit note(s)"
-                                          + (f"; {res['duplicates']} repeated line(s) counted once" if res["duplicates"] else "") + ".")
+                                          + (f"; {res['duplicates']} repeated line(s) counted once" if res["duplicates"] else "")
+                                          + (f"; {res['irr_linked']} IRR receipt(s) linked automatically" if res["irr_linked"] else "") + ".")
             elif kind == "CUSTOMER":
                 messages.success(request, f"{label}: {res['sites']} Bill-To site(s) in {res['territories']} territories.")
             else:
@@ -198,7 +216,7 @@ def grn_pdf(request, pk):
 @needs("RMA_WORK")
 def detail(request, request_id):
     r = get_object_or_404(Request, pk=request_id)
-    row = svc.rows(Request.objects.filter(pk=r.pk))[0]
+    row = svc.rows(Request.objects.filter(pk=r.pk), untracked=True)[0]
     recon = r.recon if r.closed_at and r.recon else svc.reconcile(r)
     approvers = []
     for n in svc.pending_names(r.pending_at) if svc.is_pending(r.status) else []:
@@ -215,7 +233,16 @@ def detail(request, request_id):
         "candidates": svc.irr_candidates(r) if not r.closed_at and r.rma_no else [],
         "sites": svc.territories_of(r.dealer_code) if not r.closed_at else [],
         "blockers": svc.close_blockers(r, recon) if not r.closed_at else [],
-        "can_close": _can(request.user, "RMA_CLOSE"), "events": r.events.all(), "pdfs": pdfs})
+        "can_close": _can(request.user, "RMA_CLOSE"), "events": r.events.all(), "pdfs": pdfs,
+        "steps": svc.steps(r, recon)})
+
+
+@require_POST
+@needs("RMA_WORK")
+def track(request, request_id):
+    on = request.POST.get("on") == "1"
+    return _act(request, request_id, lambda: svc.set_tracked(request.user, request_id, on),
+                "Tracked again - it is chased like any open return." if on else "Kept for reference only.")
 
 
 def _act(request, request_id, fn, ok):

@@ -4,6 +4,9 @@
 <p><a href="{% url 'rma:index' %}?stage={{ row.stage }}">&larr; Material returns</a></p>
 <h1>Return request {{ r.request_id }} <span class="chip{% if row.stage == 'CLOSED' %} chip-ok{% elif row.stage == 'REJECTED' %} chip-bad{% else %} chip-warn{% endif %}">{{ row.stage_label }}</span></h1>
 <p class="muted">{{ r.dealer_code }} · {{ r.dealer_name }} · invoice {{ r.invoice_no }} ({{ r.invoice_date|date:"d-M-Y" }}) · {{ r.return_type|title }} · Rs {{ r.total_value|floatformat:2 }}</p>
+{% if not r.tracked %}<div class="alert alert-info">Already processed / rejected before the go-live - kept for reference only, not chased.
+  <form method="post" action="{% url 'rma:track' r.request_id %}" class="inline-form">{% csrf_token %}<input type="hidden" name="on" value="1"><button type="submit" class="btn btn-sm">Track it</button></form></div>{% endif %}
+<ol class="steps">{% for st in steps %}<li class="{% if st.done %}done{% elif st.current %}current{% endif %}"><span class="st-dot">{% if st.done %}&#10003;{% else %}{{ forloop.counter }}{% endif %}</span><b>{{ st.label }}</b><div class="muted">{{ st.detail }}</div>{% if st.current %}<div class="st-todo">Next: {{ st.todo }}</div>{% endif %}</li>{% endfor %}</ol>
 
 <div class="kpis">
   <div class="kpi"><div class="kpi-label">Portal status</div><div class="kpi-value" style="font-size:17px">{{ r.status|default:"-" }}</div><div class="muted">{{ r.pending_at }}</div></div>
@@ -39,7 +42,7 @@
 
 {% if not r.closed_at and r.rma_no %}
 <div class="card"><h2>IRR receipt (Rma Receipt TRX)</h2>
-  {% for x in irr_links %}<form method="post" action="{% url 'rma:irr_remove' r.request_id x.pk %}" class="inline-form">{% csrf_token %}<b>{{ x.trx_number }}</b> <span class="muted">by {{ x.entered_by }}</span> <button type="submit" class="btn btn-sm">Remove</button></form>{% endfor %}
+  {% for x in irr_links %}<form method="post" action="{% url 'rma:irr_remove' r.request_id x.pk %}" class="inline-form">{% csrf_token %}<b>{{ x.trx_number }}</b> <span class="muted">{% if x.auto %}linked automatically (SKUs and pieces equal the Credit Note){% else %}by {{ x.entered_by }}{% endif %}</span> <button type="submit" class="btn btn-sm">Remove</button></form>{% endfor %}
   <form method="post" action="{% url 'rma:irr_add' r.request_id %}" class="inline">{% csrf_token %}<label for="trx">TRX No</label><input id="trx" name="trx" inputmode="numeric" class="input-inline"><button type="submit" class="btn btn-sm">Link</button></form>
   {% if candidates %}<table class="tbl tbl-compact"><thead><tr><th>Suggested TRX</th><th>Date</th><th>SKUs (pcs)</th><th></th></tr></thead><tbody>{% for c in candidates %}<tr><td>{{ c.trx }}</td><td>{{ c.date|date:"d-M-Y" }}</td><td>{% for s, q in c.skus.items %}{{ s }} ({{ q|floatformat:"-3" }}){% if not forloop.last %}, {% endif %}{% endfor %}{% if c.exact %} <span class="chip chip-ok">{{ c.exact }} exact</span>{% endif %}</td>
     <td><form method="post" action="{% url 'rma:irr_add' r.request_id %}" class="inline-form">{% csrf_token %}<input type="hidden" name="trx" value="{{ c.trx }}"><button type="submit" class="btn btn-sm">Link</button></form></td></tr>{% endfor %}</tbody></table>{% else %}<p class="muted">No 'Rma Receipt' with these SKUs in the imported IRR yet.</p>{% endif %}

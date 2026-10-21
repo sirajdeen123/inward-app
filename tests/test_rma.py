@@ -195,7 +195,9 @@ def test_full_flow(env, monkeypatch):
     assert svc.irr_candidates(r)[0]["trx"] == "43100"
     with pytest.raises(svc.RmaError, match="not an 'Rma Receipt'"):
         svc.add_irr(clerk, "28990", "999")
-    svc.add_irr(clerk, "28990", "43100")
+    assert svc.auto_link_irr() == 1            # one TRX, same SKUs and pieces as the Credit Note -> linked by itself
+    link = r.irr_links.get()
+    assert (link.trx_number, link.auto, link.entered_by) == ("43100", True, None) and svc.stage(r) == "CLOSE"
     rec = svc.reconcile(r)
     assert rec["status"] == "MATCH" and rec["credited_value"] == "8000.00"
     assert "pick Good / Damaged" in " ".join(svc.close_blockers(r, rec))
@@ -290,3 +292,67 @@ def test_screens(client, env, monkeypatch):
     clerk = verified_client(client, env["clerk"])
     assert clerk.get(reverse("rma:approvers")).status_code == 403
     assert "Material returns" in clerk.get(reverse("rma:index")).content.decode()
+
+
+
+def test_go_live_baseline(env, monkeypatch):
+    """Go-live 22-Oct-2026: only pending requests (and those raised from go-live) are chased; a GRN link tracks one."""
+    clerk, tmp = env["clerk"], env["tmp"]
+    _grn(env, monkeypatch)
+    res = svc.import_portal(clerk, portal(tmp, "p.xlsx", [
+        ("1", "1187422-NATARAJA", "500", "DM Pending", "Jagan V", "", LINES),
+        ("2", "1187422-NATARAJA", "501", "Processed", "", "15000", LINES),
+        ("3", "1187422-NATARAJA", "502", "ADMIN Rejected", "", "", LINES)]), "p.xlsx")
+    assert res["before_go_live"] == 2
+    assert {x.r.request_id for x in svc.rows()} == {"1"}
+    assert set(Request.objects.filter(tracked=False).values_list("pk", flat=True)) == {"2", "3"}
+    g = Grn.objects.get()
+    svc.link_invoice(clerk, g.pk, "12403", "2")          # the clerk links the old GRN -> back in the flow
+    assert Request.objects.get(pk="2").tracked and {x.r.request_id for x in svc.rows()} == {"1", "2"}
+    svc.set_tracked(clerk, "3")
+    assert Request.objects.get(pk="3").tracked
+    FeatureFlag.objects.filter(key="rma_go_live").update(value={"value": "2026-09-01"})
+    svc.import_portal(clerk, portal(tmp, "q.xlsx", [("4", "1187422-NATARAJA", "503", "Processed", "", "15001", LINES)]),
+                      "q.xlsx")
+    assert Request.objects.get(pk="4").tracked           # raised after the go-live date
+
+
+def test_auto_irr_link_only_when_certain(env, monkeypatch):
+    clerk, tmp = env["clerk"], env["tmp"]
+    _grn(env, monkeypatch)
+    svc.import_portal(clerk, portal(tmp, "p.xlsx", [("28990", "1187422-NATARAJA", "12403", "Processed", "", "15999",
+                                                    LINES)]), "p.xlsx")
+    from inward.irr.models import IrrTransaction
+    b = ImportBatch.objects.create(kind="IRR", source="MANUAL", filename="irr.xlsx", sha256="z" * 64)
+    for trx in ("500", "501"):                             # two receipts that both fit -> do not guess
+        for sku in ("F006980D98020000", "F00D390991020000"):
+            IrrTransaction.objects.create(batch=b, type="Rma Receipt", type_key="RMA RECEIPT", trx_number=trx,
+                                          trx_date=date(2026, 9, 27), sku=sku, no_of_pack=Decimal(4))
+    svc.import_cn(clerk, cn_report(tmp, 15999, [("F006980D98020000", 4), ("F00D390991020000", 4)]), "cn.xlsx")
+    r = Request.objects.get(pk="28990")
+    assert not r.irr_links.exists() and len(svc.irr_candidates(r)) == 2
+    IrrTransaction.objects.filter(trx_number="501").delete()
+    assert svc.auto_link_irr() == 1 and r.irr_links.get().trx_number == "500"
+
+
+def test_steps_and_close_from_the_list(client, env, monkeypatch):
+    clerk, cfa, tmp = env["clerk"], env["cfa"], env["tmp"]
+    _grn(env, monkeypatch)
+    svc.import_portal(clerk, portal(tmp, "p.xlsx", [("28990", "1187422-NATARAJA", "12403", "Processed", "", "15999",
+                                                    LINES)]), "p.xlsx")
+    c = verified_client(client, cfa)
+    page = c.get(reverse("rma:detail", args=["28990"])).content.decode()
+    assert 'class="steps"' in page and "Next: Fill the GRN" in page
+    from inward.irr.models import IrrTransaction
+    b = ImportBatch.objects.create(kind="IRR", source="MANUAL", filename="irr.xlsx", sha256="w" * 64)
+    for sku in ("F006980D98020000", "F00D390991020000"):
+        IrrTransaction.objects.create(batch=b, type="Rma Receipt", type_key="RMA RECEIPT", trx_number="700",
+                                      trx_date=date(2026, 9, 27), sku=sku, no_of_pack=Decimal(4))
+    svc.import_cn(clerk, cn_report(tmp, 15999, [("F006980D98020000", 4), ("F00D390991020000", 4)]), "cn.xlsx")
+    g = Grn.objects.get()
+    svc.update_grn(clerk, g.pk, {"gate_entry_no": "9", "transport_mode": "CFA"}, {ln.pk: "GOOD" for ln in g.lines.all()})
+    page = c.get(reverse("rma:index") + "?stage=CLOSE").content.decode()
+    assert "All quantities agree" in page and "Print handover" in page and 'name="verified_by"' in page
+    c.post(reverse("rma:close", args=["28990"]), {"verified_by": "Murugan"})
+    assert Request.objects.get(pk="28990").close_kind == "RECONCILED"
+    assert "Next:" not in c.get(reverse("rma:detail", args=["28990"])).content.decode()

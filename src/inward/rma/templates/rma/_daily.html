@@ -19,6 +19,10 @@
 {% if r.unlinked %}<table class="rt"><tr><th>GRN</th><th>GRN date</th><th>Dealer</th><th>Invoice</th><th>Pieces</th><th>Days</th></tr>
 {% for u in r.unlinked %}<tr style="background:{% if u.flag == 'RED' %}#F8D7DA{% elif u.flag == 'AMBER' %}#FFF1D6{% else %}#fff{% endif %}"><td>{{ u.grn.grn_no }}</td><td>{{ u.grn.grn_date|date:"d-M-Y" }}</td><td>{{ u.grn.dealer_name }}</td><td>{{ u.invoice_no }}</td><td>{{ u.pieces|floatformat:"-3" }}</td><td>{{ u.days }}</td></tr>{% endfor %}</table>{% else %}<p>None.</p>{% endif %}
 
+<h4>Tracked requests with no GRN linked</h4>
+{% if r.no_grn %}<table class="rt"><tr><th>Request</th><th>Dealer</th><th>Invoice</th><th>Value (Rs)</th><th>Status</th><th>Days total</th></tr>
+{% for x in r.no_grn %}<tr><td>{{ x.r.request_id }}</td><td>{{ x.r.dealer_name }}</td><td>{{ x.r.invoice_no }}</td><td>{{ x.r.total_value|floatformat:0 }}</td><td>{{ x.r.status }}</td><td>{{ x.days|default_if_none:"-" }}</td></tr>{% endfor %}</table>{% else %}<p>None.</p>{% endif %}
+
 <h4>Approved - waiting for RMA No / Credit Note / IRR receipt</h4>
 {% if r.waiting %}<table class="rt"><tr><th>Request</th><th>Dealer</th><th>Value (Rs)</th><th>Waiting for</th><th>RMA No</th><th>Days total</th></tr>
 {% for x in r.waiting %}<tr><td>{{ x.r.request_id }}</td><td>{{ x.r.dealer_name }}</td><td>{{ x.r.total_value|floatformat:0 }}</td><td>{{ x.stage_label }}</td><td>{{ x.r.rma_no|default:"-" }}</td><td>{{ x.days|default_if_none:"-" }}</td></tr>{% endfor %}</table>{% else %}<p>None.</p>{% endif %}

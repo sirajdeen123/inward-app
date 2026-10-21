@@ -118,6 +118,8 @@ BUSINESS_LINE_WAREHOUSE = {
 }
 
 FEATURE_FLAGS = {
+    "rma_go_live": ("2026-10-22", "Material returns go-live: requests already processed / rejected before it are "
+                                  "kept for reference only (not chased)"),
     "rma_approval_time": ("09:30", "Material returns: approval-pending digest to each portal approver after this time"),
     "rma_daily_time": ("09:30", "Material returns: daily report to the Admin Officer after this time"),
     "rma_daily_cc_rcm": (True, "Material returns: copy the RCM on the daily report (switch on Notification e-mails)"),

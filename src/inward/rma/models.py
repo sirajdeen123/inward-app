@@ -120,6 +120,8 @@ class Request(models.Model):
     first_seen = models.DateTimeField(auto_now_add=True)
     last_seen = models.ForeignKey("core.ImportBatch", null=True, on_delete=models.PROTECT, related_name="+")
     bill_to_site = models.CharField(max_length=20, blank=True)    # chosen when the dealer has several territories
+    # go-live 22-Oct-2026: requests already processed / rejected before go-live are kept for reference only
+    tracked = models.BooleanField(default=True)
     # closure (by the app, after reconciliation and the godown's physical check)
     closed_at = models.DateTimeField(null=True, blank=True)
     closed_by = models.ForeignKey(USER, null=True, blank=True, on_delete=models.PROTECT, related_name="+")
@@ -252,7 +254,8 @@ class IrrLink(models.Model):
     """The Oracle 'Rma Receipt' TRX in the IRR that received this request's material."""
     request = models.ForeignKey(Request, on_delete=models.CASCADE, related_name="irr_links")
     trx_number = models.CharField(max_length=80, unique=True)
-    entered_by = models.ForeignKey(USER, on_delete=models.PROTECT, related_name="+")
+    entered_by = models.ForeignKey(USER, null=True, blank=True, on_delete=models.PROTECT, related_name="+")
+    auto = models.BooleanField(default=False)     # linked by the engine (one exact match)
     entered_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

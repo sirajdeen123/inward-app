@@ -22,7 +22,11 @@
 <div class="kindbar">
   {% for code, label, n in stages %}<a href="?stage={{ code }}{% if q %}&q={{ q|urlencode }}{% endif %}" class="chip kind{% if code == stage %} chip-ok{% endif %}">{{ label }} · {{ n }}</a>{% endfor %}
   <a href="?stage=GRN" class="chip kind{% if stage == 'GRN' %} chip-ok{% endif %}">GRNs · {{ unlinked|length }} not on portal</a>
+  <a href="?stage=BEFORE{% if q %}&q={{ q|urlencode }}{% endif %}" class="chip kind{% if stage == 'BEFORE' %} chip-ok{% endif %}">Before go-live · {{ before }}</a>
 </div>
+{% if stage == "BEFORE" %}<div class="alert alert-info">Requests already processed or rejected before the go-live on {{ go_live|date:"d-M-Y" }}: kept for reference only, not chased and not in the daily report. Linking a GRN to one of them (or "Track it" on the request) brings it back into the flow.</div>{% endif %}
+{% if stage == "IRR" %}<div class="alert alert-info">The Credit Note is in; the app links the IRR "Rma Receipt" TRX on its own when exactly one TRX has the same SKUs and pieces. The rest are listed here - open the request and pick the suggested TRX.</div>{% endif %}
+{% if stage == "CLOSE" %}<div class="alert alert-info">RMA No, Credit Note and IRR receipt are in. Print the handover sheet, let the godown check the material, then close - straight from this list when every quantity agrees.</div>{% endif %}
 <form method="get" class="filters"><input type="hidden" name="stage" value="{{ stage }}"><label for="q">Search</label><input id="q" name="q" value="{{ q }}" placeholder="Request / dealer / invoice / RMA / GRN / approver"><button type="submit" class="btn btn-sm">Find</button>
   <a href="{% url 'rma:register' %}" class="btn btn-sm">Register (Excel)</a> <a href="{% url 'rma:daily_preview' %}" class="btn btn-sm">Today's report</a>{% if can_master %} <a href="{% url 'rma:approvers' %}" class="btn btn-sm">Approvers &amp; Sales Officers</a>{% endif %}</form>
 
@@ -40,15 +44,22 @@
   {% empty %}<tr><td colspan="4" class="muted">No GRN yet.</td></tr>{% endfor %}</tbody></table></div>
 {% else %}
 <div class="card"><table class="tbl stack">
-  <thead><tr><th>Request</th><th>Dealer / invoice</th><th class="num">Value (Rs)</th><th>Status / pending at</th><th>Days (total / at stage)</th><th>GRN</th></tr></thead>
+  <thead><tr><th>Request</th><th>Dealer / invoice</th><th class="num">Value (Rs)</th><th>Status / pending at</th><th>Days (total / at stage)</th><th>GRN</th><th>Next step</th></tr></thead>
   <tbody>{% for x in rows %}<tr>
     <td data-label="Request"><a href="{% url 'rma:detail' x.r.request_id %}"><b>{{ x.r.request_id }}</b></a><div class="muted">{{ x.r.requested_date|date:"d-M-Y" }} · {{ x.r.return_type|title }}</div></td>
     <td data-label="Dealer / invoice">{{ x.r.dealer_name }}<div class="muted">{{ x.r.dealer_code }} · inv {{ x.r.invoice_no }}</div></td>
     <td data-label="Value (Rs)" class="num">{{ x.r.total_value|floatformat:0 }}</td>
     <td data-label="Status">{{ x.r.status }}{% if x.r.pending_at %}<div class="muted">{{ x.r.pending_at }}</div>{% endif %}{% if x.r.rma_no %}<div class="muted">RMA {{ x.r.rma_no }}</div>{% endif %}</td>
     <td data-label="Days">{% if x.days is not None %}<span class="chip rag-{{ x.flag }}">{{ x.days }}</span> / <span class="chip rag-{{ x.stage_flag }}">{{ x.days_at_stage|default_if_none:"-" }}</span>{% else %}-{% endif %}</td>
-    <td data-label="GRN">{% for g in x.grns %}{{ g }}{% if not forloop.last %}, {% endif %}{% empty %}<span class="warn-text">no GRN</span>{% endfor %}</td></tr>
-  {% empty %}<tr><td colspan="6" class="muted">Nothing here.</td></tr>{% endfor %}</tbody></table></div>
+    <td data-label="GRN">{% for g in x.grns %}{{ g }}{% if not forloop.last %}, {% endif %}{% empty %}<span class="warn-text">no GRN</span>{% endfor %}</td>
+    <td data-label="Next step">{% if stage == "BEFORE" %}<span class="muted">Reference only</span>
+      {% elif stage == "IRR" %}{{ x.next }}{% if x.suggestions %}<div><a href="{% url 'rma:detail' x.r.request_id %}" class="btn btn-sm">{{ x.suggestions }} suggestion{{ x.suggestions|pluralize }} - pick</a></div>{% else %}<div class="muted">no Rma Receipt in the IRR yet</div>{% endif %}
+      {% elif stage == "CLOSE" %}<span class="chip{% if x.recon.status == 'MATCH' %} chip-ok{% else %} chip-bad{% endif %}">{{ x.recon_text }}</span>
+        <div><a href="{% url 'rma:handover' x.r.request_id %}" class="btn btn-sm" target="_blank" rel="noopener">Print handover</a></div>
+        {% if can_close and not x.blockers and x.recon.status == "MATCH" %}<form method="post" action="{% url 'rma:close' x.r.request_id %}" class="inline">{% csrf_token %}<label class="sr-only" for="vb-{{ x.r.request_id }}">Checked by</label><input id="vb-{{ x.r.request_id }}" name="verified_by" placeholder="Checked by (godown)" class="input-inline" required><button type="submit" class="btn btn-sm btn-primary">Close</button></form>
+        {% elif x.blockers %}<div class="warn-text">{{ x.blockers|join:" " }}</div>{% elif x.recon.status != "MATCH" %}<div><a href="{% url 'rma:detail' x.r.request_id %}">Open - accept the difference with a reason</a></div>{% else %}<div class="muted">Supervisor / CFA Manager closes</div>{% endif %}
+      {% else %}{{ x.next }}{% endif %}</td></tr>
+  {% empty %}<tr><td colspan="7" class="muted">Nothing here.</td></tr>{% endfor %}</tbody></table></div>
 {% endif %}
 <p class="muted">Daily report at 09:30 to the Admin Officer, Cc CFA Manager{% if cc_rcm %} and RCM{% else %} (RCM copy switched off){% endif %}. Approvers get their pending list at 09:30 and a mail the same day a request reaches them.</p>
 {% endblock %}

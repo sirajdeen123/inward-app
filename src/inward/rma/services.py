@@ -118,10 +118,31 @@ class Row:
     def stage_flag(self) -> str:
         return rag(self.days_at_stage)
 
+    @property
+    def next(self) -> str:
+        if self.stage == "CLOSED":
+            return "Closed"
+        if not self.grns and self.stage != "REJECTED":
+            return "Upload the GRN and link it to this request"
+        return NEXT_STEP[self.stage].format(pending=self.r.pending_at or "the portal")
 
-def rows(qs=None, today: date | None = None) -> list[Row]:
+
+NEXT_STEP = {
+    "APPROVAL": "Portal approval - with {pending}",
+    "RMA": "Waiting for the RMA No (portal / Oracle)",
+    "CN": "Upload the RMA CN INV Report once the Credit Note is raised",
+    "IRR": "Link the IRR 'Rma Receipt' TRX (automatic when one TRX matches exactly)",
+    "CLOSE": "Print the handover sheet, godown check, close",
+    "REJECTED": "Close it with what happened to the material",
+}
+
+
+def rows(qs=None, today: date | None = None, untracked: bool = False) -> list[Row]:
+    """Requests as screen / mail rows - only the tracked ones (go-live 22-Oct-2026) unless untracked=True."""
     today = today or timezone.localdate()
     qs = (qs if qs is not None else Request.objects.all())
+    if not untracked:
+        qs = qs.filter(tracked=True)
     reqs = list(qs)
     cn_rmas = set(CnLine.objects.filter(rma_no__in=[r.rma_no for r in reqs if r.rma_no]).values_list("rma_no", flat=True))
     irr = set(IrrLink.objects.filter(request__in=reqs).values_list("request_id", flat=True))
@@ -270,7 +291,7 @@ def import_portal(user: User, path: Path, filename: str) -> dict:
     batch = _batch("RMA_PORTAL", path, filename, user)
     today = timezone.localdate()
     known = {r.pk: r for r in Request.objects.filter(pk__in=list(report.requests)).select_for_update()}
-    new = changed = 0
+    new = changed = untracked = 0
     for rid, pr in report.requests.items():
         v = dict(pr.values)
         if v.get("cn_value") is None and rid in known:
@@ -278,9 +299,10 @@ def import_portal(user: User, path: Path, filename: str) -> dict:
         r = known.get(rid)
         moved = False
         if r is None:
-            r = Request(request_id=rid, stage_since=today)
+            r = Request(request_id=rid, stage_since=today, tracked=_track_new(v))
             new += 1
             moved = True
+            untracked += not r.tracked
         elif (r.status, r.pending_at) != (v["status"], v["pending_at"]):
             moved = True
             r.stage_since = today
@@ -297,19 +319,46 @@ def import_portal(user: User, path: Path, filename: str) -> dict:
             RequestLine.objects.bulk_create([RequestLine(request=r, **ln) for ln in pr.lines])
         if moved:
             StageEvent.objects.create(request=r, status=r.status, pending_at=r.pending_at, batch=batch,
-                                      notified=first_ever or not (is_pending(r.status) and r.pending_at))
-        for n in pending_names(r.pending_at):
-            approver_for(n)
+                                      notified=first_ever or not r.tracked or not (is_pending(r.status) and r.pending_at))
+        if r.tracked:
+            for n in pending_names(r.pending_at):
+                approver_for(n)
     linked = auto_link(user)
+    irr_linked = auto_link_irr()
     batch.row_count = batch.accepted_count = len(report.requests)
-    batch.summary = {"as_on": str(report.as_on or ""), "new": new, "changed": changed, "linked": linked}
+    batch.summary = {"as_on": str(report.as_on or ""), "new": new, "changed": changed, "linked": linked,
+                     "before_go_live": untracked}
     batch.save(update_fields=["row_count", "accepted_count", "summary"])
     unmapped = Approver.objects.filter(active=True, email="", redirect_to__isnull=True).count()
     audit.record("RMA_PORTAL_IMPORTED", "import_batch", batch.pk, user=user,
                  after={"file": filename, "requests": len(report.requests), "new": new, "changed": changed,
                         "linked_grn_invoices": linked, "as_on": str(report.as_on or "")})
     return {"requests": len(report.requests), "new": new, "changed": changed, "linked": linked, "unmapped": unmapped,
-            "as_on": report.as_on}
+            "as_on": report.as_on, "before_go_live": untracked, "irr_linked": irr_linked}
+
+
+def go_live() -> date:
+    try:
+        return date.fromisoformat(str(flag("rma_go_live", "2026-10-22")))
+    except ValueError:
+        return date(2026, 10, 22)
+
+
+def _track_new(v: dict) -> bool:
+    """A request seen for the first time is tracked when it is pending, or raised on / after go-live (22-Oct-2026).
+    Already processed / rejected before go-live = reference only; linking a GRN tracks it again."""
+    return is_pending(v.get("status", "")) or bool(v.get("requested_date") and v["requested_date"] >= go_live())
+
+
+@transaction.atomic
+def set_tracked(user: User, request_id: str, on: bool = True) -> Request:
+    require(user, "RMA_WORK")
+    r = Request.objects.select_for_update().get(pk=request_id)
+    if r.tracked != on:
+        r.tracked = on
+        r.save(update_fields=["tracked"])
+        audit.record("RMA_REQUEST_TRACKED" if on else "RMA_REQUEST_UNTRACKED", "rma_request", r.pk, user=user)
+    return r
 
 
 @transaction.atomic
@@ -322,12 +371,15 @@ def import_cn(user: User, path: Path, filename: str) -> dict:
     CnLine.objects.filter(cn_no__in=cns).delete()
     CnLine.objects.bulk_create([CnLine(batch=batch, **ln) for ln in report.lines])
     batch.row_count, batch.accepted_count = len(report.lines) + report.duplicates, len(report.lines)
-    batch.summary = {"credit_notes": len(cns), "duplicates_ignored": report.duplicates, "replaced": replaced}
+    irr_linked = auto_link_irr()
+    batch.summary = {"credit_notes": len(cns), "duplicates_ignored": report.duplicates, "replaced": replaced,
+                     "irr_linked": irr_linked}
     batch.save(update_fields=["row_count", "accepted_count", "summary"])
     audit.record("RMA_CN_IMPORTED", "import_batch", batch.pk, user=user,
                  after={"file": filename, "lines": len(report.lines), "credit_notes": len(cns),
                         "duplicates_ignored": report.duplicates})
-    return {"lines": len(report.lines), "credit_notes": len(cns), "duplicates": report.duplicates}
+    return {"lines": len(report.lines), "credit_notes": len(cns), "duplicates": report.duplicates,
+            "irr_linked": irr_linked}
 
 
 @transaction.atomic
@@ -468,6 +520,8 @@ def auto_link(user: User | None) -> int:
         if len(cands) != 1 or GrnLine.objects.filter(request=cands[0]).exclude(grn=lines[0].grn).exists():
             continue
         GrnLine.objects.filter(pk__in=[ln.pk for ln in lines]).update(request=cands[0])
+        if not cands[0].tracked:
+            Request.objects.filter(pk=cands[0].pk).update(tracked=True)
         audit.record("RMA_GRN_LINKED", "rma_grn", lines[0].grn_id, user=user,
                      after={"invoice": inv, "request": cands[0].pk, "how": "automatic (dealer + invoice)"})
         n += 1
@@ -501,6 +555,9 @@ def link_invoice(user: User, grn_pk: int, invoice_no: str, request_id: str) -> N
     if other:
         raise RmaError(f"Request {rid} is already linked to {other.grn}.")
     lines.update(request=r)
+    if not r.tracked:
+        r.tracked = True
+        r.save(update_fields=["tracked"])
     audit.record("RMA_GRN_LINKED", "rma_grn", g.pk, user=user,
                  after={"invoice": invoice_no, "request": rid, "how": "by the clerk",
                         "invoice_matches": r.invoice_no == invoice_no})
@@ -548,6 +605,48 @@ def irr_candidates(r: Request) -> list[dict]:
         exact = sum(1 for s, q in g["skus"].items() if want.get(s) == q)
         out.append({"trx": trx, "date": g["date"], "skus": dict(g["skus"]), "exact": exact})
     return sorted(out, key=lambda c: (-c["exact"], c["date"] or date.min))[:15]
+
+
+def _cn_pieces(rma_no: str) -> dict:
+    out = defaultdict(lambda: ZERO)
+    for sku, nop in CnLine.objects.filter(rma_no=rma_no).values_list("sku", "cn_nop"):
+        out[sku] += nop
+    return {k: v for k, v in out.items() if v}
+
+
+@transaction.atomic
+def auto_link_irr() -> int:
+    """Link the 'Rma Receipt' TRX of each credited request on its own when it is certain: exactly one unused TRX
+    whose SKUs and pieces equal the Credit Note pieces, and that TRX fits no other request. Run after every CN, portal
+    and IRR import. Anything less certain stays a suggestion for the clerk."""
+    from inward.irr.models import IrrTransaction
+    reqs = [r for r in Request.objects.filter(tracked=True, closed_at__isnull=True).exclude(rma_no="")
+            if not r.irr_links.exists()]
+    targets = {r.pk: _cn_pieces(r.rma_no) for r in reqs}
+    targets = {k: v for k, v in targets.items() if v}
+    if not targets:
+        return 0
+    since = min((r.requested_date or timezone.localdate()) for r in reqs if r.pk in targets) - timedelta(days=30)
+    used = set(IrrLink.objects.values_list("trx_number", flat=True))
+    groups = defaultdict(lambda: defaultdict(lambda: ZERO))
+    for trx, sku, qty in (IrrTransaction.objects.filter(type_key="RMA RECEIPT", trx_date__gte=since)
+                          .exclude(trx_number__in=used).values_list("trx_number", "sku", "no_of_pack")):
+        groups[trx][sku] += qty
+    trx_for = defaultdict(list)
+    req_for = defaultdict(list)
+    for trx, skus in groups.items():
+        for pk, want in targets.items():
+            if dict(skus) == want:
+                trx_for[pk].append(trx)
+                req_for[trx].append(pk)
+    n = 0
+    for pk, trxs in trx_for.items():
+        if len(trxs) == 1 and len(req_for[trxs[0]]) == 1:
+            IrrLink.objects.create(request_id=pk, trx_number=trxs[0], entered_by=None, auto=True)
+            audit.record("RMA_IRR_LINKED", "rma_request", pk,
+                         after={"trx": trxs[0], "how": "automatic - SKUs and pieces equal the Credit Note"})
+            n += 1
+    return n
 
 
 @transaction.atomic
@@ -632,6 +731,40 @@ def reconcile(r: Request) -> dict:
     return {"status": status, "lines": lines, "trx": trx, "cn": sorted({ln.cn_no for ln in cn_lines}),
             "requested_value": str(sum(value.values(), ZERO)), "credited_value": str(round(sum(credited.values(), ZERO), 2)),
             "at": timezone.now().isoformat()}
+
+
+def steps(r: Request, recon: dict) -> list[dict]:
+    """The return's journey, each step done or not, with what to do next."""
+    grns = list(Grn.objects.filter(lines__request=r).distinct())
+    grn_ok = bool(grns) and not any(grn_missing(g) for g in grns)
+    approved = bool(r.status) and not is_pending(r.status) and not is_rejected(r.status)
+    out = [
+        {"label": "GRN", "done": grn_ok, "detail": ", ".join(g.grn_no for g in grns) or "not linked",
+         "todo": "Upload the GRN and link it; pick Good / Damaged and the gate entry" if not grns else
+                 "Fill the GRN: Good / Damaged for every SKU and the gate entry"},
+        {"label": "Portal approval", "done": approved, "detail": r.status or "-",
+         "todo": f"Waiting for {r.pending_at or 'the portal'} - mailed every morning"},
+        {"label": "RMA No", "done": bool(r.rma_no), "detail": r.rma_no or "-", "todo": "Comes with the portal report"},
+        {"label": "Credit Note", "done": bool(recon["cn"]), "detail": ", ".join(recon["cn"]) or "-",
+         "todo": "Upload the RMA CN INV Report"},
+        {"label": "IRR receipt", "done": bool(recon["trx"]), "detail": ", ".join(recon["trx"]) or "-",
+         "todo": "Link the Rma Receipt TRX below (automatic when one TRX matches exactly)"},
+        {"label": "Quantities agree", "done": recon["status"] == "MATCH" or r.close_kind == "ACCEPTED",
+         "detail": RECON_TEXT.get(recon["status"], recon["status"]), "todo": "GRN, portal, CN and IRR pieces must agree"},
+        {"label": "Godown checked", "done": bool(r.verified_by), "detail": r.verified_by or "-",
+         "todo": "Print the handover sheet; the godown checks the material"},
+        {"label": "Closed", "done": bool(r.closed_at), "detail": r.close_kind.title() if r.closed_at else "-",
+         "todo": "Supervisor / CFA Manager closes"},
+    ]
+    if is_rejected(r.status):
+        out = [out[0], {"label": "Portal", "done": False, "detail": r.status, "todo": "Rejected on the portal"},
+               {"label": "Closed", "done": bool(r.closed_at), "detail": r.close_note or "-",
+                "todo": "Close it with what happened to the material"}]
+    for s in out:
+        if not s["done"]:
+            s["current"] = True
+            break
+    return out
 
 
 RECON_TEXT = {"NO_GRN": "No GRN linked", "WAIT_CN": "Waiting for the Credit Note", "WAIT_IRR": "Waiting for the IRR receipt",

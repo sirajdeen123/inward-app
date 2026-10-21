@@ -185,3 +185,7 @@ label.check input{margin-top:3px}
 .pick-wrap{position:relative}.pick-list{position:absolute;left:0;right:0;top:100%;z-index:30;margin:2px 0 0;padding:4px 0;list-style:none;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,.12);max-height:320px;overflow-y:auto}
 .pick-list li{padding:8px 12px;cursor:pointer;font-size:14px}.pick-list li.on,.pick-list li:hover{background:var(--side)}
 .rag-RED{background:var(--bad-bg);color:var(--bad)}.rag-AMBER{background:var(--warn-bg);color:var(--warn)}.rag-GREEN{background:var(--ok-bg);color:var(--ok)}
+.steps{list-style:none;display:flex;flex-wrap:wrap;gap:8px;padding:0;margin:0 0 16px}.steps li{flex:1 1 130px;border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:#fff;font-size:14px}
+.steps li.done{background:var(--ok-bg);border-color:#bfe0c8}.steps li.current{border:2px solid var(--warn);background:var(--warn-bg)}
+.st-dot{display:inline-flex;width:22px;height:22px;border-radius:50%;align-items:center;justify-content:center;background:#e3e5ea;font-size:12px;font-weight:700;margin-right:6px}
+.steps li.done .st-dot{background:var(--ok);color:#fff}.steps li.current .st-dot{background:var(--warn);color:#fff}.st-todo{font-weight:600;color:var(--warn);margin-top:4px}

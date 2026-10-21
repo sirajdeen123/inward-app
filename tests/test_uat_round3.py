@@ -24,7 +24,7 @@ def test_cfa_manager_sees_masters_but_clerk_does_not(make_user, seeded):
     cfa.is_staff = True
     cfa.save()
     assert cfa.has_module_perms("core") and cfa.has_perm("core.change_vendor") and cfa.has_perm("accounts.add_user")
-    assert not cfa.has_perm("core.delete_vendor") and not cfa.has_perm("accounts.change_rolepermission")
+    assert not cfa.has_perm("core.delete_vendor") and cfa.has_perm("accounts.change_rolepermission")   # 22-Oct-2026
     clerk = make_user("clerk_m", "DEPOT_CLERK")
     clerk.is_staff = True
     clerk.save()

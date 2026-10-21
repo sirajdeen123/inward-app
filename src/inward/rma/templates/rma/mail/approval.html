@@ -1,7 +1,9 @@
 {% extends "iw/mail/_base.html" %}
 {% block body %}
 <style>.rt{border-collapse:collapse;font-size:12px;margin:4px 0 10px}.rt th,.rt td{border:1px solid #bbb;padding:3px 6px;text-align:left;vertical-align:top}.rt th{background:#eee}</style>
-<p>Dear {{ a.name }},</p>
+<p>Dear {% for a in g.approvers %}{{ a.name }}{% if not forloop.last %} / {% endif %}{% endfor %},</p>
+{% if g.approvers|length > 1 %}<p><b>These requests are pending with {% for a in g.approvers %}{{ a.name }}{% if not forloop.last %} / {% endif %}{% endfor %} - any one of you can approve.</b></p>{% endif %}
+{% if g.missing %}<p style="color:#8B1E2B;font-size:12px">Also named on the portal, but no e-mail on file yet: {{ g.missing|join:", " }}.</p>{% endif %}
 {% if kind == "NEW" %}<p>The following material return request{{ rows|pluralize }} {{ rows|pluralize:"is,are" }} now pending your approval on the RMA Portal. The material is already received at our depot (GRN shown).</p>
 {% else %}<p>These material return requests are pending your approval on the RMA Portal ({{ rows|length }} request{{ rows|pluralize }}, Rs {{ value|floatformat:0 }}). The material is already received at our depot - the dealers' credit waits for the approval.</p>{% endif %}
 <table class="rt"><tr><th>Request</th><th>Dealer</th><th>Invoice</th><th>Return type</th><th>Value (Rs)</th><th>Status</th><th>Days total</th><th>Days with you</th><th>GRN</th></tr>

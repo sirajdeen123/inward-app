@@ -268,7 +268,8 @@ class IrrLink(models.Model):
 
 class ApproverMail(models.Model):
     """Approval-pending mail to one approver: the 09:30 digest (once a day) or a same-day 'new pending' mail."""
-    approver = models.ForeignKey(Approver, on_delete=models.PROTECT, related_name="mails")
+    approver = models.ForeignKey(Approver, on_delete=models.PROTECT, related_name="mails")   # first of the group
+    group = models.CharField(max_length=200, default="")   # approver ids of the Pending At group, e.g. "3,7"
     kind = models.CharField(max_length=8)          # DIGEST / NEW
     day = models.DateField()
     requests = models.JSONField(default=list)
@@ -277,5 +278,5 @@ class ApproverMail(models.Model):
 
     class Meta:
         db_table = "rma_approver_mail"
-        constraints = [models.UniqueConstraint(fields=["approver", "day"], condition=models.Q(kind="DIGEST"),
-                                               name="uq_rma_digest_day")]
+        constraints = [models.UniqueConstraint(fields=["group", "day"], condition=models.Q(kind="DIGEST"),
+                                               name="uq_rma_digest_group_day")]

@@ -356,3 +356,20 @@ def test_steps_and_close_from_the_list(client, env, monkeypatch):
     c.post(reverse("rma:close", args=["28990"]), {"verified_by": "Murugan"})
     assert Request.objects.get(pk="28990").close_kind == "RECONCILED"
     assert "Next:" not in c.get(reverse("rma:detail", args=["28990"])).content.decode()
+
+
+def test_one_mail_per_pending_group_all_in_to(env):
+    """21-Oct-2026: a request pending with several approvers -> one mail with all of them in To (any one approves)."""
+    clerk, cfa, tmp = env["clerk"], env["cfa"], env["tmp"]
+    svc.import_portal(clerk, portal(tmp, "p.xlsx", [
+        ("1", "1187422-NATARAJA", "500", "DM Pending", "S Muthusamy , Vignesh Kuttalam , Jagan V", "", LINES),
+        ("2", "1187422-NATARAJA", "501", "DM Pending", "S Muthusamy , Vignesh Kuttalam", "", LINES),
+        ("3", "1187422-NATARAJA", "502", "RSM Pending", "Vignesh Kuttalam", "", LINES)]), "p.xlsx")
+    for name, mail in (("S Muthusamy", "sm@example.com"), ("Vignesh Kuttalam", "vk@example.com")):
+        svc.save_approver(cfa, svc.approver_for(name).pk, mail, True)      # Jagan V has no e-mail yet
+    assert mails.due(timezone.make_aware(datetime(2026, 9, 26, 9, 45)))["digests"] == 2
+    sent = {tuple(m.to): m for m in MailMessage.objects.filter(purpose="RMA_APPR")}
+    both, alone = sent[("sm@example.com", "vk@example.com")], sent[("vk@example.com",)]
+    assert "any one of you can approve" in both.html_body and "Jagan V" in both.html_body
+    assert ">1<" in both.html_body and ">2<" in both.html_body and ">3<" not in both.html_body
+    assert "any one of you" not in alone.html_body and both.cc[:2] == ["ao@example.com", "godown@example.com"]

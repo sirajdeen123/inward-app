@@ -846,6 +846,36 @@ def unlinked_grns(today: date | None = None) -> list[dict]:
     return out
 
 
+def pending_groups(rws: list[Row]) -> list[dict]:
+    """Approval-pending requests grouped by their whole Pending At group (21-Oct-2026): one mail per group with every
+    member in To, so any one of them can approve. A member who left -> the replacement; one without an e-mail is
+    named in the mail but cannot receive it."""
+    approvers = {a.key: a for a in Approver.objects.select_related("redirect_to")}
+    groups: dict[tuple, dict] = {}
+    for row in rws:
+        if row.stage != "APPROVAL":
+            continue
+        names = pending_names(row.r.pending_at)
+        members, missing = {}, []
+        for n in names:
+            a = final(approvers.get(name_key(n)))
+            if a is not None and a.email:
+                members[a.pk] = a
+            else:
+                missing.append(n)
+        if not members:
+            continue
+        key = tuple(sorted(members))
+        g = groups.setdefault(key, {"key": ",".join(str(k) for k in key), "approvers": [members[k] for k in key],
+                                    "names": names, "missing": set(), "rows": []})
+        g["missing"].update(missing)
+        g["rows"].append(row)
+    for g in groups.values():
+        g["missing"] = sorted(g["missing"])
+        g["rows"].sort(key=lambda x: -(x.days_at_stage or 0))
+    return list(groups.values())
+
+
 def pending_by_approver(rws: list[Row]) -> list[dict]:
     """Requests pending approval grouped by the person who must act (left -> replacement)."""
     groups: dict[int, dict] = {}

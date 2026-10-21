@@ -18,7 +18,7 @@ from django.utils import timezone
 
 from inward.core.models import NotificationRecipient
 from inward.rma import services as svc
-from inward.rma.models import Approver, ApproverMail, Grn, Request, StageEvent
+from inward.rma.models import ApproverMail, Grn, Request, StageEvent
 
 ZERO = Decimal(0)
 
@@ -63,11 +63,13 @@ def daily_recipients() -> tuple[list[str], list[str], list[str]]:
 # ---------------------------------------------------------------- approver mails
 
 
-def _queue_approver(a: Approver, rws: list, kind: str, day: date) -> ApproverMail | None:
+def _queue_approver(g: dict, rws: list, kind: str, day: date) -> ApproverMail | None:
+    """One mail to the whole Pending At group - every member in To, any one of them can approve."""
     from inward.iw import comms
     from inward.iw.models import MailMessage
+    to = [a.email.lower() for a in g["approvers"]]
     sos = sorted({row.sales_officer[1].lower() for row in rws if row.sales_officer and row.sales_officer[1]})
-    cc = [c for c in approval_cc() + sos if c != a.email.lower()]
+    cc = [c for c in approval_cc() + sos if c not in to]
     value = sum((row.r.total_value for row in rws), ZERO)
     if kind == "NEW":
         ids = ", ".join(row.r.request_id for row in rws[:5]) + (" ..." if len(rws) > 5 else "")
@@ -77,14 +79,13 @@ def _queue_approver(a: Approver, rws: list, kind: str, day: date) -> ApproverMai
                    f"Depot {depot_code()} - {day:%d-%b-%Y}")
     with transaction.atomic():
         try:
-            am = ApproverMail.objects.create(approver=a, kind=kind, day=day,
+            am = ApproverMail.objects.create(approver=g["approvers"][0], group=g["key"], kind=kind, day=day,
                                              requests=[row.r.request_id for row in rws])
         except IntegrityError:
             return None
-        m = comms._queue(None, MailMessage.Purpose.RMA_APPROVAL, None, f"RMA-APPR {a.pk} {day:%Y%m%d} {kind}",
-                         [a.email.lower()], cc, subject, "rma/mail/approval.html",
-                         {"a": a, "rows": rws, "kind": kind, "day": day, "value": value,
-                          "as_on": as_on()}, [], _user())
+        m = comms._queue(None, MailMessage.Purpose.RMA_APPROVAL, None, f"RMA-APPR {g['key']} {day:%Y%m%d} {kind}",
+                         to, cc, subject, "rma/mail/approval.html",
+                         {"g": g, "rows": rws, "kind": kind, "day": day, "value": value, "as_on": as_on()}, [], _user())
         am.mail = m
         am.save(update_fields=["mail"])
     return am
@@ -108,12 +109,11 @@ def send_digests(day: date) -> int:
     except IntegrityError:
         return 0
     rws = svc.rows(Request.objects.filter(closed_at__isnull=True))
-    groups, _ = svc.pending_by_approver(rws)
     n = 0
-    for g in groups:
-        if ApproverMail.objects.filter(approver=g["approver"], kind="DIGEST", day=day).exists():
+    for g in svc.pending_groups(rws):
+        if ApproverMail.objects.filter(group=g["key"], kind="DIGEST", day=day).exists():
             continue
-        if _queue_approver(g["approver"], sorted(g["rows"], key=lambda x: -(x.days_at_stage or 0)), "DIGEST", day):
+        if _queue_approver(g, g["rows"], "DIGEST", day):
             n += 1
     StageEvent.objects.filter(notified=False).update(notified=True)   # the digest covered them
     return n
@@ -132,9 +132,8 @@ def send_new_pending(now: datetime) -> int:
     n = 0
     if reqs:
         rws = svc.rows(Request.objects.filter(pk__in=reqs, closed_at__isnull=True))
-        groups, _ = svc.pending_by_approver(rws)
-        for g in groups:
-            if _queue_approver(g["approver"], g["rows"], "NEW", day):
+        for g in svc.pending_groups(rws):
+            if _queue_approver(g, g["rows"], "NEW", day):
                 n += 1
     StageEvent.objects.filter(pk__in=[e.pk for e in events]).update(notified=True)
     return n

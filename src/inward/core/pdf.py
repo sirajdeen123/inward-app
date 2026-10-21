@@ -25,12 +25,32 @@ def render_html(template: str, context: dict) -> str:
     return render_to_string(template, context)
 
 
-def html_to_pdf(html: str, stylesheet: str = "inward/mra.css") -> bytes | None:
+FIT_LEVELS = (1, 2, 3)   # body classes fit1..fit3 in mra.css: progressively tighter spacing / smaller type
+
+
+def pages_wanted(html: str) -> int:
+    return html.count('<section class="page"')
+
+
+def html_to_pdf(html: str, stylesheet: str = "inward/mra.css", fit: bool = False) -> bytes | None:
+    """fit=True (MRA, 22-Oct-2026): when the document runs onto more pages than it has sections (e.g. only the
+    signature block falls onto a second page), it is laid out again a little tighter, up to three steps; the first
+    layout that keeps every section on its own page is used. If none fits (a long SED list), the normal layout
+    stays and simply continues on the next page."""
     if not available():
         return None
     import weasyprint
     css = finders.find(stylesheet)
-    return weasyprint.HTML(string=html).write_pdf(stylesheets=[weasyprint.CSS(filename=css)] if css else None)
+    sheets = [weasyprint.CSS(filename=css)] if css else None
+    doc = weasyprint.HTML(string=html).render(stylesheets=sheets)
+    want = pages_wanted(html) if fit else 0
+    if want and len(doc.pages) > want and "<body>" in html:
+        for level in FIT_LEVELS:
+            tight = weasyprint.HTML(string=html.replace("<body>", f'<body class="fit{level}">', 1)).render(stylesheets=sheets)
+            if len(tight.pages) <= want:
+                doc = tight
+                break
+    return doc.write_pdf()
 
 
 class ImageError(ValueError):

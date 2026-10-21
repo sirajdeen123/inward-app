@@ -213,7 +213,7 @@ def issue(user: User, iw_pk: int, reason: str = "", reconfirm: bool = False) -> 
     rev = (iw.mras.aggregate(m=Max("revision"))["m"] or 0) + 1
     now = timezone.now()
     html = render(content, rev, now, user.full_name or user.username, clean_text(reason))
-    data = pdf.html_to_pdf(html)
+    data = pdf.html_to_pdf(html, fit=True)
     doc = None
     if data is not None:
         doc = documents.store(data, filename=f"MRA {iw.iw_no} R{rev:02d}.pdf", content_type="application/pdf",

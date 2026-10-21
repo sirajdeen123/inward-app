@@ -38,3 +38,14 @@ h2{font-size:10.5pt;margin:10px 0 4px;padding:2px 6px;background:#e8e8e8;border-
 .memo .c-ref{width:22mm}.memo .c-full{width:35mm}.memo .c-q{width:11mm}.memo .c-val{width:19mm}.memo .c-act{width:26mm}.memo .c-rem{width:24mm}.memo .trx{width:18mm}
 tr{page-break-inside:avoid}
 @media screen{body{background:#ddd}.page{background:#fff;max-width:210mm;margin:10px auto;padding:10mm;box-shadow:0 1px 4px rgba(0,0,0,.2)}}
+/* fit to the page (22-Oct-2026): used only when the normal layout would spill onto an extra page */
+body.fit1{font-size:9pt}.fit1 h2{margin:6px 0 3px}.fit1 .head{margin-bottom:5px;padding-bottom:3px}.fit1 .sign{margin-top:9mm}
+.fit1 .sign .line{height:11mm}.fit1 .foot{margin-top:4mm}.fit1 .grid th,.fit1 .grid td{padding:2px 3px}
+body.fit2{font-size:8.4pt}.fit2 h2{margin:4px 0 2px;font-size:9.8pt}.fit2 .head{margin-bottom:4px;padding-bottom:2px}
+.fit2 .logo{width:19mm}.fit2 .company{font-size:12pt}.fit2 .title{font-size:11.5pt}.fit2 .sign{margin-top:6mm}
+.fit2 .sign .line{height:10mm}.fit2 .foot{margin-top:3mm}.fit2 .grid th,.fit2 .grid td{padding:1px 3px}
+.fit2 .kv th,.fit2 .kv td{padding:1px 3px}.fit2 .page{padding:0}.fit2 p{margin:3px 0}
+body.fit3{font-size:7.8pt}.fit3 h2{margin:3px 0 2px;font-size:9pt}.fit3 .head{margin-bottom:3px;padding-bottom:2px}
+.fit3 .logo{width:16mm}.fit3 .company{font-size:11pt}.fit3 .title{font-size:10.5pt}.fit3 .sign{margin-top:4mm}
+.fit3 .sign .line{height:9mm}.fit3 .foot{margin-top:2mm}.fit3 .grid th,.fit3 .grid td{padding:1px 2px}
+.fit3 .kv th,.fit3 .kv td{padding:0 3px}.fit3 .page{padding:0}.fit3 p{margin:2px 0}.fit3 .small{font-size:7pt}

@@ -8,5 +8,6 @@ urlpatterns = [
     path("two-factor/", views.two_factor_view, name="two_factor"),
     path("logout/", views.logout_view, name="logout"),
     path("approvals/", views.approvals_view, name="approvals"),
+    path("roles/", views.roles_view, name="roles"),
     path("approvals/<int:pk>/decide/", views.decide_view, name="decide"),
 ]

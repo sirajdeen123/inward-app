@@ -4,14 +4,13 @@ The admin checks Django model permissions, which no Inward user has - so a CFA M
 backend grants them from the role: CFA Manager and Administrator may view, add and change the masters and users;
 the audit trail, documents and imports stay view-only (their admin classes refuse changes anyway). Nothing is ever
 deleted from the admin - masters are switched off with their Active tick. The permission matrix (role permissions)
-can be changed only by the Administrator.
+is changed on the app's Roles & permissions screen by the CFA Manager or the Administrator (22-Oct-2026).
 """
 from __future__ import annotations
 
 ADMIN_ROLES = {"CFA_MANAGER", "ADMINISTRATOR"}
 APPS = {"core", "accounts", "damage"}
-ADMINISTRATOR_ONLY = {"accounts.add_rolepermission", "accounts.change_rolepermission", "accounts.add_role",
-                      "accounts.change_role"}
+ADMINISTRATOR_ONLY: set[str] = set()   # 22-Oct-2026: the CFA Manager manages roles too (Roles & permissions screen)
 
 
 def _roles(user) -> set[str]:

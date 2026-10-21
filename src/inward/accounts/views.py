@@ -128,3 +128,47 @@ def logout_view(request):
         audit.record("LOGOUT", "app_user", request.user.pk, user=request.user)
     logout(request)
     return redirect("accounts:login")
+
+
+@login_required
+def roles_view(request):
+    """Roles & permissions (USER_ADMIN - CFA Manager, Administrator; 22-Oct-2026)."""
+    from django.http import HttpResponseForbidden
+
+    from inward.accounts import roles as R
+    from inward.accounts.models import Role, User, UserRole
+    from inward.accounts.services import PermissionDenied, modes_for
+    if "GRANT" not in modes_for(request.user, "USER_ADMIN"):
+        return HttpResponseForbidden("You do not have permission for this screen.")
+    all_roles = list(Role.objects.order_by("code"))
+    perms = R.permissions()
+    if request.method == "POST":
+        action = request.POST.get("action")
+        try:
+            if action == "users":
+                n = 0
+                for u in User.objects.filter(is_active=True).exclude(pk=request.user.pk):
+                    if f"seen_{u.pk}" not in request.POST:
+                        continue
+                    codes = {r.code for r in all_roles if request.POST.get(f"u{u.pk}_{r.code}")}
+                    n += R.set_user_roles(request.user, u, codes)
+                messages.success(request, f"User roles saved - {n} user(s) changed.")
+            elif action == "matrix":
+                wanted = {(r.code, p.code): request.POST.get(f"m_{r.code}_{p.code}", "")
+                          for r in all_roles for p in perms if f"m_{r.code}_{p.code}" in request.POST}
+                messages.success(request, f"Permissions saved - {R.set_matrix(request.user, wanted)} change(s).")
+            elif action == "add_role":
+                role = R.add_role(request.user, request.POST.get("code", ""), request.POST.get("name", ""))
+                messages.success(request, f"Role {role.name} added - tick what it may do below, then give it to users.")
+        except (R.RoleError, PermissionDenied) as exc:
+            messages.error(request, str(exc))
+        return redirect(reverse("accounts:roles") + ("#matrix" if action != "users" else ""))
+    held = {}
+    for uid, code in UserRole.objects.values_list("user_id", "role_id"):
+        held.setdefault(uid, set()).add(code)
+    users = [{"u": u, "roles": held.get(u.pk, set())} for u in User.objects.filter(is_active=True).order_by("username")]
+    m = R.matrix()
+    rows = [{"p": p, "cells": [{"role": r.code, "value": m.get((r.code, p.code), ""),
+                                "locked": (r.code, p.code) in R.PROTECTED} for r in all_roles]} for p in perms]
+    return render(request, "accounts/roles.html", {"roles": all_roles, "users": users, "rows": rows,
+                                                   "choices": R.CHOICES, "me": request.user.pk})

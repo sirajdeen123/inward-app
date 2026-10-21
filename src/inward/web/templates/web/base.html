@@ -44,6 +44,7 @@
     <div class="navgroup">Masters</div>
     <a href="{% url 'core:packaging' %}" class="nav{% if request.resolver_match.app_name == 'core' and request.resolver_match.url_name != 'notifications' %} active{% endif %}">SKU packaging{% if packaging_review_pending %} <span class="badge">{{ packaging_review_pending }}</span>{% endif %}</a>
     {% if can_notify %}<a href="{% url 'core:notifications' %}" class="nav{% if request.resolver_match.url_name == 'notifications' %} active{% endif %}">Notification e-mails</a>{% endif %}
+    {% if can_user_admin %}<a href="{% url 'accounts:roles' %}" class="nav{% if request.resolver_match.url_name == 'roles' %} active{% endif %}">Roles &amp; permissions</a>{% endif %}
     {% if user.is_staff %}<a href="/{{ ADMIN_URL }}" class="nav">Masters &amp; users</a>{% endif %}
 
     <div class="navgroup">System</div>

@@ -42,6 +42,7 @@ def depot(request) -> dict:
             if "GRANT" in modes_for(user, "SEARCH_REPORTS"):
                 from inward.iw.ops import mail_banner
                 ctx["mail_banner"] = mail_banner()
+            ctx["can_user_admin"] = "GRANT" in modes_for(user, "USER_ADMIN")
             if "GRANT" in modes_for(user, "EMAIL_VERIFY"):
                 ctx["can_notify"] = True
                 from inward.iw.comms import unverified_emails

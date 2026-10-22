@@ -29,6 +29,11 @@ def charges_page(request, pk):
                 unloading.save_weights(request.user, iw.pk, {k[3:]: val for k, val in request.POST.items()
                                                              if k.startswith("kg_")})
                 messages.success(request, "Gross weights saved - the tonnage below is updated.")
+            elif action == "charge_mode":
+                from inward.iw.coload import set_charge_each
+                set_charge_each(request.user, iw.pk, request.POST.get("charge_mode") == "each")
+                messages.success(request, "Unloading charge: separately on each IW." if request.POST.get("charge_mode")
+                                 == "each" else "Unloading charge: once for the whole truck on the first IW.")
             elif action in ("counts", "reload"):
                 values = {k[3:]: v for k, v in request.POST.items() if k.startswith("pc_")}
                 unloading.save_counts(request.user, iw.pk, values, reload=action == "reload")
@@ -38,7 +43,8 @@ def charges_page(request, pk):
                 rec = unloading.record(request.user, iw.pk, unloading.UnloadingInput(
                     tonnage=request.POST.get("tonnage", ""), status=request.POST.get("status", ""),
                     paid_amount=request.POST.get("paid_amount", ""), payment_mode=request.POST.get("payment_mode", ""),
-                    payment_ref=request.POST.get("payment_ref", ""), exempt_reason=request.POST.get("exempt_reason", "")),
+                    payment_ref=request.POST.get("payment_ref", ""), exempt_reason=request.POST.get("exempt_reason", ""),
+                    confirm_tonnage=bool(request.POST.get("confirm_tonnage"))),
                     version=request.POST.get("version") or None)
                 messages.success(request, f"Unloading recorded: Rs {rec.charge} - {rec.get_status_display()}.")
                 pending = rec.iw.cash_entries.filter(state="PENDING").first()
@@ -55,11 +61,14 @@ def charges_page(request, pk):
     suggested, total_kg = unloading.suggested_tonnage(iw)
     rate = rate_on("UNLOADING_PER_TON", arrival)
     estimate = (suggested * rate).quantize(Decimal("0.01")) if suggested and rate else None
-    from inward.iw.coload import charge_iw, members
+    from inward.iw.coload import charge_each, charge_iw, lead_of, members
     lead = charge_iw(iw)
+    truck = members(iw)
+    mode_locked = UnloadingRecord.objects.filter(iw__in=truck).exists()
     return render(request, "iw/charges.html", {
         "iw": iw, "rec": rec, "error": error, "post": request.POST if error else None,
-        "charged_with": lead if lead.pk != iw.pk else None, "truck": members(iw),
+        "charged_with": lead if lead.pk != iw.pk else None, "truck": truck, "first_iw": lead_of(iw),
+        "charge_each": charge_each(iw), "mode_locked": mode_locked,
         "lead_rec": getattr(lead, "unloading", None) if lead.pk != iw.pk else None,
         "warehouses": [(label, r) for label, r in by_wh if r], "counts_saved": iw.package_counts.exists(),
         "snap": iw.checklists.first(), "rate": rate, "estimate": estimate, "arrival": arrival,

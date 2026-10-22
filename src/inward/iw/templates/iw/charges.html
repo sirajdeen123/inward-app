@@ -34,6 +34,13 @@
   {% if editable %}<p><button type="submit" name="action" value="weights" class="btn">Save weights</button></p>{% endif %}
 </form>
 
+{% if truck|length > 1 %}<form method="post" class="card">{% csrf_token %}<input type="hidden" name="action" value="charge_mode">
+  <h2>Co-loaded truck {{ iw.vehicle_no }}: {% for m in truck %}{{ m }}{% if not forloop.last %} + {% endif %}{% endfor %}</h2>
+  <p><b>Unloading charge:</b>
+    <label class="check"><input type="radio" name="charge_mode" value="truck"{% if not charge_each %} checked{% endif %}{% if mode_locked %} disabled{% endif %}> once for the whole truck, on {{ first_iw }}</label>
+    <label class="check"><input type="radio" name="charge_mode" value="each"{% if charge_each %} checked{% endif %}{% if mode_locked %} disabled{% endif %}> separately on each IW (each with its own tonnage)</label>
+    {% if mode_locked %}<span class="muted">- fixed: a charge is already recorded on the truck.</span>{% else %}<button type="submit" class="btn btn-sm">Save choice</button>{% endif %}</p>
+</form>{% endif %}
 {% if charged_with %}<div class="card"><h2>3 · Unloading charge and payment</h2>
   <p>This truck also carries {% for m in truck %}{% if m.pk != iw.pk %}{{ m }}{% if not forloop.last %}, {% endif %}{% endif %}{% endfor %}. The unloading of the <b>whole truck</b> is recorded once, on <a href="{% url 'iw:charges' charged_with.pk %}">{{ charged_with }}</a>{% if lead_rec %} - <b>Rs {{ lead_rec.charge|floatformat:2 }}</b>, {{ lead_rec.get_status_display }}{% else %} - <span class="warn-text">not recorded yet</span>{% endif %}.</p>
   <p class="muted">Package counts (1) stay per IW: each source's MRA shows its own packages.</p></div>
@@ -50,7 +57,7 @@
   </div>{% endif %}
   {% if editable %}
   <input type="hidden" name="action" value="unloading">{% if rec %}<input type="hidden" name="version" value="{{ rec.version }}">{% endif %}
-  <div class="field"><label for="u-ton">Tonnage (tonnes) *</label><input id="u-ton" name="tonnage" inputmode="decimal" data-rate="{{ rate|default:'' }}" placeholder="e.g. 13.2" value="{% if post %}{{ post.tonnage }}{% elif rec %}{{ rec.tonnage|floatformat:'-3' }}{% elif suggested %}{{ suggested }}{% endif %}">
+  <div class="field"><label for="u-ton">Tonnage (tonnes) *</label><input id="u-ton" name="tonnage" inputmode="decimal" data-rate="{{ rate|default:'' }}" placeholder="e.g. 13.2" value="{% if post %}{{ post.tonnage }}{% elif rec %}{{ rec.tonnage|floatformat:'-3' }}{% elif suggested %}{{ suggested }}{% endif %}">{% if truck|length > 1 and charge_each %}<label class="check"><input type="checkbox" name="confirm_tonnage" value="1"> tonnage confirmed (only if the app asks)</label>{% endif %}
     <span class="muted">{% if suggested %}From the gross weights: {{ total_kg|floatformat:"-3" }} kg = {{ suggested }} t. You may change it.{% else %}Enter the gross weights above, or type the tonnage.{% endif %}{% if rec and rec.tonnage_from_weights and rec.tonnage != rec.tonnage_from_weights %} <b>Edited</b> (weights gave {{ rec.tonnage_from_weights }} t).{% endif %}</span></div>
   <div class="field"><label>Rate on {{ arrival|date:"d-M-Y" }}</label><div class="kpi-value">{% if rate %}Rs {{ rate|floatformat:2 }} per ton{% else %}<span class="warn-text">not set</span>{% endif %}</div></div>
   <div class="field"><label>Unloading amount</label><div class="amount" id="u-amount" aria-live="polite">{% if rec %}Rs {{ rec.charge|floatformat:2 }}{% elif estimate %}Rs {{ estimate|floatformat:2 }} <small>{{ suggested }} t &times; Rs {{ rate|floatformat:2 }}</small>{% else %}-{% endif %}</div></div>
@@ -63,7 +70,8 @@
   {% if not iw.transporter %}<p class="warn-text span-all">No transporter on this IW - Part paid / Outstanding need one (edit the IW).</p>{% endif %}
   <div class="span-all"><button type="submit" class="btn btn-primary">Save unloading</button> <a class="btn" href="{% url 'iw:ledger' %}">Transporter ledger</a></div>
   {% endif %}
-</form>{% if truck|length > 1 %}<p class="muted">Co-loaded truck: this charge covers {% for m in truck %}{{ m }}{% if not forloop.last %} + {% endif %}{% endfor %} - enter the tonnage of the whole truck (the suggestion adds all their gross weights).</p>{% endif %}
+</form>{% if truck|length > 1 and not charge_each %}<p class="muted">Co-loaded truck: this charge covers {% for m in truck %}{{ m }}{% if not forloop.last %} + {% endif %}{% endfor %} - enter the tonnage of the whole truck (the suggestion adds all their gross weights).</p>{% endif %}
+{% if truck|length > 1 and charge_each %}<p class="muted">Co-loaded truck charged separately: enter only this IW's tonnage (the suggestion is this IW's own gross weight).</p>{% endif %}
 {% endif %}
 {% endwith %}
 <script src="{% static 'inward/charge.js' %}" defer></script>

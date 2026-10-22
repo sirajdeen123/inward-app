@@ -107,3 +107,27 @@ def test_screens(client, truck):
     page = c.get(reverse("iw:detail", args=[iw2.pk])).content.decode()
     assert "Co-loaded truck TN39CE7382" in page and str(iw1) in page
     assert "recorded once, on" in c.get(reverse("iw:charges", args=[iw2.pk])).content.decode()
+
+
+def test_charge_separately_on_each_iw(client, truck):
+    """22-Oct-2026: the truck may also be charged per IW - each its own tonnage, the choice locked once charged."""
+    clerk, b, iw1 = truck["clerk"], truck["b"], truck["iw1"]
+    iw2 = services.create(clerk, _data(b, "10908", coload=True))
+    linking.link_ship(clerk, iw1.pk, A[1], gross_kg="1200")
+    linking.link_ship(clerk, iw2.pk, B[1], gross_kg="300")
+    checklist.generate(clerk, iw1.pk)
+    coload.set_charge_each(clerk, iw2.pk, True)                        # from either IW
+    iw1.refresh_from_db()
+    iw2.refresh_from_db()
+    assert coload.charge_iw(iw2) == iw2 and coload.charge_iw(iw1) == iw1
+    assert unloading.suggested_tonnage(iw1)[0] == Decimal("1.2") and unloading.suggested_tonnage(iw2)[0] == Decimal("0.3")
+    with pytest.raises(IwError, match="looks like the whole truck"):    # the whole truck again on IW 2
+        unloading.record(clerk, iw2.pk, unloading.UnloadingInput(tonnage="1.5", status="OUTSTANDING"))
+    unloading.record(clerk, iw2.pk, unloading.UnloadingInput(tonnage="0.3", status="OUTSTANDING"))
+    assert unloading.gate_ok(iw2) and not unloading.gate_ok(iw1)       # each IW its own position
+    with pytest.raises(IwError, match="no longer be changed"):
+        coload.set_charge_each(clerk, iw1.pk, False)
+    unloading.record(clerk, iw1.pk, unloading.UnloadingInput(tonnage="1.2", status="OUTSTANDING"))
+    assert unloading.gate_ok(iw1) and mra.build(iw2)["unloading_with"] is None and mra.build(iw2)["unloading"]
+    page = verified_client(client, clerk).get(reverse("iw:charges", args=[iw2.pk])).content.decode()
+    assert "separately on each IW" in page and "fixed: a charge is already recorded" in page

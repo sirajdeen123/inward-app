@@ -53,6 +53,7 @@ class Iw(models.Model):
     sed_declaration = models.JSONField(default=dict, blank=True)  # NIL / SED declaration at verification (16-Oct-2026)
     # co-loaded truck (22-Oct-2026): the first IW of the truck; null for the lead and for a normal IW
     coload_lead = models.ForeignKey("self", null=True, blank=True, on_delete=models.PROTECT, related_name="coload_members")
+    coload_charge_each = models.BooleanField(default=False)   # on the lead: unloading charged separately on each IW
     version = models.PositiveIntegerField(default=1)
 
     class Meta:

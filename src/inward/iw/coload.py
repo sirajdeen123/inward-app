@@ -35,7 +35,42 @@ def is_group(iw: Iw) -> bool:
 
 
 def charge_iw(iw: Iw) -> Iw:
-    """The IW that carries the truck's unloading charge: the lead, unless the lead was voided (then each IW its own)."""
-    if iw.coload_lead_id and iw.coload_lead.status not in LIVE_EXCLUDE:
+    """The IW that carries the unloading charge: the lead for the whole truck - unless the truck is set to 'separately
+    on each IW' or the lead was voided (then each IW its own)."""
+    if iw.coload_lead_id and iw.coload_lead.status not in LIVE_EXCLUDE and not iw.coload_lead.coload_charge_each:
         return iw.coload_lead
     return iw
+
+
+def charge_each(iw: Iw) -> bool:
+    return lead_of(iw).coload_charge_each
+
+
+def set_charge_each(user, iw_pk: int, each: bool) -> Iw:
+    """Choose how a co-loaded truck's unloading is charged (22-Oct-2026): once for the truck on the first IW, or
+    separately on each IW. Locked once any unloading charge of the truck is recorded."""
+    from django.db import transaction
+
+    from inward.accounts.services import require
+    from inward.core import audit
+    from inward.iw.models import UnloadingRecord
+    from inward.iw.services import IwError
+    require(user, "UNLOADING_RECORD")
+    with transaction.atomic():
+        lead = lead_of(Iw.objects.get(pk=iw_pk))
+        lead = Iw.objects.select_for_update().get(pk=lead.pk)
+        group = members(lead)
+        if len(group) < 2:
+            raise IwError("This IW is not on a co-loaded truck.")
+        if lead.coload_charge_each == each:
+            return lead
+        done = UnloadingRecord.objects.filter(iw__in=group).select_related("iw").first()
+        if done:
+            raise IwError(f"The unloading charge is already recorded on {done.iw} - the charging choice can no longer "
+                          "be changed.")
+        lead.coload_charge_each = each
+        lead.save(update_fields=["coload_charge_each", "updated_at"])
+        audit.record("COLOAD_CHARGE_MODE", "iw", lead.pk, user=user, iw_id=lead.pk,
+                     after={"truck": [str(m) for m in group],
+                            "charge": "separately on each IW" if each else "once for the truck on " + str(lead)})
+        return lead

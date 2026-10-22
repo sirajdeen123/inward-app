@@ -184,10 +184,29 @@ def save_weights(user: User, iw_pk: int, values: dict[str, str]) -> None:
 class UnloadingInput:
     tonnage: object
     status: str
+    confirm_tonnage: bool = False    # co-loaded truck charged per IW: the clerk confirms an unusually high tonnage
     paid_amount: object = ""
     payment_mode: str = ""
     payment_ref: str = ""
     exempt_reason: str = ""
+
+
+def _check_own_tonnage(iw: Iw, data: UnloadingInput) -> None:
+    """Co-loaded truck charged separately on each IW: stop the whole truck's tonnage being charged on one IW too."""
+    from inward.iw.coload import charge_each, members
+    group = members(iw)
+    if len(group) < 2 or not charge_each(iw) or data.confirm_tonnage:
+        return
+    try:
+        t = Decimal(str(data.tonnage).replace(",", "").strip())
+    except (InvalidOperation, ValueError):
+        return
+    own, _ = suggested_tonnage(iw)
+    truck = sum((w.kg for m in group for w in weights(m) if w.kg), Decimal(0)) / 1000
+    if own is not None and t > own + Decimal("0.5") and truck and t >= truck * Decimal("0.9"):
+        raise IwError(f"{t} t looks like the whole truck ({truck:.1f} t) - this IW's own consignment is {own} t. "
+                      "The truck is charged separately on each IW; enter this IW's tonnage, or tick 'tonnage "
+                      "confirmed' to save it anyway.")
 
 
 def _sync_ledger(user: User, iw: Iw, rec: UnloadingRecord | None) -> None:
@@ -213,6 +232,7 @@ def record(user: User, iw_pk: int, data: UnloadingInput, version: int | None = N
     lead = charge_iw(iw)
     if lead.pk != iw.pk:
         raise IwError(f"This truck is co-loaded with {lead}: the unloading of the whole truck is recorded once, on {lead}.")
+    _check_own_tonnage(iw, data)
     rec = UnloadingRecord.objects.select_for_update().filter(iw=iw).first()
     suggested, _ = suggested_tonnage(iw)
     if rec and version is not None and int(version) != rec.version:

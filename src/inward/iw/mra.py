@@ -148,7 +148,10 @@ def build(iw: Iw) -> dict:
         if rows:
             memos.append({"kind": kind, "title": title, "rows": rows})
 
-    rec = UnloadingRecord.objects.filter(iw=iw).first()
+    from inward.iw.coload import charge_iw
+    lead = charge_iw(iw)     # co-loaded truck: the whole truck's unloading is on the lead IW
+    lead_rec = UnloadingRecord.objects.filter(iw=lead).first() if lead.pk != iw.pk else None
+    rec = UnloadingRecord.objects.filter(iw=iw).first() if lead.pk == iw.pk else None
     unl = {"charge": _money(rec.charge), "status": rec.get_status_display(), "paid": _money(rec.paid_amount),
            "outstanding": _money(rec.outstanding), "mode": rec.get_payment_mode_display() if rec.payment_mode else "",
            "ref": rec.payment_ref, "tonnage": _s(rec.tonnage)} if rec else None
@@ -170,6 +173,8 @@ def build(iw: Iw) -> dict:
                        "excess_value": _money(t.excess_value),
                        "claimable": _money(t.claimable)},
         "unloading": unl, "memos": memos,
+        "unloading_with": {"iw": str(lead), "status": lead_rec.get_status_display() if lead_rec else ""}
+        if lead.pk != iw.pk else None,
         "declaration": {k: v for k, v in (iw.sed_declaration or {}).items() if k != "by_id"},
     }
 

@@ -67,6 +67,8 @@ class IwForm(forms.Form):
     gate_register_no = forms.CharField(label="Security gate register No (needed before the MRA)", required=False,
                                        max_length=30, widget=forms.TextInput(attrs={"class": "caps"}))
     remarks = forms.CharField(label="Remarks", required=False, widget=forms.Textarea(attrs={"rows": 2}))
+    coload = forms.BooleanField(label="Same truck - another consignment (another source / LR on this truck; one "
+                                      "unloading checklist and one unloading charge for the truck)", required=False)
     second_trip = forms.BooleanField(label="Genuine second trip of this vehicle today (only if the app asks)",
                                      required=False)
     version = forms.IntegerField(required=False, widget=forms.HiddenInput)

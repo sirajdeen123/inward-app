@@ -10,7 +10,7 @@ from django.views.decorators.http import require_POST
 
 from inward.accounts.services import PermissionDenied, modes_for
 from inward.core import branding, pdf
-from inward.iw import checklist
+from inward.iw import checklist, coload
 from inward.iw.models import Iw
 from inward.iw.services import IwError
 from inward.web.context import depot_info
@@ -28,6 +28,7 @@ def checklist_page(request, pk):
             {"next": back, "desc": ln.description, "size": ln.pack_size or "", "uom": ln.uom})
     return render(request, "iw/checklist.html", {
         "iw": iw, "build": b, "current": current, "older": iw.checklists.all()[1:6],
+        "truck": coload.members(iw),
         "stale": checklist.is_stale(iw, current),
         "can_generate": iw.is_editable and iw.status != Iw.Status.DRAFT
                         and "GRANT" in modes_for(request.user, "PHYSICAL_SED_QTY")})

@@ -12,7 +12,7 @@
 <section class="page">
   <header class="ph">
     <div class="brandrow"><img src="{% static 'inward/company_logo.png' %}" alt="logo" class="logo"><div>{% if depot.company %}<div class="company">{{ depot.company }}</div>{% endif %}<div class="depot">Depot {{ depot.code }} · {{ depot.name }}{% if depot.cfa %}<br>Operated by: {{ depot.cfa }} (CFA){% endif %}</div><div class="doc">UNLOADING CHECKLIST</div></div></div>
-    <div class="meta"><b>{{ iw }}</b> · R{{ snap.revision }}<br>{{ iw.vehicle_no }} · {{ iw.arrival_at|date:"d-M-Y h:i A" }}<br>{{ iw.source_org|default:"" }}<br>{{ iw.transporter|default:"" }}{% if iw.lr_no %} · LR {{ iw.lr_no }}{% endif %}</div>
+    <div class="meta"><b>{% if snap.content.truck %}{{ snap.content.truck|join:" + " }}{% else %}{{ iw }}{% endif %}</b> · R{{ snap.revision }}<br>{{ iw.vehicle_no }} · {{ iw.arrival_at|date:"d-M-Y h:i A" }}<br>{{ iw.source_org|default:"" }}<br>{{ iw.transporter|default:"" }}{% if iw.lr_no %} · LR {{ iw.lr_no }}{% endif %}</div>
   </header>
   <h2 class="sheet-title">{{ sheet.title }}</h2>
   {% include "iw/_checklist_sheet.html" %}

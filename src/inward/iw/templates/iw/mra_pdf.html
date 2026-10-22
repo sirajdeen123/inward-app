@@ -67,6 +67,7 @@
 
   {% if c.declaration %}<p class="small"><b>Verification declaration ({{ c.declaration.kind }}):</b> {% for s in c.declaration.statements %}{{ s }} {% endfor %}- declared by {{ c.declaration.by }} on {{ c.iw.verified }}{% if c.declaration.kind == 'SED' %}; {{ c.declaration.photos }} damage photo(s) on file{% endif %}.</p>{% endif %}
   <h2>Unloading</h2>
+  {% if c.unloading_with %}<p>Same truck as {{ c.unloading_with.iw }} - the unloading of the whole truck is recorded on {{ c.unloading_with.iw }}{% if c.unloading_with.status %} ({{ c.unloading_with.status }}){% endif %}.</p>{% endif %}
   {% if c.unloading %}<p>Unloading amount Rs {{ c.unloading.charge }} · {{ c.unloading.status }}{% if c.unloading.mode %} · {{ c.unloading.mode }}{% endif %}{% if c.unloading.ref %} ({{ c.unloading.ref }}){% endif %}{% if c.unloading.outstanding != '0.00' %} · outstanding Rs {{ c.unloading.outstanding }}{% endif %}</p>{% endif %}
 
   <div class="sign">

@@ -55,8 +55,12 @@ def charges_page(request, pk):
     suggested, total_kg = unloading.suggested_tonnage(iw)
     rate = rate_on("UNLOADING_PER_TON", arrival)
     estimate = (suggested * rate).quantize(Decimal("0.01")) if suggested and rate else None
+    from inward.iw.coload import charge_iw, members
+    lead = charge_iw(iw)
     return render(request, "iw/charges.html", {
         "iw": iw, "rec": rec, "error": error, "post": request.POST if error else None,
+        "charged_with": lead if lead.pk != iw.pk else None, "truck": members(iw),
+        "lead_rec": getattr(lead, "unloading", None) if lead.pk != iw.pk else None,
         "warehouses": [(label, r) for label, r in by_wh if r], "counts_saved": iw.package_counts.exists(),
         "snap": iw.checklists.first(), "rate": rate, "estimate": estimate, "arrival": arrival,
         "statuses": [(s.value, s.label) for s in UnloadingRecord.Status if s != UnloadingRecord.Status.EXEMPT_REQUESTED],

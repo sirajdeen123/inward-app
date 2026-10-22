@@ -7,7 +7,7 @@
     <td class="rh-logo">{% if logo %}<img src="{{ logo }}" alt="logo">{% endif %}</td>
     <td class="rh-co"><div class="co">{{ depot.company }}</div><div>Depot {{ depot.code }} · {{ depot.name }} · Operated by: {{ depot.cfa }} (CFA)</div>
       <div class="doc">UNLOADING CHECKLIST · <span class="sheetname"></span></div></td>
-    <td class="rh-iw"><div class="iwno">{{ iw }} · R{{ snap.revision }}</div>
+    <td class="rh-iw"><div class="iwno">{% if snap.content.truck %}{{ snap.content.truck|join:" + " }}{% else %}{{ iw }}{% endif %} · R{{ snap.revision }}</div>
       <div>Vehicle <b>{{ iw.vehicle_no }}</b> · arrived {{ iw.arrival_at|date:"d-M-Y h:i A" }}</div>
       <div>{{ iw.load_type }}{% if iw.source_org %} · from {{ iw.source_org }}{% endif %}</div>
       <div>{{ iw.transporter|default:"" }}{% if iw.lr_no %} · LR {{ iw.lr_no }}{% endif %}{% if iw.gate_register_no %} · Gate reg {{ iw.gate_register_no }}{% endif %}{% if iw.driver_name %} · Driver {{ iw.driver_name }}{% endif %}</div></td>

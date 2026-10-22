@@ -27,6 +27,7 @@ def _data(form: IwForm) -> services.IwData:
                            vehicle_no=c["vehicle_no"], driver_name=c["driver_name"], driver_mobile=c["driver_mobile"],
                            transporter_name=c["transporter"], lr_no=c["lr_no"], remarks=c["remarks"],
                            gate_register_no=c["gate_register_no"], second_trip=c.get("second_trip", False),
+                           coload=c.get("coload", False),
                            source_email=c.get("source_email", ""))
 
 
@@ -123,7 +124,9 @@ def iw_detail(request, pk):
     linkable = (SitShip.objects.filter(status__in=[SitShip.Status.IN_SIT, SitShip.Status.PARTIAL], pre_go_live=False,
                                        has_issues=False).exclude(ship_id__in=linked_ids).order_by("ship_id"))
     void_modes = modes_for(request.user, "IW_VOID")
+    from inward.iw.coload import members
     return render(request, "iw/detail.html", {
+        "truck": members(iw) if iw.status != Iw.Status.VOID else [],
         "iw": iw, "pending_void": pending_void, "history": history, "void_form": VoidForm(),
         "erp_stages": [s.value for s in ERP_STAGES],
         "ship_links": links, "all_totals": link_totals(all_lines), "linkable_ships": linkable,

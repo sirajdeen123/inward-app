@@ -8,6 +8,7 @@
   <div class="grow"></div>
   {% if can_edit %}<a href="{% url 'iw:edit' iw.pk %}" class="btn">{% if iw.status == 'DRAFT' %}Continue draft{% else %}Edit{% endif %}</a>{% endif %}
 </div>
+{% if truck|length > 1 %}<div class="alert alert-info">Co-loaded truck {{ iw.vehicle_no }}: {% for m in truck %}<a href="{% url 'iw:detail' m.pk %}">{{ m }}</a> ({{ m.source_org|default:"-" }}, LR {{ m.lr_no|default:"-" }}){% if not forloop.last %} + {% endif %}{% endfor %} - one unloading checklist and one unloading charge for the truck; each IW keeps its own MRA.</div>{% endif %}
 {% if iw.status != 'VOID' %}{% next_step iw %}{% endif %}
 {% if iw.status == 'VOID' %}<div class="alert alert-error">VOID on {{ iw.voided_at|date:"d-M-Y h:i A" }} - {{ iw.void_reason }}. The number is kept and never reused.</div>{% endif %}
 {% if pending_void %}<div class="alert alert-warning">VOID requested by {{ pending_void.requested_by }} on {{ pending_void.created_at|date:"d-M-Y h:i A" }}: "{{ pending_void.reason }}" - waiting for CFA Manager approval.</div>{% endif %}

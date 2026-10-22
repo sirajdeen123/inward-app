@@ -39,6 +39,7 @@ class IwData:
     remarks: str = ""
     gate_register_no: str = ""
     second_trip: bool = False   # the clerk confirmed a genuine second trip of the vehicle on the same day
+    coload: bool = False        # same truck, another consignment / LR (co-loaded with the IW already entered)
     source_email: str = ""      # MRA "To" address of the source, typed when the organisation has none yet
 
 
@@ -126,10 +127,15 @@ def _check_duplicate(data: IwData, exclude_pk=None) -> None:
                           f"Open {dup} instead of creating it again.")
     day = timezone.localtime(data.arrival_at).date()
     same_day = [i for i in live.filter(vehicle_key=vkey) if timezone.localtime(i.arrival_at).date() == day]
-    if same_day and not data.second_trip:
+    if data.coload and not same_day:
+        raise IwError(f"'Same truck - another consignment' is ticked, but vehicle {clean_text(data.vehicle_no).upper()} "
+                      f"has no other IW on {day:%d-%b-%Y}. Enter the first consignment normally.")
+    if same_day and not (data.second_trip or data.coload):
         raise IwError(f"Vehicle {clean_text(data.vehicle_no).upper()} already has {', '.join(map(str, same_day))} "
-                      f"arriving on {day:%d-%b-%Y}. If this is a genuine second trip, tick 'Genuine second trip' "
-                      "and save again; otherwise open the existing IW.")
+                      f"arriving on {day:%d-%b-%Y}. If this truck carries another consignment (another source / LR), "
+                      "tick 'Same truck - another consignment'; if it is a genuine second trip, tick 'Genuine second "
+                      "trip'; then save again. Otherwise open the existing IW.")
+    return same_day
 
 
 def _apply(iw: Iw, data: IwData) -> None:
@@ -179,15 +185,19 @@ def create(user: User, data: IwData, draft: Iw | None = None) -> Iw:
     iw = draft or Iw(created_by=user)
     if iw.pk and iw.status != Iw.Status.DRAFT:
         raise IwError("This IW is already created.")
-    _check_duplicate(data, iw.pk)
+    same_day = _check_duplicate(data, iw.pk)
     _source_email(user, data)
     _apply(iw, data)
+    if data.coload and same_day:
+        from inward.iw.coload import lead_of
+        iw.coload_lead = lead_of(sorted(same_day, key=lambda x: (x.created_at, x.pk))[0])
     iw.iw_no = next_iw_number(data.arrival_at)
     iw.fy_code = fy_code(data.arrival_at)
     iw.status = Iw.Status.OPEN
     iw.save()
     audit.record("IW_CREATED", "iw", iw.pk, user=user, iw_id=iw.pk,
-                 after=_snapshot(iw) | ({"second_trip_confirmed": True} if data.second_trip else {}))
+                 after=_snapshot(iw) | ({"second_trip_confirmed": True} if data.second_trip else {})
+                 | ({"coloaded_with": str(iw.coload_lead)} if iw.coload_lead_id else {}))
     return iw
 
 

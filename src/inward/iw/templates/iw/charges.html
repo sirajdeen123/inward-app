@@ -34,7 +34,10 @@
   {% if editable %}<p><button type="submit" name="action" value="weights" class="btn">Save weights</button></p>{% endif %}
 </form>
 
-<form method="post" class="card form-grid">{% csrf_token %}
+{% if charged_with %}<div class="card"><h2>3 · Unloading charge and payment</h2>
+  <p>This truck also carries {% for m in truck %}{% if m.pk != iw.pk %}{{ m }}{% if not forloop.last %}, {% endif %}{% endif %}{% endfor %}. The unloading of the <b>whole truck</b> is recorded once, on <a href="{% url 'iw:charges' charged_with.pk %}">{{ charged_with }}</a>{% if lead_rec %} - <b>Rs {{ lead_rec.charge|floatformat:2 }}</b>, {{ lead_rec.get_status_display }}{% else %} - <span class="warn-text">not recorded yet</span>{% endif %}.</p>
+  <p class="muted">Package counts (1) stay per IW: each source's MRA shows its own packages.</p></div>
+{% else %}<form method="post" class="card form-grid">{% csrf_token %}
   <h2 class="span-all">3 · Unloading charge and payment
     {% if rec %}<span class="chip {% if rec.status == 'EXEMPT_REQ' %}chip-warn{% else %}chip-ok{% endif %}">{{ rec.get_status_display }}</span>{% else %}<span class="chip chip-warn">Not recorded</span>{% endif %}</h2>
   {% if exempt_rejected %}<div class="alert alert-error span-all">The CFA Manager rejected Exempt / Nil{% if rec.exempt_request.decision_note %}: {{ rec.exempt_request.decision_note }}{% endif %}. Record the payment position.</div>{% endif %}
@@ -60,7 +63,8 @@
   {% if not iw.transporter %}<p class="warn-text span-all">No transporter on this IW - Part paid / Outstanding need one (edit the IW).</p>{% endif %}
   <div class="span-all"><button type="submit" class="btn btn-primary">Save unloading</button> <a class="btn" href="{% url 'iw:ledger' %}">Transporter ledger</a></div>
   {% endif %}
-</form>
+</form>{% if truck|length > 1 %}<p class="muted">Co-loaded truck: this charge covers {% for m in truck %}{{ m }}{% if not forloop.last %} + {% endif %}{% endfor %} - enter the tonnage of the whole truck (the suggestion adds all their gross weights).</p>{% endif %}
+{% endif %}
 {% endwith %}
 <script src="{% static 'inward/charge.js' %}" defer></script>
 {% endblock %}

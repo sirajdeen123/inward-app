@@ -60,6 +60,7 @@ def from_checklist(iw: Iw) -> list[PackageCount]:
     snap = iw.checklists.first()
     if snap is None:
         raise IwError("Generate the unloading checklist first - package counts are taken from it.")
+    content = snap.content.get("own") or snap.content     # co-loaded truck: this IW's own packages for its MRA
     acc: dict[tuple[str, str], PackageCount] = {}
 
     def add(wh, group, label, unit, n, order):
@@ -67,7 +68,7 @@ def from_checklist(iw: Iw) -> list[PackageCount]:
                                                       count=Decimal(0), sort_order=order))
         pc.count += Decimal(str(n))
 
-    for sheet in snap.content["sheets"]:
+    for sheet in content["sheets"]:
         if sheet["key"] == "OTHER":
             cb = sheet["other"]["colour_bank"]
             if cb:
@@ -141,8 +142,10 @@ def weights(iw: Iw) -> list[Weight]:
 
 
 def suggested_tonnage(iw: Iw) -> tuple[Decimal | None, Decimal]:
-    """(tonnes as the clerks write them - total kg / 1000 cut to one decimal, e.g. 13,256 kg -> 13.2; total kg)."""
-    ws = weights(iw)
+    """(tonnes as the clerks write them - total kg / 1000 cut to one decimal, e.g. 13,256 kg -> 13.2; total kg).
+    The lead IW of a co-loaded truck counts the whole truck (22-Oct-2026)."""
+    from inward.iw.coload import charge_iw, members
+    ws = [w for m in members(iw) if charge_iw(m).pk == iw.pk for w in weights(m)] or weights(iw)
     total = sum((w.kg for w in ws if w.kg), Decimal(0))
     if not total:
         return None, Decimal(0)
@@ -206,6 +209,10 @@ def record(user: User, iw_pk: int, data: UnloadingInput, version: int | None = N
     require(user, "UNLOADING_RECORD")
     iw = Iw.objects.select_for_update(of=("self",)).select_related("transporter").get(pk=iw_pk)
     _require_before_mra(iw)
+    from inward.iw.coload import charge_iw
+    lead = charge_iw(iw)
+    if lead.pk != iw.pk:
+        raise IwError(f"This truck is co-loaded with {lead}: the unloading of the whole truck is recorded once, on {lead}.")
     rec = UnloadingRecord.objects.select_for_update().filter(iw=iw).first()
     suggested, _ = suggested_tonnage(iw)
     if rec and version is not None and int(version) != rec.version:
@@ -301,8 +308,9 @@ def apply_exempt(req: ApprovalRequest, approver: User) -> None:
 
 
 def gate_ok(iw: Iw) -> bool:
-    """G04-ULC: unloading amount and payment / ledger position recorded."""
-    rec = UnloadingRecord.objects.filter(iw=iw).first()
+    """G04-ULC: unloading amount and payment / ledger position recorded (a co-loaded IW follows its lead IW)."""
+    from inward.iw.coload import charge_iw
+    rec = UnloadingRecord.objects.filter(iw=charge_iw(iw)).first()
     return bool(rec) and rec.status in UnloadingRecord.SETTLED
 
 # ---------------------------------------------------------------- transporter ledger

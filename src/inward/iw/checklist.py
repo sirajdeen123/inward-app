@@ -136,7 +136,38 @@ def _sheet(key: str, title: str, lines: list[Line]) -> dict:
             "pieces": sum((ln.pieces for ln in lines), Decimal(0)), "ltr": ltr, "kg": kg}
 
 
-def build(iw: Iw) -> Build:
+def build(iw: Iw, own_only: bool = False) -> Build:
+    """The truck's checklist: a co-loaded IW includes the other IWs of the same truck (own_only=False), each line's
+    'From' naming its IW; own_only=True gives this IW's material alone (its MRA package counts)."""
+    from inward.iw.coload import members
+    group = [iw] if own_only else members(iw)
+    if len(group) > 1:
+        merged, hashes = Build(), []
+        for m in group:
+            part = build(m, own_only=True)
+            hashes.append(part.source_hash)
+            prefix = f"{m.iw_no} · "
+            for s in part.sheets:
+                if s["key"] == "OTHER":
+                    tgt = next((x for x in merged.sheets if x["key"] == "OTHER"), None)
+                    if tgt is None:
+                        merged.sheets.append({"key": "OTHER", "title": s["title"],
+                                              "other": {"colour_bank": [], "non_stock": []}})
+                        tgt = merged.sheets[-1]
+                    for c in s["other"]["colour_bank"]:
+                        tgt["other"]["colour_bank"].append({**c, "challan": prefix + str(c["challan"])})
+                    for n in s["other"]["non_stock"]:
+                        tgt["other"]["non_stock"].append({**n, "document": prefix + str(n["document"])})
+                    continue
+                for g in s["groups"]:
+                    for ln in g["lines"]:
+                        ln.source = prefix + ln.source
+                        ln.parts = [(prefix + src, n) for src, n in ln.parts] if len(ln.parts) > 1 else []
+                merged.sheets.append(s)
+            merged.blockers += [f"{m}: {x}" for x in part.blockers]
+            merged.warnings += [f"{m}: {x}" for x in part.warnings]
+            merged.missing_packaging += part.missing_packaging
+        return _merge_sheets(merged, hashes)
     b = Build()
     warehouse_of = dict(BusinessLineWarehouse.objects.values_list("business_line", "warehouse"))
     groups = {g.code: g for g in PackageType.objects.all()}
@@ -208,6 +239,50 @@ def build(iw: Iw) -> Build:
     return b
 
 
+def _merge_sheets(merged: Build, hashes: list[str]) -> Build:
+    """Sheets of the same warehouse from the truck's IWs become one sheet; a SKU on both is one row."""
+    out, order = {}, []
+    for s in merged.sheets:
+        if s["key"] in ("OTHER",) or s.get("keep_separate"):
+            out[id(s)] = s
+            order.append(id(s))
+            continue
+        if s["key"] not in out:
+            out[s["key"]] = {"key": s["key"], "title": s["title"], "lines": []}
+            order.append(s["key"])
+        out[s["key"]]["lines"] += [ln for g in s["groups"] for ln in g["lines"]]
+    sheets = []
+    for k in order:
+        s = out[k]
+        if "groups" in s or s["key"] == "OTHER":
+            sheets.append(s)
+            continue
+        rows: dict[tuple, Line] = {}
+        for ln in s["lines"]:
+            key = (ln.sku, ln.group)
+            parts = ln.parts or [(ln.source, ln.pieces)]
+            m = rows.get(key)
+            if m is None:
+                ln.parts = list(parts)
+                rows[key] = ln
+                continue
+            m.pieces += ln.pieces
+            m.measure += ln.measure
+            m.full += ln.full
+            m.loose += ln.loose
+            m.parts += parts
+        for m in rows.values():
+            if len(m.parts) > 1:
+                m.source = " + ".join(src for src, _ in m.parts)
+            else:
+                m.parts = []
+        sheets.append(_sheet(s["key"], s["title"], list(rows.values())))
+    merged.sheets = sheets
+    merged.missing_packaging = sorted({ln.sku: ln for ln in merged.missing_packaging}.values(), key=lambda x: x.sku)
+    merged.source_hash = hashlib.sha256(json.dumps(sorted(hashes)).encode()).hexdigest()
+    return merged
+
+
 def _serialise(b: Build) -> dict:
     sheets = []
     for s in b.sheets:
@@ -232,8 +307,23 @@ def generate(user: User, iw_pk: int) -> ChecklistSnapshot:
     b = build(iw)
     if b.blockers:
         raise IwError(" ".join(b.blockers))
+    from inward.iw.coload import members
+    group = members(iw)
+    for other in group:          # co-loaded truck: the same checklist on every IW of the truck still open for it
+        if other.pk == iw.pk or other.status not in (Iw.Status.OPEN, Iw.Status.MATERIAL_LINKED,
+                                                     Iw.Status.UNLOADING_IN_PROGRESS):
+            continue
+        _snapshot_for(user, Iw.objects.select_for_update().get(pk=other.pk), b, group)
+    return _snapshot_for(user, iw, b, group)
+
+
+def _snapshot_for(user: User, iw: Iw, b: Build, group: list) -> ChecklistSnapshot:
+    content = _serialise(b)
+    if len(group) > 1:
+        content["own"] = _serialise(build(iw, own_only=True))     # this IW's packages, for its own MRA
+        content["truck"] = [str(m) for m in group]
     rev = (iw.checklists.aggregate(m=Max("revision"))["m"] or 0) + 1
-    snap = ChecklistSnapshot.objects.create(iw=iw, revision=rev, content=_serialise(b), content_hash=b.source_hash,
+    snap = ChecklistSnapshot.objects.create(iw=iw, revision=rev, content=content, content_hash=b.source_hash,
                                             generated_by=user)
     if iw.status in (Iw.Status.OPEN, Iw.Status.MATERIAL_LINKED):
         iw.status = Iw.Status.UNLOADING_IN_PROGRESS

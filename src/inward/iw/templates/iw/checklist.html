@@ -7,6 +7,7 @@
   {% if current %}<a class="btn btn-primary" href="{% url 'iw:checklist_print' iw.pk current.revision %}" target="_blank" rel="noopener">Print revision {{ current.revision }}</a>{% endif %}</div>
 {% next_step iw %}
 <p class="muted">{{ iw.load_type }} · {{ iw.vehicle_no }} · arrival {{ iw.arrival_at|date:"d-M-Y h:i A" }} · {% iw_status iw %}</p>
+{% if truck|length > 1 %}<div class="alert alert-info">One checklist for the whole truck: {% for m in truck %}{{ m }}{% if not forloop.last %} + {% endif %}{% endfor %}. Generating it here also puts it on the other IW(s).</div>{% endif %}
 
 {% for b in build.blockers %}<div class="alert alert-error">{{ b }}</div>{% endfor %}
 {% for w in build.warnings %}<div class="alert alert-warning">{{ w }}</div>{% endfor %}

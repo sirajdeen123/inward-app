@@ -427,13 +427,20 @@ def test_cn_report_fetched_from_gmail(env, monkeypatch):
     assert out.status == "imported" and "already loaded" in out.message
 
 
-def test_cn_report_missing_after_deadline(env):
+def test_cn_report_late_is_still_loaded(env, monkeypatch):
+    """The real mail came at 12:08 PM on 22-Oct-2026: after 11:00 it is flagged late but still loaded that day."""
     from django.core.cache import cache
 
     from inward.domain.fy import IST
     from inward.rma import autofetch
     cache.delete(autofetch.CACHE_KEY)
     day = timezone.localdate()
-    assert autofetch.run(CnInbox(), datetime(day.year, day.month, day.day, 11, 5, tzinfo=IST)) == "missing"
+    at = lambda h, m: datetime(day.year, day.month, day.day, h, m, tzinfo=IST)   # noqa: E731
+    assert autofetch.run(CnInbox(), at(11, 5)) == "late"
+    monkeypatch.setattr(timezone, "localtime", lambda *a: at(11, 30) if not a else a[0].astimezone(IST))
     st = autofetch.today_status(day)
-    assert not st["ok"] and st["text"].startswith("No CN report received by 11:00 AM")
+    assert not st["ok"] and st["text"] == "No CN report received by 11:00 AM - still checking every 10 minutes"
+    cache.delete(autofetch.CACHE_KEY)
+    f = cn_report(env["tmp"], 15999, [("F006980D98020000", 4)])
+    assert autofetch.run(CnInbox(at(12, 8), [f]), at(12, 10)) == "imported"
+    assert autofetch.today_status(day)["ok"]

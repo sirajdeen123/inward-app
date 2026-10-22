@@ -4,8 +4,9 @@ Oracle mails the "XXGST BPIL RMA CN INV Report" to 035cfa@gmail.com every mornin
 the mail worker looks - every 10 minutes - for today's mail whose subject contains the configured text and loads its
 .xls / .xlsx attachment through the same import as the manual upload (depot check, repeated lines counted once,
 each credit note replaced by its newest lines, the automatic IRR link afterwards). Once per day (ReportRun
-RMA_CN_FETCH); a file already uploaded by hand is recognised. If nothing has come by the deadline the day is
-recorded as missing - the 09:30 Material returns report says so. The Upload button stays as the fallback.
+RMA_CN_FETCH); a file already uploaded by hand is recognised. After the deadline the report counts as late (the
+Material returns report says so) but the worker keeps looking for the rest of the day - on 22-Oct-2026 the mail came
+at 12:08 PM. The Upload button stays as the fallback.
 """
 from __future__ import annotations
 
@@ -58,9 +59,14 @@ def today_status(day=None) -> dict | None:
     from inward.iw.models import ReportRun
     day = day or timezone.localdate()
     run = ReportRun.objects.filter(kind=KIND, period=day.isoformat()).first()
-    if run is None:
-        return None
-    return {"ok": not run.skipped.startswith("No CN"), "text": run.skipped, "at": timezone.localtime(run.created_at)}
+    if run is not None:
+        return {"ok": True, "text": run.skipped, "at": timezone.localtime(run.created_at)}
+    deadline = settings_now()["deadline"]
+    now = timezone.localtime()
+    if day < now.date() or now.time() >= deadline:
+        still = " - still checking every 10 minutes" if day == now.date() else ""
+        return {"ok": False, "text": f"No CN report received by {deadline:%I:%M %p}{still}", "at": None}
+    return None
 
 
 def _finish(day, note: str):
@@ -120,6 +126,5 @@ def run(transport, now: datetime | None = None) -> str:
         _finish(day, out.message)
         return "imported"
     if now.time() >= s["deadline"]:
-        _finish(day, f"No CN report received by {s['deadline']:%I:%M %p}: {out.message}")
-        return "missing"
+        return "late"          # flagged as late in the report; still looked for until the day ends
     return out.status

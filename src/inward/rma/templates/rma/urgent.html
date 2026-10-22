@@ -1,0 +1,28 @@
+{% extends "web/base.html" %}
+{% block title %}Urgent approval reminder{% endblock %}
+{% block content %}
+<p><a href="{% if only %}{% url 'rma:detail' only %}{% else %}{% url 'rma:index' %}{% endif %}">&larr; {% if only %}Request {{ only }}{% else %}Material returns{% endif %}</a></p>
+<h1>Urgent approval reminder</h1>
+<p class="muted">For an approval needed today (e.g. the dealer's account is locked). Tick the approver(s) and only the urgent request(s), give the reason, check the preview and send. The 09:30 daily mails go on as usual.</p>
+<form method="post">{% csrf_token %}<input type="hidden" name="only" value="{{ only }}">
+  {% for g in groups %}<div class="card">
+    <label class="check"><input type="checkbox" name="g_{{ g.key }}" value="1"{% if g.picked %} checked{% endif %}> <b>{% for a in g.approvers %}{{ a.name }}{% if not forloop.last %} / {% endif %}{% endfor %}</b></label>
+    <span class="muted">· {{ g.rows|length }} request{{ g.rows|pluralize }} · Rs {{ g.value|floatformat:0 }}{% if g.missing %} · no e-mail for {{ g.missing|join:", " }}{% endif %}</span>
+    <table class="tbl tbl-compact"><thead><tr><th></th><th>Request</th><th>Dealer</th><th class="num">Value (Rs)</th><th>Status</th><th>Days with them</th><th></th></tr></thead>
+    <tbody>{% for x in g.rows %}<tr><td><input type="checkbox" name="r_{{ g.key }}_{{ x.r.request_id }}" value="1" aria-label="Request {{ x.r.request_id }}"{% if x.picked %} checked{% endif %}></td>
+      <td><a href="{% url 'rma:detail' x.r.request_id %}">{{ x.r.request_id }}</a></td><td>{{ x.r.dealer_name }}</td><td class="num">{{ x.r.total_value|floatformat:0 }}</td><td>{{ x.r.status }}</td>
+      <td><span class="chip rag-{{ x.stage_flag }}">{{ x.days_at_stage|default_if_none:"-" }}</span></td>
+      <td>{% if x.urgent_recent %}<span class="warn-text">urgent sent {{ x.urgent_recent.created_at|date:"h:i A" }}</span>{% endif %}</td></tr>{% endfor %}</tbody></table>
+  </div>{% empty %}<div class="card"><p class="muted">Nothing is pending approval with an approver who has an e-mail{% if only %} for request {{ only }}{% endif %}.</p></div>{% endfor %}
+  {% if groups %}<div class="card form-grid">
+    <div class="field"><label for="rk">Why is it urgent? *</label><select id="rk" name="reason_kind"><option value="">- choose -</option>{% for r in reasons %}<option{% if r == reason_kind %} selected{% endif %}>{{ r }}</option>{% endfor %}</select></div>
+    <div class="field"><label for="rt">Details (dealer, amount ...)</label><input id="rt" name="reason_text" value="{{ reason_text }}" maxlength="200"></div>
+    <div class="field span-all"><label class="check"><input type="checkbox" name="force" value="1"> send again anyway (already sent as urgent in the last 2 hours)</label></div>
+    <div class="span-all"><button type="submit" name="action" value="preview" class="btn">Preview</button>
+      {% if preview %}<button type="submit" name="action" value="send" class="btn btn-primary">Send urgent reminder</button>{% endif %}</div>
+  </div>{% endif %}
+  {% if preview %}<div class="card"><h2>Preview - what will be sent</h2>
+    {% for p in preview %}<p><b>To:</b> {{ p.to|join:", " }}<br><b>Cc:</b> {{ p.cc|join:", "|default:"-" }}<br><b>Requests:</b> {% for x in p.rows %}{{ x.r.request_id }} ({{ x.r.dealer_name }}){% if not forloop.last %}, {% endif %}{% endfor %}</p>{% endfor %}
+    <p class="muted">Subject starts with "URGENT - material return approval needed"; the reason is printed in red at the top.</p></div>{% endif %}
+</form>
+{% endblock %}

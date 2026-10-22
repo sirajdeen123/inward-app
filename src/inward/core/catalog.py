@@ -16,6 +16,7 @@ PERMISSIONS = {
     "RMA_WORK": "Material returns: GRN, portal / CN / master uploads, links, IRR TRX",
     "RMA_CLOSE": "Material returns: close a return after the godown check (or a rejected one)",
     "RMA_MASTER": "Material returns: portal approver e-mails, Sales Officer e-mails",
+    "RMA_URGENT_MAIL": "Material returns: send an urgent approval reminder to chosen approvers",
     "DAMAGE_REPORT": "Internal damage: list damaged material with photos, send for approval",
     "DAMAGE_TRX": "Internal damage: enter the DMG transfer TRX No, reconcile, decide reason codes",
     "CASH_REGISTER": "Cash register: receive cash, expenses, handovers, statement",
@@ -83,6 +84,7 @@ MATRIX: dict[str, dict[str, str]] = {
     "RMA_WORK": {"DEPOT_CLERK": G, "SYSTEM_SUPERVISOR": G, "CFA_MANAGER": G},
     "RMA_CLOSE": {"SYSTEM_SUPERVISOR": G, "CFA_MANAGER": G},
     "RMA_MASTER": {"SYSTEM_SUPERVISOR": G, "CFA_MANAGER": G},
+    "RMA_URGENT_MAIL": {"DEPOT_CLERK": G, "SYSTEM_SUPERVISOR": G, "CFA_MANAGER": G},
 }
 
 LOAD_TYPES = [

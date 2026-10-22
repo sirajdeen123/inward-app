@@ -16,7 +16,7 @@ from inward.core import documents
 from inward.importers.common import ImportFailed
 from inward.rma import autofetch, mails, register, report
 from inward.rma import services as svc
-from inward.rma.models import Approver, Condition, CustomerSite, Grn, IrrLink, Request, Territory, TransportMode
+from inward.rma.models import Approver, ApproverMail, Condition, CustomerSite, Grn, IrrLink, Request, Territory, TransportMode
 from inward.web.views import needs, upload_done
 
 ERRORS = (svc.RmaError, ImportFailed, PermissionDenied)
@@ -276,7 +276,9 @@ def detail(request, request_id):
         "sites": svc.territories_of(r.dealer_code) if not r.closed_at else [],
         "blockers": svc.close_blockers(r, recon) if not r.closed_at else [],
         "can_close": _can(request.user, "RMA_CLOSE"), "events": r.events.all(), "pdfs": pdfs,
-        "steps": svc.steps(r, recon)})
+        "steps": svc.steps(r, recon),
+        "urgent_sent": ApproverMail.objects.filter(kind="URGENT", requests__contains=[r.pk]).select_related("sent_by")
+        .order_by("-created_at")[:5], "can_urgent": _can(request.user, "RMA_URGENT_MAIL")})
 
 
 @require_POST
@@ -395,6 +397,45 @@ def register_xlsx(request):
     from django.utils import timezone
     resp["Content-Disposition"] = f'attachment; filename="Materials Return Register {timezone.localdate():%d-%m-%Y}.xlsx"'
     return resp
+
+
+@needs("RMA_URGENT_MAIL")
+def urgent(request):
+    """Urgent approval reminder: tick the approver group(s) and the request(s), give the reason, preview, send."""
+    only = request.GET.get("request", "") or request.POST.get("only", "")
+    groups = mails.urgent_groups(only)
+    picks = {g["key"]: {x.r.request_id for x in g["rows"] if request.POST.get(f"r_{g['key']}_{x.r.request_id}")}
+             for g in groups if request.POST.get(f"g_{g['key']}")} if request.method == "POST" else {}
+    reason_kind, reason_text = request.POST.get("reason_kind", ""), request.POST.get("reason_text", "")
+    for g in groups:
+        g["picked"] = bool(only) if request.method != "POST" else g["key"] in picks
+        for x in g["rows"]:
+            x.picked = request.method != "POST" or x.r.request_id in picks.get(g["key"], set())
+    preview = []
+    if request.method == "POST":
+        try:
+            if request.POST.get("action") == "send":
+                sent = mails.send_urgent(request.user, picks, reason_kind, reason_text, bool(request.POST.get("force")))
+                messages.success(request, f"Urgent reminder sent ({len(sent)} mail(s)): " + "; ".join(
+                    f"{', '.join(m.mail.to)} - request(s) {', '.join(m.requests)}" for m in sent) + ".")
+                return redirect(reverse("rma:detail", args=[only]) if only else reverse("rma:index"))
+            if not any(picks.values()):
+                raise svc.RmaError("Tick at least one approver and request.")
+            if reason_kind not in mails.URGENT_REASONS:
+                raise svc.RmaError("Choose why it is urgent.")
+            cc_base = mails.approval_cc()
+            for g in groups:
+                ids = picks.get(g["key"])
+                if ids:
+                    rows = [x for x in g["rows"] if x.r.request_id in ids]
+                    sos = sorted({x.sales_officer[1] for x in rows if x.sales_officer and x.sales_officer[1]})
+                    preview.append({"g": g, "rows": rows, "to": [a.email for a in g["approvers"]],
+                                    "cc": [c for c in cc_base + sos if c not in [a.email for a in g["approvers"]]]})
+        except (svc.RmaError, PermissionDenied) as exc:
+            messages.error(request, str(exc))
+    return render(request, "rma/urgent.html", {
+        "groups": groups, "only": only, "reasons": mails.URGENT_REASONS, "picks": picks, "preview": preview,
+        "reason_kind": reason_kind, "reason_text": reason_text, "posted": request.method == "POST"})
 
 
 @needs("RMA_WORK")

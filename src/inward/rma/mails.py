@@ -63,7 +63,7 @@ def daily_recipients() -> tuple[list[str], list[str], list[str]]:
 # ---------------------------------------------------------------- approver mails
 
 
-def _queue_approver(g: dict, rws: list, kind: str, day: date) -> ApproverMail | None:
+def _queue_approver(g: dict, rws: list, kind: str, day: date, reason: str = "", user=None) -> ApproverMail | None:
     """One mail to the whole Pending At group - every member in To, any one of them can approve."""
     from inward.iw import comms
     from inward.iw.models import MailMessage
@@ -71,7 +71,13 @@ def _queue_approver(g: dict, rws: list, kind: str, day: date) -> ApproverMail | 
     sos = sorted({row.sales_officer[1].lower() for row in rws if row.sales_officer and row.sales_officer[1]})
     cc = [c for c in approval_cc() + sos if c not in to]
     value = sum((row.r.total_value for row in rws), ZERO)
-    if kind == "NEW":
+    if kind == "URGENT":
+        first = rws[0].r
+        ids = ", ".join(row.r.request_id for row in rws[:5]) + (" ..." if len(rws) > 5 else "")
+        dealer = first.dealer_name if len({row.r.dealer_code for row in rws}) == 1 else f"{len(rws)} requests"
+        subject = (f"URGENT - material return approval needed - request {ids} - {dealer} - Rs {value:,.0f} - "
+                   f"Depot {depot_code()}")
+    elif kind == "NEW":
         ids = ", ".join(row.r.request_id for row in rws[:5]) + (" ..." if len(rws) > 5 else "")
         subject = f"New material return pending your approval - request {ids} - Rs {value:,.0f} - Depot {depot_code()}"
     else:
@@ -80,15 +86,83 @@ def _queue_approver(g: dict, rws: list, kind: str, day: date) -> ApproverMail | 
     with transaction.atomic():
         try:
             am = ApproverMail.objects.create(approver=g["approvers"][0], group=g["key"], kind=kind, day=day,
-                                             requests=[row.r.request_id for row in rws])
+                                             requests=[row.r.request_id for row in rws], reason=reason[:300],
+                                             sent_by=user)
         except IntegrityError:
             return None
         m = comms._queue(None, MailMessage.Purpose.RMA_APPROVAL, None, f"RMA-APPR {g['key']} {day:%Y%m%d} {kind}",
                          to, cc, subject, "rma/mail/approval.html",
-                         {"g": g, "rows": rws, "kind": kind, "day": day, "value": value, "as_on": as_on()}, [], _user())
+                         {"g": g, "rows": rws, "kind": kind, "day": day, "value": value, "as_on": as_on(),
+                          "reason": reason}, [], user or _user())
         am.mail = m
         am.save(update_fields=["mail"])
     return am
+
+
+# ---------------------------------------------------------------- urgent reminder, sent by hand (22-Oct-2026)
+
+URGENT_REASONS = ["Dealer account is locked until this return is approved", "Dealer follow-up / escalation",
+                  "Credit note needed urgently", "Other"]
+URGENT_GAP_HOURS = 2
+
+
+def urgent_groups(only_request: str = "") -> list[dict]:
+    """Pending-approval groups (all approvers of a request together) with their requests, for the urgent screen."""
+    rws = svc.rows(Request.objects.filter(closed_at__isnull=True))
+    groups = svc.pending_groups(rws)
+    if only_request:
+        groups = [dict(g, rows=[x for x in g["rows"] if x.r.request_id == only_request]) for g in groups]
+        groups = [g for g in groups if g["rows"]]
+    since = timezone.now() - timedelta(hours=URGENT_GAP_HOURS)
+    recent = list(ApproverMail.objects.filter(kind="URGENT", created_at__gte=since))
+    for g in groups:
+        g["value"] = sum((x.r.total_value for x in g["rows"]), ZERO)
+        for x in g["rows"]:
+            x.urgent_recent = next((m for m in recent if m.group == g["key"] and x.r.request_id in m.requests), None)
+    return groups
+
+
+def send_urgent(user, picks: dict[str, set[str]], reason_kind: str, reason_text: str, force: bool = False) -> list:
+    """picks: group key -> request ids. One URGENT mail per chosen group with only the chosen requests."""
+    from inward.accounts.services import require
+    from inward.core import audit
+    require(user, "RMA_URGENT_MAIL")
+    if reason_kind not in URGENT_REASONS:
+        raise svc.RmaError("Choose why it is urgent.")
+    text = " ".join(str(reason_text or "").split())
+    if reason_kind == "Other" and len(text) < 5:
+        raise svc.RmaError("Write why it is urgent.")
+    reason = reason_kind if reason_kind != "Other" else text
+    if text and reason_kind != "Other":
+        reason = f"{reason_kind} - {text}"
+    groups = {g["key"]: g for g in urgent_groups()}
+    chosen = {k: v for k, v in picks.items() if v}
+    if not chosen:
+        raise svc.RmaError("Tick at least one approver and request.")
+    plan = []
+    for key, ids in chosen.items():
+        g = groups.get(key)
+        if g is None:
+            raise svc.RmaError("The pending approvers have changed - reload the page.")
+        rows = [x for x in g["rows"] if x.r.request_id in ids]
+        if len(rows) != len(ids):
+            raise svc.RmaError("A ticked request is no longer pending with these approvers - reload the page.")
+        repeat = [x for x in rows if x.urgent_recent]
+        if repeat and not force:
+            x = repeat[0]
+            raise svc.RmaError(f"Request {x.r.request_id} was already sent as urgent to "
+                               f"{' / '.join(a.name for a in g['approvers'])} at "
+                               f"{timezone.localtime(x.urgent_recent.created_at):%I:%M %p} - tick 'send again anyway' "
+                               "to repeat it within 2 hours.")
+        plan.append((g, rows))
+    day = timezone.localdate()
+    sent = []
+    for g, rows in plan:
+        am = _queue_approver(g, rows, "URGENT", day, reason=reason, user=user)
+        sent.append(am)
+        audit.record("RMA_URGENT_REMINDER", "rma_approver_mail", am.pk, user=user,
+                     after={"to": am.mail.to, "cc": am.mail.cc, "requests": am.requests, "reason": reason})
+    return sent
 
 
 def as_on():

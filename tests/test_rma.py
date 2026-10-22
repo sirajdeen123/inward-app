@@ -444,3 +444,38 @@ def test_cn_report_late_is_still_loaded(env, monkeypatch):
     f = cn_report(env["tmp"], 15999, [("F006980D98020000", 4)])
     assert autofetch.run(CnInbox(at(12, 8), [f]), at(12, 10)) == "imported"
     assert autofetch.today_status(day)["ok"]
+
+
+def test_urgent_reminder_to_chosen_approvers_only(client, env):
+    """22-Oct-2026: an urgent reminder by hand - chosen approver group(s), chosen request(s), reason, 2-hour guard."""
+    clerk, cfa, tmp = env["clerk"], env["cfa"], env["tmp"]
+    svc.import_portal(clerk, portal(tmp, "p.xlsx", [
+        ("1", "1187422-NATARAJA", "500", "DM Pending", "S Muthusamy , Vignesh Kuttalam", "", LINES),
+        ("2", "1187422-NATARAJA", "501", "DM Pending", "S Muthusamy , Vignesh Kuttalam", "", LINES),
+        ("3", "1187422-NATARAJA", "502", "RSM Pending", "Jagan V", "", LINES)]), "p.xlsx")
+    for name, mail in (("S Muthusamy", "sm@example.com"), ("Vignesh Kuttalam", "vk@example.com"), ("Jagan V", "jv@example.com")):
+        svc.save_approver(cfa, svc.approver_for(name).pk, mail, True)
+    groups = {tuple(a.email for a in g["approvers"]): g for g in mails.urgent_groups()}
+    dm = groups[("sm@example.com", "vk@example.com")]
+    with pytest.raises(svc.RmaError, match="why it is urgent"):
+        mails.send_urgent(clerk, {dm["key"]: {"2"}}, "", "")
+    sent = mails.send_urgent(clerk, {dm["key"]: {"2"}}, mails.URGENT_REASONS[0], "Nataraja account locked")
+    m = sent[0].mail
+    assert m.to == ["sm@example.com", "vk@example.com"] and m.subject.startswith("URGENT - material return approval needed - request 2 ")
+    assert "Dealer account is locked until this return is approved - Nataraja account locked" in m.html_body
+    assert ">2<" in m.html_body and ">1<" not in m.html_body                       # only the chosen request
+    assert MailMessage.objects.filter(purpose="RMA_APPR").count() == 1               # Jagan V not mailed
+    with pytest.raises(svc.RmaError, match="send again anyway"):
+        mails.send_urgent(clerk, {dm["key"]: {"2"}}, "Dealer follow-up / escalation", "")
+    assert mails.send_urgent(clerk, {dm["key"]: {"2"}}, "Dealer follow-up / escalation", "", force=True)
+    c = verified_client(client, clerk)
+    page = c.get(reverse("rma:urgent") + "?request=3").content.decode()
+    assert "Jagan V" in page and "S Muthusamy" not in page                          # from one request's page
+    jv = next(g for g in mails.urgent_groups("3"))
+    resp = c.post(reverse("rma:urgent"), {"only": "3", f"g_{jv['key']}": "1", f"r_{jv['key']}_3": "1",
+                                          "reason_kind": "Credit note needed urgently", "action": "preview"})
+    assert "Preview - what will be sent" in resp.content.decode() and "jv@example.com" in resp.content.decode()
+    c.post(reverse("rma:urgent"), {"only": "3", f"g_{jv['key']}": "1", f"r_{jv['key']}_3": "1",
+                                   "reason_kind": "Credit note needed urgently", "action": "send"})
+    assert MailMessage.objects.filter(purpose="RMA_APPR", to=["jv@example.com"]).exists()
+    assert "Urgent reminder sent" in c.get(reverse("rma:detail", args=["3"])).content.decode()

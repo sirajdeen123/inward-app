@@ -270,10 +270,13 @@ class ApproverMail(models.Model):
     """Approval-pending mail to one approver: the 09:30 digest (once a day) or a same-day 'new pending' mail."""
     approver = models.ForeignKey(Approver, on_delete=models.PROTECT, related_name="mails")   # first of the group
     group = models.CharField(max_length=200, default="")   # approver ids of the Pending At group, e.g. "3,7"
-    kind = models.CharField(max_length=8)          # DIGEST / NEW
+    kind = models.CharField(max_length=8)          # DIGEST / NEW / URGENT (sent by hand, 22-Oct-2026)
     day = models.DateField()
     requests = models.JSONField(default=list)
     mail = models.ForeignKey("iw.MailMessage", null=True, on_delete=models.PROTECT, related_name="+")
+    reason = models.CharField(max_length=300, blank=True)           # URGENT: why it is urgent
+    sent_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT,
+                                related_name="+")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

@@ -36,7 +36,7 @@
 {% if stage == "IRR" %}<div class="alert alert-info">The Credit Note is in; the app links the IRR "Rma Receipt" TRX on its own when exactly one TRX has the same SKUs and pieces. The rest are listed here - open the request and pick the suggested TRX.</div>{% endif %}
 {% if stage == "CLOSE" %}<div class="alert alert-info">RMA No, Credit Note and IRR receipt are in. Print the handover sheet, let the godown check the material, then close - straight from this list when every quantity agrees.</div>{% endif %}
 <form method="get" class="filters"><input type="hidden" name="stage" value="{{ stage }}"><label for="q">Search</label><input id="q" name="q" value="{{ q }}" placeholder="Request / dealer / invoice / RMA / GRN / approver"><button type="submit" class="btn btn-sm">Find</button>
-  <a href="{% url 'rma:register' %}" class="btn btn-sm">Register (Excel)</a> <a href="{% url 'rma:daily_preview' %}" class="btn btn-sm">Today's report</a>{% if can_master %} <a href="{% url 'rma:approvers' %}" class="btn btn-sm">Approvers &amp; Sales Officers</a>{% endif %}</form>
+  <a href="{% url 'rma:register' %}" class="btn btn-sm">Register (Excel)</a> <a href="{% url 'rma:daily_preview' %}" class="btn btn-sm">Today's report</a> <a href="{% url 'rma:urgent' %}" class="btn btn-sm">Urgent reminder</a>{% if can_master %} <a href="{% url 'rma:approvers' %}" class="btn btn-sm">Approvers &amp; Sales Officers</a>{% endif %}</form>
 
 {% if stage == "GRN" %}
 <div class="card"><h2>GRN invoices not yet raised on the portal</h2>

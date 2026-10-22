@@ -21,4 +21,5 @@ urlpatterns = [
     path("approvers/", views.approvers, name="approvers"),
     path("register.xlsx", views.register_xlsx, name="register"),
     path("daily-report/", views.daily_preview, name="daily_preview"),
+    path("urgent/", views.urgent, name="urgent"),
 ]

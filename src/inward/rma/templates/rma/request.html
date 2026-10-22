@@ -23,6 +23,8 @@
     <tr><td>RCM</td><td>{{ r.rcm_by|default:"-" }} {{ r.rcm_date|date:"d-M-Y" }}</td></tr>
     {% if r.oracle_error %}<tr><td>Oracle</td><td class="warn-text">{{ r.oracle_status }} {{ r.oracle_error }}</td></tr>{% endif %}
   </tbody></table>
+  {% if approvers and can_urgent %}<p><a href="{% url 'rma:urgent' %}?request={{ r.request_id }}" class="btn btn-sm btn-primary">Send urgent reminder</a> <span class="muted">to the approver(s) of this request only</span></p>{% endif %}
+  {% for m in urgent_sent %}<p class="muted">Urgent reminder sent {{ m.created_at|date:"d-M-Y h:i A" }} by {{ m.sent_by|default:"-" }} - {{ m.reason }}</p>{% endfor %}
   {% if approvers %}<p><b>Pending with:</b> {% for x in approvers %}{{ x.name }} → {% if x.final and x.final.email %}{{ x.final.email }}{% if x.final != x.a %} <span class="muted">({{ x.final.name }} - replacement)</span>{% endif %}{% else %}<span class="warn-text">no e-mail - map on Approvers</span>{% endif %}{% if not forloop.last %}; {% endif %}{% endfor %}</p>{% endif %}
   <p>Sales Officer (Cc): {% if row.sales_officer %}<b>{{ row.sales_officer.0 }}</b> (territory {{ row.sales_officer.2 }}) {{ row.sales_officer.1|default:"- no e-mail" }}{% else %}<span class="muted">not resolved</span>{% endif %}</p>
   {% if sites|length > 1 %}<form method="post" action="{% url 'rma:bill_to' r.request_id %}" class="inline">{% csrf_token %}<label for="bt">Dealer has several Bill-To sites - this return is for</label>

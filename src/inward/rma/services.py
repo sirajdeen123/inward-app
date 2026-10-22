@@ -262,13 +262,14 @@ def save_territory_mail(user: User, territory_no: str, email: str) -> Territory:
 # ---------------------------------------------------------------- imports
 
 
-def _batch(kind: str, path: Path, filename: str, user: User, content_type="application/vnd.ms-excel"):
+def _batch(kind: str, path: Path, filename: str, user: User | None, content_type="application/vnd.ms-excel",
+           source: str = "MANUAL"):
     sha = file_sha256(path)
     if ImportBatch.objects.filter(kind=kind, sha256=sha).exists():
         raise RmaError(f"{filename} was already uploaded - nothing changed.")
     doc = documents.store(Path(path).read_bytes(), filename=filename, content_type=content_type, doc_type=kind,
                           user=user)
-    return ImportBatch.objects.create(kind=kind, source="MANUAL", filename=filename[:260], sha256=sha, document=doc,
+    return ImportBatch.objects.create(kind=kind, source=source, filename=filename[:260], sha256=sha, document=doc,
                                       uploaded_by=user)
 
 
@@ -362,10 +363,12 @@ def set_tracked(user: User, request_id: str, on: bool = True) -> Request:
 
 
 @transaction.atomic
-def import_cn(user: User, path: Path, filename: str) -> dict:
-    require(user, "RMA_WORK")
+def import_cn(user: User | None, path: Path, filename: str, source: str = "MANUAL") -> dict:
+    """user=None: the mail worker loading the report fetched from Gmail (autofetch.py)."""
+    if user is not None:
+        require(user, "RMA_WORK")
     report = imp.parse_cn(path)
-    batch = _batch("RMA_CN", path, filename, user)
+    batch = _batch("RMA_CN", path, filename, user, source=source)
     cns = {ln["cn_no"] for ln in report.lines}
     replaced = CnLine.objects.filter(cn_no__in=cns).count()
     CnLine.objects.filter(cn_no__in=cns).delete()

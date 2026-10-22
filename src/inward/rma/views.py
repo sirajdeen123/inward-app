@@ -14,7 +14,7 @@ from django.views.decorators.http import require_POST
 from inward.accounts.services import PermissionDenied, modes_for
 from inward.core import documents
 from inward.importers.common import ImportFailed
-from inward.rma import mails, register, report
+from inward.rma import autofetch, mails, register, report
 from inward.rma import services as svc
 from inward.rma.models import Approver, Condition, CustomerSite, Grn, IrrLink, Request, Territory, TransportMode
 from inward.web.views import needs, upload_done
@@ -33,13 +33,54 @@ UPLOAD_HELP = [
 ]
 
 
+@require_POST
+@needs("RMA_WORK")
+def cn_fetch_now(request):
+    from inward.mail.gmail import from_settings
+    try:
+        out = autofetch.import_from_mail(from_settings(), request.user)
+        (messages.success if out.status == "imported" else messages.warning)(request, out.message)
+    except ERRORS as exc:
+        messages.error(request, str(exc))
+    except Exception as exc:  # noqa: BLE001 - mailbox not reachable etc.
+        messages.error(request, f"Gmail could not be read: {exc}")
+    return redirect("rma:index")
+
+
+@require_POST
+@needs("RMA_MASTER")
+def cn_fetch_settings(request):
+    from inward.core import audit
+    from inward.core.models import FeatureFlag
+    vals = {"rma_cn_mail_subject": request.POST.get("subject", "").strip(),
+            "rma_cn_fetch_time": request.POST.get("fetch_time", "").strip(),
+            "rma_cn_fetch_deadline": request.POST.get("deadline", "").strip()}
+    import re
+    if len(vals["rma_cn_mail_subject"]) < 5 or not all(re.match(r"^\d{1,2}:\d{2}$", vals[k])
+                                                       for k in ("rma_cn_fetch_time", "rma_cn_fetch_deadline")):
+        messages.error(request, "Enter the subject text and the times as HH:MM.")
+        return redirect("rma:index")
+    for k, v in vals.items():
+        f = FeatureFlag.objects.filter(key=k).first()
+        old = (f.value or {}).get("value") if f else None
+        if old != v:
+            FeatureFlag.objects.update_or_create(key=k, defaults={"value": {"value": v}})
+            audit.record("FEATURE_FLAG_CHANGED", "feature_flag", k, user=request.user, before={"value": old},
+                         after={"value": v})
+    messages.success(request, "CN report mail settings saved.")
+    return redirect("rma:index")
+
+
 def upload_rows() -> list[dict]:
     from inward.rma.models import CustomerSite, Grn, Territory
     counts = {"GRN": f"{Grn.objects.count()} GRN(s) saved" if Grn.objects.exists() else "",
               "CUSTOMER": f"{CustomerSite.objects.count()} Bill-To sites" if CustomerSite.objects.exists() else "",
               "TSI": f"{Territory.objects.count()} territories" if Territory.objects.exists() else ""}
     out = []
+    auto = autofetch.settings_now()
     for kind, label, when, note in UPLOAD_HELP:
+        if kind == "CN":
+            when = f"Fetched from Gmail every morning from {auto['fetch_time']:%I:%M %p} (upload by hand only if needed)"
         out.append({"kind": kind, "label": label or UPLOADS[kind][0], "when": when, "note": note,
                     "batch": None if kind == "GRN" else svc.last_upload(f"RMA_{kind}"), "count": counts.get(kind, ""),
                     "accept": "application/pdf,.pdf" if kind == "GRN" else ".xls,.xlsx"})
@@ -88,7 +129,8 @@ def index(request):
         "go_live": svc.go_live(),
         "unlinked": unlinked, "unmapped": unmapped, "uploads": uploads,
         "grns": Grn.objects.prefetch_related("lines")[:60] if stage == "GRN" else [],
-        "can_master": _can(request.user, "RMA_MASTER"), "cc_rcm": mails.cc_rcm(), "as_on": mails.as_on()})
+        "can_master": _can(request.user, "RMA_MASTER"), "cc_rcm": mails.cc_rcm(), "as_on": mails.as_on(),
+        "cn_auto": autofetch.settings_now(), "cn_today": autofetch.today_status()})
 
 
 def _save_upload(upload, suffixes) -> Path:

@@ -1,5 +1,6 @@
 <h3 style="margin:6px 0">Material returns - daily status - {{ r.day|date:"d-M-Y" }}</h3>
 <p>Open returns <b>{{ r.open_count }}</b> · value <b>Rs {{ r.open_value|floatformat:0 }}</b>{% if r.as_on %} · portal data: report as on {{ r.as_on.report|default:"-" }}, uploaded {{ r.as_on.uploaded|date:"d-M-Y h:i A" }}{% endif %}</p>
+<p>CN report from Gmail today: {% if r.cn_today %}{% if r.cn_today.ok %}loaded {{ r.cn_today.at|date:"h:i A" }} - {{ r.cn_today.text }}{% else %}<b style="color:#8B1E2B">{{ r.cn_today.text }}</b>{% endif %}{% else %}<b>not received yet</b> (checked every 10 minutes){% endif %}{% if r.cn_yesterday and not r.cn_yesterday.ok %} · <b style="color:#8B1E2B">yesterday: {{ r.cn_yesterday.text }}</b>{% endif %}</p>
 {% if r.stale %}<p style="color:#8B1E2B"><b>The RMA Portal Report was not uploaded yesterday or today - the approval status below may be old.</b></p>{% endif %}
 
 <table class="rt"><tr><th>Stage</th><th>Requests</th><th>Value (Rs)</th><th>Over the red limit</th></tr>

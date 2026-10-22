@@ -659,6 +659,10 @@ def run_once(transport, read_inbox: bool = True) -> dict:
     irr = autofetch.run(transport)   # today's IRR from Gmail -> import -> engine -> summary mail
     if irr != "idle":
         stats["irr"] = irr
+    from inward.rma import autofetch as rma_fetch
+    cn = rma_fetch.run(transport)    # today's RMA CN INV Report from Gmail (22-Oct-2026)
+    if cn != "idle":
+        stats["rma_cn"] = cn
     if not read_inbox or not (SedApproval.objects.filter(status__in=[A.REQUESTED, A.REJECTED]).exists()
                               or waiting_replies()):
         return stats

@@ -373,3 +373,67 @@ def test_one_mail_per_pending_group_all_in_to(env):
     assert "any one of you can approve" in both.html_body and "Jagan V" in both.html_body
     assert ">1<" in both.html_body and ">2<" in both.html_body and ">3<" not in both.html_body
     assert "any one of you" not in alone.html_body and both.cc[:2] == ["ao@example.com", "godown@example.com"]
+
+
+class CnInbox:
+    def __init__(self, received=None, files=()):
+        self.received, self.files, self.calls = received, list(files), 0
+
+    def fetch_latest(self, subject_contains, save_dir, extensions=(".xls", ".xlsx")):
+        import shutil
+
+        from inward.mail.transport import FetchedMail
+        self.calls += 1
+        if self.received is None:
+            return None
+        saved = []
+        for f in self.files:
+            target = save_dir / f"{self.received:%Y%m%d_%H%M%S}_{f.name}"
+            shutil.copy(f, target)
+            saved.append(target)
+        return FetchedMail(message_id="<cn@x>", subject=f"{subject_contains} 035", received_at=self.received,
+                           sender="oracle@bergerindia.com", attachments=saved)
+
+
+def test_cn_report_fetched_from_gmail(env, monkeypatch):
+    """22-Oct-2026: the RMA CN INV Report mail (subject contains 'XXGST BPIL RMA CN INV Report') is loaded at 08:30."""
+    from django.core.cache import cache
+
+    from inward.domain.fy import IST
+    from inward.rma import autofetch
+    clerk, tmp = env["clerk"], env["tmp"]
+    _grn(env, monkeypatch)
+    svc.import_portal(clerk, portal(tmp, "p.xlsx", [("28990", "1187422-NATARAJA", "12403", "Processed", "", "15999",
+                                                    LINES)]), "p.xlsx")
+    cache.delete(autofetch.CACHE_KEY)
+    day = timezone.localdate()
+    at = lambda h, m: datetime(day.year, day.month, day.day, h, m, tzinfo=IST)   # noqa: E731
+    assert autofetch.run(CnInbox(), at(8, 0)) == "idle"                                   # before 08:30
+    empty = CnInbox()
+    assert autofetch.run(empty, at(8, 35)) == "waiting" and autofetch.run(empty, at(8, 40)) == "wait"   # 10-min retry
+    old = CnInbox(at(8, 31) - __import__("datetime").timedelta(days=1), [cn_report(tmp, 15999, [("F006980D98020000", 4)])])
+    cache.delete(autofetch.CACHE_KEY)
+    assert autofetch.run(old, at(8, 50)) == "waiting"                                    # yesterday's mail: not today's
+    cache.delete(autofetch.CACHE_KEY)
+    f = cn_report(tmp, 15999, [("F006980D98020000", 4), ("F00D390991020000", 4)])
+    assert autofetch.run(CnInbox(at(8, 32), [f]), at(9, 0)) == "imported"
+    assert ImportBatch.objects.get(kind="RMA_CN").source == "GMAIL" and svc.stage(Request.objects.get(pk="28990")) == "IRR"
+    st = autofetch.today_status(day)
+    assert st["ok"] and "2 line(s) of 1 credit note(s)" in st["text"]
+    assert autofetch.run(CnInbox(at(8, 32), [f]), at(9, 30)) == "idle"                   # once a day
+    assert "CN report from Gmail today: loaded" in __import__("django.template.loader", fromlist=["x"]).render_to_string(
+        "rma/_daily.html", {"r": mails.daily_report(day)})
+    out = autofetch.import_from_mail(CnInbox(at(8, 32), [f]), clerk)                    # same file again (Fetch now)
+    assert out.status == "imported" and "already loaded" in out.message
+
+
+def test_cn_report_missing_after_deadline(env):
+    from django.core.cache import cache
+
+    from inward.domain.fy import IST
+    from inward.rma import autofetch
+    cache.delete(autofetch.CACHE_KEY)
+    day = timezone.localdate()
+    assert autofetch.run(CnInbox(), datetime(day.year, day.month, day.day, 11, 5, tzinfo=IST)) == "missing"
+    st = autofetch.today_status(day)
+    assert not st["ok"] and st["text"].startswith("No CN report received by 11:00 AM")

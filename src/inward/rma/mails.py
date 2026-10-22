@@ -162,7 +162,9 @@ def daily_report(day: date | None = None) -> dict:
     upload = as_on()
     stale = upload is None or upload["uploaded"].date() < day - timedelta(days=1)
     no_grn = [x for x in open_rows if not x.grns and x.stage not in ("REJECTED",)]
-    return {"day": day, "by_stage": by_stage, "no_grn": no_grn, "groups": groups, "unmapped": unmapped, "approval": approval,
+    from inward.rma import autofetch
+    cn_today, cn_yesterday = autofetch.today_status(day), autofetch.today_status(day - timedelta(days=1))
+    return {"day": day, "by_stage": by_stage, "no_grn": no_grn, "cn_today": cn_today, "cn_yesterday": cn_yesterday, "groups": groups, "unmapped": unmapped, "approval": approval,
             "unlinked": svc.unlinked_grns(day), "waiting": [x for x in open_rows if x.stage in ("RMA", "CN", "IRR")],
             "ready": [x for x in open_rows if x.stage == "CLOSE"],
             "rejected": [x for x in open_rows if x.stage == "REJECTED"], "closed": closed,

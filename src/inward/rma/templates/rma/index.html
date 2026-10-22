@@ -17,6 +17,14 @@
       <label class="sr-only" for="up-{{ u.kind }}">{{ u.label }}</label><input id="up-{{ u.kind }}" type="file" name="file" accept="{{ u.accept }}" required>
       <button type="submit" class="btn btn-sm{% if u.kind == 'GRN' or u.kind == 'PORTAL' %} btn-primary{% endif %}">Upload</button></form></td></tr>{% endfor %}
   </tbody></table>
+  <p><b>CN report from Gmail today:</b> {% if cn_today %}{% if cn_today.ok %}<span class="chip chip-ok">loaded</span>{% else %}<span class="chip chip-warn">not received</span>{% endif %} {{ cn_today.text }}{% else %}<span class="muted">not yet - checked every 10 minutes from {{ cn_auto.fetch_time|time:"h:i A" }} for a mail with "{{ cn_auto.subject }}"</span>{% endif %}
+    <form method="post" action="{% url 'rma:cn_fetch' %}" class="inline-form">{% csrf_token %}<button type="submit" class="btn btn-sm">Fetch CN report from Gmail now</button></form></p>
+  {% if can_master %}<details><summary class="muted">CN report mail settings</summary>
+    <form method="post" action="{% url 'rma:cn_fetch_settings' %}" class="form-grid">{% csrf_token %}
+      <div class="field span-all"><label for="cs-sub">Subject contains</label><input id="cs-sub" name="subject" value="{{ cn_auto.subject }}"></div>
+      <div class="field"><label for="cs-t">Look from (HH:MM)</label><input id="cs-t" name="fetch_time" value="{{ cn_auto.fetch_time|time:'H:i' }}"></div>
+      <div class="field"><label for="cs-d">Missing after (HH:MM)</label><input id="cs-d" name="deadline" value="{{ cn_auto.deadline|time:'H:i' }}"></div>
+      <div class="field"><label>&nbsp;</label><button type="submit" class="btn btn-sm">Save</button></div></form></details>{% endif %}
 </div>
 
 <div class="kindbar">

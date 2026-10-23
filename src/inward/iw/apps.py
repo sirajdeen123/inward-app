@@ -11,5 +11,6 @@ class IwConfig(AppConfig):
         from inward.iw import closure, services, unloading
 
         approvals.register("IW_VOID", services.apply_void)
+        approvals.register("IW_CORRECT", services.apply_correction)
         approvals.register("UNLOADING_EXEMPT", unloading.apply_exempt)
         approvals.register("IW_REOPEN", closure.apply_reopen)

@@ -37,6 +37,7 @@ PERMISSIONS = {
     "SCAN_UPLOAD": "Upload the signed MRA / LR scans (final documents)",
     "IW_REOPEN": "Reopen closed IW",
     "IW_VOID": "VOID IW (before MRA only)",
+    "IW_CORRECT": "Correct an IW after its MRA, before any ERP entry (reopened; the MRA is re-issued)",
     "MAIL_PENDING_RELEASE": "Mail-Pending Release",
     "EXCEPTION_RESOLVE": "Resolve critical exceptions",
     "MASTER_CHANGE": "Propose / approve master changes",
@@ -67,6 +68,7 @@ MATRIX: dict[str, dict[str, str]] = {
     "SCAN_UPLOAD": {"DEPOT_CLERK": G, "SYSTEM_SUPERVISOR": G, "CFA_MANAGER": G},   # 22-Oct-2026: supervisors too
     "IW_REOPEN": {"DEPOT_CLERK": R, "SYSTEM_SUPERVISOR": R, "CFA_MANAGER": A},
     "IW_VOID": {"DEPOT_CLERK": R, "SYSTEM_SUPERVISOR": R, "CFA_MANAGER": A},
+    "IW_CORRECT": {"DEPOT_CLERK": R, "SYSTEM_SUPERVISOR": R, "CFA_MANAGER": A},
     "MAIL_PENDING_RELEASE": {"CFA_MANAGER": G},
     "EXCEPTION_RESOLVE": {"SYSTEM_SUPERVISOR": R, "CFA_MANAGER": A},
     "MASTER_CHANGE": {"DEPOT_CLERK": R, "SYSTEM_SUPERVISOR": R, "CFA_MANAGER": A},

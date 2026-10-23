@@ -298,3 +298,51 @@ def test_default_mra_cc(client, issued, make_user):
     OrganisationEmail.objects.create(organisation_id="390", email="h@example.com", kind="TO", status=EmailStatus.VERIFIED)
     m = comms.send_mra(w["clerk"], w["iw"].pk, "copy2@example.com")[0]
     assert m.to == ["h@example.com"] and m.cc == ["copy1@example.com", "copy2@example.com"]
+
+
+def test_correct_before_erp(sent, make_user):
+    """23-Oct-2026 (IW-2627-000011, wrong source on an issued MRA): request -> CFA Manager approves -> IW reopened ->
+    source corrected -> MRA R02 with the reason, sent to the right source; R01 and its mail stay on record."""
+    from inward.accounts.approvals import decide_and_apply
+    from inward.accounts.models import ApprovalRequest
+    from inward.core.models import Organisation
+    from inward.iw import services
+    w, clerk = sent, sent["clerk"]
+    iw = w["iw"]
+    with pytest.raises(IwError, match="MRA is issued"):
+        services.request_correction(clerk, iw, "wrong source")            # still waiting for SENT
+    Iw.objects.filter(pk=iw.pk).update(status=Iw.Status.MRA_ISSUED)
+    iw.refresh_from_db()
+    req = services.request_correction(clerk, iw, "source selected 390 instead of 391")
+    assert req.status == ApprovalRequest.Status.PENDING
+    with pytest.raises(IwError, match="already waiting"):
+        services.request_correction(clerk, iw, "again")
+    decide_and_apply(make_user("cfa_corr", "CFA_MANAGER"), req.pk, True)
+    iw.refresh_from_db()
+    assert iw.status == Iw.Status.PHYSICALLY_VERIFIED and iw.is_editable
+    new = Organisation.objects.create(code="391", name="Right Source", org_type="DEPOT")
+    OrganisationEmail.objects.create(organisation=new, email="right@example.com", kind="TO", status=EmailStatus.VERIFIED)
+    services.update(clerk, iw.pk, iw.version, services.IwData(
+        arrival_at=iw.arrival_at, load_type=iw.load_type, source_org=new, vehicle_no=iw.vehicle_no,
+        driver_name=iw.driver_name, driver_mobile=iw.driver_mobile, transporter_name=str(iw.transporter or ""),
+        lr_no=iw.lr_no, gate_register_no=iw.gate_register_no, remarks=iw.remarks))
+    with pytest.raises(IwError, match="Enter what changed"):
+        mra.issue(clerk, iw.pk, reconfirm=True)
+    rev, created = mra.issue(clerk, iw.pk, reason="Source corrected 390 -> 391; R01 sent in error", reconfirm=True)
+    assert created and rev.label == "R02"
+    if rev.pdf is None:
+        rev.pdf = documents.store(b"%PDF-1.7 test", filename="r02.pdf", content_type="application/pdf", doc_type="MRA_PDF")
+        rev.save(update_fields=["pdf"])
+    mails = comms.send_mra(clerk, iw.pk)
+    assert mails[0].to == ["right@example.com"] and "R02" in mails[0].subject
+    assert iw.mras.count() == 2 and MailMessage.objects.filter(iw=iw, purpose="MRA").count() == 2   # R01 kept
+
+
+def test_correct_before_erp_screen(client, sent):
+    w = sent
+    Iw.objects.filter(pk=w["iw"].pk).update(status=Iw.Status.MRA_ISSUED)
+    c = verified_client(client, w["clerk"])
+    assert "Correct before ERP" in c.get(reverse("iw:detail", args=[w["iw"].pk])).content.decode()
+    resp = c.post(reverse("iw:correct", args=[w["iw"].pk]), {"reason": "wrong source selected"}, follow=True)
+    page = resp.content.decode()
+    assert "Correction of" in page and "waiting for CFA Manager approval" in page

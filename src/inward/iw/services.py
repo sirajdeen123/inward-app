@@ -254,6 +254,38 @@ def apply_void(req: ApprovalRequest, approver: User) -> None:
                  requested_by=req.requested_by_id, approval_request=req.pk)
 
 
+def request_correction(user: User, iw: Iw, reason: str) -> ApprovalRequest:
+    """Correct before ERP (23-Oct-2026, IW-2627-000011 had the wrong source): an IW whose MRA is issued but which has
+    no ERP entry yet is reopened for correction once the CFA Manager approves. Everything done stays on record; the
+    corrected MRA is issued as the next revision (with this reason printed) and sent again."""
+    if iw.status != Iw.Status.MRA_ISSUED:
+        raise IwError("Correct before ERP is for an IW whose MRA is issued and which has no ERP entry yet "
+                      "(before the MRA, simply edit the IW).")
+    if ApprovalRequest.objects.filter(permission_id="IW_CORRECT", entity_type="iw", entity_id=str(iw.pk),
+                                      status=ApprovalRequest.Status.PENDING).exists():
+        raise IwError("A correction request for this IW is already waiting for approval.")
+    if len(clean_text(reason)) < 5:
+        raise IwError("Write what is wrong and must be corrected.")
+    from inward.accounts.approvals import submit
+    last = iw.mras.first()
+    return submit(user, "IW_CORRECT", "iw", iw.pk, reason, payload={"iw_no": iw.iw_no, "mra": last.label if last else ""})
+
+
+def apply_correction(req: ApprovalRequest, approver: User) -> None:
+    """Effect of an approved IW_CORRECT request: back to 'Physically verified' - the IW can be edited (and the
+    verification reopened to change material); the next MRA revision carries the correction."""
+    iw = Iw.objects.select_for_update().get(pk=int(req.entity_id))
+    if iw.status != Iw.Status.MRA_ISSUED:
+        raise IwError(f"{iw.iw_no} can no longer be corrected this way (status {iw.get_status_display()}).")
+    before = _snapshot(iw)
+    iw.status = Iw.Status.PHYSICALLY_VERIFIED
+    iw.version += 1
+    iw.save(update_fields=["status", "version", "updated_at"])
+    audit.record("IW_CORRECTION_REOPENED", "iw", iw.pk, user=approver, iw_id=iw.pk, before=before,
+                 after={**_snapshot(iw), "reason": req.reason}, requested_by=req.requested_by_id,
+                 approval_request=req.pk or None)
+
+
 @transaction.atomic
 def discard_draft(user: User, iw: Iw) -> None:
     require(user, "IW_EDIT")

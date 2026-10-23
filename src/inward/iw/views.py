@@ -124,6 +124,10 @@ def iw_detail(request, pk):
     linkable = (SitShip.objects.filter(status__in=[SitShip.Status.IN_SIT, SitShip.Status.PARTIAL], pre_go_live=False,
                                        has_issues=False).exclude(ship_id__in=linked_ids).order_by("ship_id"))
     void_modes = modes_for(request.user, "IW_VOID")
+    pending_correct = ApprovalRequest.objects.filter(permission_id="IW_CORRECT", entity_type="iw", entity_id=str(iw.pk),
+                                                     status=ApprovalRequest.Status.PENDING).first()
+    corrected = (AuditEvent.objects.filter(iw_id=iw.pk, action="IW_CORRECTION_REOPENED").order_by("-occurred_at").first()
+                 if iw.status == Iw.Status.PHYSICALLY_VERIFIED else None)
     from inward.iw.coload import members
     return render(request, "iw/detail.html", {
         "truck": members(iw) if iw.status != Iw.Status.VOID else [],
@@ -138,6 +142,9 @@ def iw_detail(request, pk):
         "can_edit": iw.is_editable and "GRANT" in modes_for(request.user, "IW_EDIT"),
         "can_request_void": iw.is_editable and iw.status != Iw.Status.DRAFT and not pending_void
                             and bool(void_modes & {"REQUEST", "APPROVE"}),
+        "pending_correct": pending_correct, "corrected": corrected,
+        "can_request_correct": iw.status == Iw.Status.MRA_ISSUED and not pending_correct
+                               and bool(modes_for(request.user, "IW_CORRECT") & {"REQUEST", "APPROVE"}),
     })
 
 
@@ -155,6 +162,23 @@ def iw_void(request, pk):
             messages.success(request, f"{iw.iw_no} is VOID (you are the approver - recorded as self-approved).")
         else:
             messages.success(request, f"VOID of {iw.iw_no} requested. The CFA Manager must approve it.")
+    except (services.IwError, PermissionDenied) as exc:
+        messages.error(request, str(exc))
+    return redirect("iw:detail", pk=pk)
+
+
+@require_POST
+@needs("IW_CORRECT", modes=("REQUEST", "APPROVE"))
+def iw_correct(request, pk):
+    iw = get_object_or_404(Iw, pk=pk)
+    try:
+        req = services.request_correction(request.user, iw, request.POST.get("reason", ""))
+        if req.status == req.Status.APPROVED:
+            messages.success(request, f"{iw.iw_no} is open for correction. Correct it (Edit IW / Unloading & SED), "
+                                      "then issue and send the next MRA revision.")
+        else:
+            messages.success(request, f"Correction of {iw.iw_no} requested. The CFA Manager must approve it "
+                                      "(Approvals).")
     except (services.IwError, PermissionDenied) as exc:
         messages.error(request, str(exc))
     return redirect("iw:detail", pk=pk)

@@ -11,6 +11,8 @@
 {% if truck|length > 1 %}<div class="alert alert-info">Co-loaded truck {{ iw.vehicle_no }}: {% for m in truck %}<a href="{% url 'iw:detail' m.pk %}">{{ m }}</a> ({{ m.source_org|default:"-" }}, LR {{ m.lr_no|default:"-" }}){% if not forloop.last %} + {% endif %}{% endfor %} - one unloading checklist and one unloading charge for the truck; each IW keeps its own MRA.</div>{% endif %}
 {% if iw.status != 'VOID' %}{% next_step iw %}{% endif %}
 {% if iw.status == 'VOID' %}<div class="alert alert-error">VOID on {{ iw.voided_at|date:"d-M-Y h:i A" }} - {{ iw.void_reason }}. The number is kept and never reused.</div>{% endif %}
+{% if pending_correct %}<div class="alert alert-warning">Correction requested by {{ pending_correct.requested_by }} on {{ pending_correct.created_at|date:"d-M-Y h:i A" }}: "{{ pending_correct.reason }}" - waiting for CFA Manager approval.</div>{% endif %}
+{% if corrected %}<div class="alert alert-info"><b>Open for correction</b> ({{ corrected.after.reason }}). Correct the IW (Edit IW, or reopen the verification under Unloading &amp; SED to change material), then on MRA issue the next revision with the reason and send it - it replaces the earlier MRA.</div>{% endif %}
 {% if pending_void %}<div class="alert alert-warning">VOID requested by {{ pending_void.requested_by }} on {{ pending_void.created_at|date:"d-M-Y h:i A" }}: "{{ pending_void.reason }}" - waiting for CFA Manager approval.</div>{% endif %}
 <div class="card"><dl class="summary">
   <dt>Arrival</dt><dd>{{ iw.arrival_at|date:"d-M-Y h:i A" }}{% if iw.fy_code %} · FY {{ iw.fy_code }}{% endif %}</dd>
@@ -35,6 +37,14 @@
 {% include "iw/_references.html" %}{% endif %}
 {% if iw.status == 'DRAFT' and can_edit %}
 <form method="post" action="{% url 'iw:discard' iw.pk %}" class="bar">{% csrf_token %}<button type="submit" class="btn btn-sm">Discard draft</button></form>
+{% endif %}
+{% if can_request_correct %}
+<details class="card"><summary>Correct before ERP (wrong source, Ship, quantity... after the MRA)</summary>
+  <form method="post" action="{% url 'iw:correct' iw.pk %}" class="form">{% csrf_token %}
+    <label for="cr-reason">What is wrong and must be corrected? *</label><input id="cr-reason" name="reason" maxlength="300" required placeholder="e.g. source selected 030 Chennai instead of 092 Chennai-2">
+    <button type="submit" class="btn">Request correction</button>
+    <span class="muted">Only after the MRA and before any ERP entry. The CFA Manager approves; the IW is reopened, the MRA is re-issued as the next revision and sent again. Everything done so far stays on record.</span>
+  </form></details>
 {% endif %}
 {% if can_request_void %}
 <details class="card"><summary>Request VOID (IW created in error)</summary>

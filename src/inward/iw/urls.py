@@ -14,6 +14,7 @@ urlpatterns = [
     path("<int:pk>/", views.iw_detail, name="detail"),
     path("<int:pk>/edit/", views.iw_edit, name="edit"),
     path("<int:pk>/void/", views.iw_void, name="void"),
+    path("<int:pk>/correct/", views.iw_correct, name="correct"),
     path("<int:pk>/discard/", views.iw_discard, name="discard"),
     path("<int:pk>/link/ship/", views_link.link_ship, name="link_ship"),
     path("links/<int:link_pk>/lscrr/", views_link.lscrr, name="lscrr"),

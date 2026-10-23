@@ -355,5 +355,7 @@ def quick_add(user: User, sku: str, description: str) -> SkuPackaging:
     p = SkuPackaging.objects.create(sku=sku, floor_sku=floor_sku(sku), description=desc[:200],
                                     package_type=PackageType.objects.get(code="OTHER"), units_per_package=None,
                                     source=SkuPackaging.Source.CLERK, updated_by=user)
+    PackagingChange.objects.create(sku=sku, action="ADDED", source="CLERK", after=_state(p), changed_by=user,
+                                   reason="added at unloading - packaging still to be set")
     audit.record("SKU_PACKAGING_QUICK_ADD", "sku_packaging", sku, user=user, after={"description": desc})
     return p

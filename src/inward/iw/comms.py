@@ -647,6 +647,9 @@ def send_reminders(now=None) -> int:
 def run_once(transport, read_inbox: bool = True) -> dict:
     from inward.iw import reports
     stats = {"reports": len(reports.due_reports())}
+    from inward.core import packaging_notify
+    if packaging_notify.due():
+        stats["packaging"] = 1
     from inward.rma import mails as rma_mails
     rma = rma_mails.due()   # material returns: approver digests / new-pending mails / 09:30 daily report
     if rma:

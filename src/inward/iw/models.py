@@ -504,6 +504,7 @@ class MailMessage(models.Model):
         IRR_EXCEPTIONS = "IRR_EXC", "IRR reconciliation exceptions"
         RMA_APPROVAL = "RMA_APPR", "Material return approval pending"
         RMA_DAILY = "RMA_DAILY", "Material returns daily report"
+        PACKAGING_CHANGE = "PKG_CHANGE", "SKU packaging changes"
 
     class Status(models.TextChoices):
         PENDING = "PENDING", "Waiting to send"

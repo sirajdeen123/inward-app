@@ -119,3 +119,34 @@ def test_screens(client, env):
     assert c.get(reverse("core:packaging_review")).status_code == 403   # clerk is not a reviewer
     m = verified_client(client, env["cfa"])
     assert "units per package 6 -&gt; 12" in m.get(reverse("core:packaging_review")).content.decode()
+
+
+def test_add_sku_screen_and_all_users_and_manager_mail(client, env, make_user):
+    """Live 23-Oct-2026: /masters/packaging/NEW/ gave Server Error 500. All users may add / change packaging and
+    the CFA Manager is mailed (gathered), but not about the manager's own changes."""
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    from inward.core import packaging_notify
+    from inward.core.models import NotificationRecipient
+    from inward.iw.models import MailMessage
+    NotificationRecipient.objects.filter(purpose="PACKAGING_CHANGE").update(email="cfa@example.com")
+    c = verified_client(client, env["clerk"])
+    page = c.get(reverse("core:packaging_sku", args=["NEW"]))
+    assert page.status_code == 200 and "Add SKU packaging" in page.content.decode()
+    c.post(reverse("core:packaging_sku", args=["NEW"]), {"sku_override": "F00N090TGH030001", "group": "BAG", "units": "1",
+                                                        "description": "GRANITE 30 K", "uom": "K", "pack_size": "30"})
+    assert SkuPackaging.objects.filter(sku="F00N090TGH030001").exists()
+    for role in ("VIEWER", "CASHIER"):                      # everyone may now add / change packaging
+        u = make_user(f"u_{role.lower()}", role)
+        packaging.save_sku(u, f"F00N090TGH03000{2 if role == 'VIEWER' else 3}", group="BAG", units="1",
+                           description="X", uom="K", pack_size="30")
+    packaging.save_sku(env["cfa"], "F00N090TGH030004", group="BAG", units="1", description="Y", uom="K", pack_size="1")
+    assert packaging_notify.due() == 0                      # gathered: not yet (changes just made)
+    later = timezone.now() + timedelta(minutes=6)
+    assert packaging_notify.due(later) == 1
+    m = MailMessage.objects.get(purpose="PKG_CHANGE")
+    assert m.to == ["cfa@example.com"] and "3 change(s)" in m.subject     # the manager's own change not mailed
+    assert "F00N090TGH030001" in m.html_body and "F00N090TGH030004" not in m.html_body
+    assert packaging_notify.due(later) == 0 and not PackagingChange.objects.filter(notified=False).exists()

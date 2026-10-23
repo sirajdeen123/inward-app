@@ -17,7 +17,7 @@
   {% endif %}
   <div class="field"><label for="f-group">Package type *</label>
     <select id="f-group" name="group" required>{% for g in groups %}<option value="{{ g.code }}"{% if p and p.package_type_id == g.code %} selected{% elif not p and g.code == 'CARTON' %} selected{% endif %}>{{ g.name }}</option>{% endfor %}</select></div>
-  <div class="field"><label for="f-units">Units per package *</label><input id="f-units" name="units" inputmode="numeric" value="{{ post.units|default:p.units_per_package|default_if_none:'' }}"></div>
+  <div class="field"><label for="f-units">Units per package *</label><input id="f-units" name="units" inputmode="numeric" value="{% if post.units %}{{ post.units }}{% elif p %}{{ p.units_per_package|default_if_none:'' }}{% endif %}"></div>
   {% if p %}<div class="field span-all"><label for="f-reason">Reason for the change (mandatory when changing)</label>
     <select id="f-reason" name="reason"><option value="">Select...</option><option>Physical count differs from the list</option><option>Wrong pack type in the list</option><option>Physically verified - list is correct</option><option>Other</option></select></div>
   {% if p.verify_note %}<label class="check span-all"><input type="checkbox" name="verified" value="1"> I physically verified this packing</label>{% endif %}{% endif %}

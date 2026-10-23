@@ -72,7 +72,8 @@ MATRIX: dict[str, dict[str, str]] = {
     "MAIL_PENDING_RELEASE": {"CFA_MANAGER": G},
     "EXCEPTION_RESOLVE": {"SYSTEM_SUPERVISOR": R, "CFA_MANAGER": A},
     "MASTER_CHANGE": {"DEPOT_CLERK": R, "SYSTEM_SUPERVISOR": R, "CFA_MANAGER": A},
-    "SKU_PACKAGING_EDIT": {"DEPOT_CLERK": G, "SYSTEM_SUPERVISOR": G, "CFA_MANAGER": G},
+    "SKU_PACKAGING_EDIT": {"DEPOT_CLERK": G, "SYSTEM_SUPERVISOR": G, "CFA_MANAGER": G, "ADMINISTRATOR": G,
+                           "VIEWER": G, "CASHIER": G},   # 23-Oct-2026: all users; the CFA Manager is mailed
     "PACKAGING_REVIEW": {"CFA_MANAGER": G},
     "USER_ADMIN": {"CFA_MANAGER": G, "ADMINISTRATOR": G},
     "TWO_FACTOR_RESET": {"CFA_MANAGER": R, "ADMINISTRATOR": A},
@@ -169,6 +170,7 @@ NOTIFICATION_PURPOSES = {
     "IRR_EXCEPTIONS": [("System Supervisor", "TO"), ("CFA Manager", "TO"), ("Admin Officer", "TO")],
     # material returns (21-Oct-2026): the approvers themselves are mapped on the Approvers screen
     "RMA_APPROVAL": [("Admin Officer", "CC"), ("Godown", "CC")],
+    "PACKAGING_CHANGE": [("CFA Manager", "TO")],
     "RMA_DAILY": [("Admin Officer", "TO"), ("CFA Manager", "CC"), ("RCM", "CC")],
 }
 

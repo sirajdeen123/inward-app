@@ -1,0 +1,13 @@
+{% extends "iw/mail/_base.html" %}
+{% block body %}
+<style>.rt{border-collapse:collapse;font-size:12px;margin:4px 0 10px}.rt th,.rt td{border:1px solid #bbb;padding:3px 6px;text-align:left;vertical-align:top}.rt th{background:#eee}</style>
+<p>SKU packaging was added or changed in the Stock Inward application ({{ changes|length }} change{{ changes|pluralize }}).{% if drastic %} <b style="color:#b00020">{{ drastic }} change{{ drastic|pluralize }} need{{ drastic|pluralize:"s," }} your review</b> (SKU packaging &rarr; Review).{% endif %}</p>
+<table class="rt"><tr><th>When</th><th>SKU</th><th>What</th><th>Before</th><th>After</th><th>By</th><th>Reason</th></tr>
+{% for ch in changes %}<tr{% if ch.drastic %} style="background:#FDE7E9"{% endif %}><td>{{ ch.changed_at|date:"d-M h:i A" }}</td><td>{{ ch.sku }}{% if ch.after.description %}<br><span style="color:#666">{{ ch.after.description }}</span>{% endif %}</td>
+  <td>{{ ch.action|title }}{% if ch.source == "COMPANY_LIST" %} (company list upload){% endif %}</td>
+  <td>{% if ch.before %}{{ ch.before.group }} · {{ ch.before.units|default:"-" }}{% else %}-{% endif %}</td>
+  <td>{% if ch.after %}{{ ch.after.group }} · {{ ch.after.units|default:"-" }}{% else %}-{% endif %}</td>
+  <td>{{ ch.changed_by.full_name|default:ch.changed_by.username }}</td>
+  <td>{{ ch.reason|default:"-" }}{% if ch.drastic %}<br><b>{{ ch.drastic_why }}</b>{% endif %}</td></tr>{% endfor %}</table>
+<p style="font-size:12px;color:#666">Group · units per package. Highlighted rows changed the package type or the units a lot - accept or revert them on the review screen.</p>
+{% endblock %}

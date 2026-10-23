@@ -26,6 +26,7 @@ PURPOSES = {
     "IRR_RECON_REPORT": "IRR Reconciliation Report (when an IW is closed)",
     "RMA_APPROVAL": "Material return approval pending - copy of the mails to the portal approvers",
     "RMA_DAILY": "Material returns daily report (09:30)",
+    "PACKAGING_CHANGE": "SKU packaging added / changed by a user (gathered every few minutes)",
 }
 EMAIL = re.compile(r"^[^@\s,;]+@[^@\s,;]+\.[^@\s,;]+$")
 MRA_CC = "MRA_CC"   # default Cc of every MRA mail (21-Oct-2026); one row per address, not a role

@@ -297,6 +297,7 @@ class PackagingChange(models.Model):
     changed_at = models.DateTimeField(auto_now_add=True)
     reviewed_by = models.ForeignKey(USER, null=True, blank=True, on_delete=models.PROTECT, related_name="+")
     reviewed_at = models.DateTimeField(null=True, blank=True)
+    notified = models.BooleanField(default=False)   # mailed to the CFA Manager (23-Oct-2026)
 
     class Meta:
         db_table = "packaging_change"

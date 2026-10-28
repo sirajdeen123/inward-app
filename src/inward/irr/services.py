@@ -51,6 +51,54 @@ def _row(t: IrrTransaction) -> IrrRow:
                   transaction_type=t.transaction_type)
 
 
+def _edited_receipts(user: User, incoming: dict) -> list[dict]:
+    """ERP lets the text after the receipt number be edited later ('44370 / 2026-SE/26-27/453' became
+    '44370 / SE/26-27/453', 28-Oct-2026). The receipt number and date are the same receipt, so the stored rows take
+    the new text instead of the edited receipt being added a second time. Rows left over from an earlier edit (the
+    new text already stored, the old text no longer in the file) are removed when they hold the same rows."""
+    from inward.irrecon.models import IrrMark
+    out = []
+    by_receipt: dict = {}
+    for key, rows in incoming.items():
+        r = next(iter(rows))
+        if r.receipt_no:
+            by_receipt.setdefault((key[0], r.receipt_no, key[2]), set()).add(key[1])
+    for (type_key, no, day), texts in by_receipt.items():
+        if len(texts) != 1:
+            continue                       # two texts for one receipt in the same file: leave to the normal merge
+        new = next(iter(texts))
+        old = list(IrrTransaction.objects.filter(type_key=type_key, receipt_no=no, trx_date=day).exclude(trx_number=new)
+                   .exclude(trx_number__in=[k[1] for k in incoming if k[0] == type_key and k[2] == day]))
+        if not old:
+            continue
+        stored_new = list(IrrTransaction.objects.filter(type_key=type_key, trx_number=new, trx_date=day))
+        ref = new.split("/", 1)[1].strip()[:60]
+        for old_text in sorted({t.trx_number for t in old}):
+            rows = [t for t in old if t.trx_number == old_text]
+            if not stored_new:             # first time the edit is seen: the stored rows take the new text
+                IrrTransaction.objects.filter(pk__in=[t.pk for t in rows]).update(trx_number=new, trx_reference=ref)
+                out.append({"receipt": no, "type": type_key, "date": day.isoformat(), "from": old_text, "to": new,
+                            "rows": len(rows), "action": "renamed"})
+                continue
+            if Counter(replace(_row(t), trx_number=new) for t in rows) != Counter(_row(t) for t in stored_new):
+                out.append({"receipt": no, "type": type_key, "date": day.isoformat(), "from": old_text, "to": new,
+                            "rows": len(rows), "action": "differs - kept for review"})
+                continue
+            pairs = {}
+            for t in stored_new:
+                pairs.setdefault(_row(t), []).append(t.pk)
+            for t in rows:                 # a user's explanation on the old row moves to its twin
+                twin = pairs[replace(_row(t), trx_number=new)].pop()
+                if not IrrMark.objects.filter(row_id=twin).exists():
+                    IrrMark.objects.filter(row_id=t.pk).update(row_id=twin)
+            IrrTransaction.objects.filter(pk__in=[t.pk for t in rows]).delete()
+            out.append({"receipt": no, "type": type_key, "date": day.isoformat(), "from": old_text, "to": new,
+                        "rows": len(rows), "action": "double removed"})
+    for e in out:
+        audit.record("IRR_RECEIPT_TEXT_EDITED", "irr_receipt", e["receipt"], user=user, after=e)
+    return out
+
+
 @transaction.atomic
 def import_irr(user: User, path: Path, filename: str, source: str = "MANUAL") -> ImportBatch:
     require(user, "IMPORT_RECONCILE")
@@ -63,6 +111,7 @@ def import_irr(user: User, path: Path, filename: str, source: str = "MANUAL") ->
     for r in parsed.rows:
         r = _norm(r)
         incoming.setdefault(r.group_key, Counter())[r] += 1
+    edited = _edited_receipts(user, incoming)
     history: dict = {}
     for t in IrrTransaction.objects.filter(trx_date__in={k[2] for k in incoming}):
         r = _row(t)
@@ -80,7 +129,7 @@ def import_irr(user: User, path: Path, filename: str, source: str = "MANUAL") ->
         issue_count=len(parsed.issues), status="REVIEW" if review else "ACCEPTED",
         summary={"new_groups": plan.count(GroupAction.NEW), "extended": plan.count(GroupAction.EXTENDED),
                  "identical": plan.count(GroupAction.IDENTICAL), "subset": plan.count(GroupAction.SUBSET),
-                 "review": review[:200], "review_count": len(review),
+                 "review": review[:200], "review_count": len(review), "edited_receipts": edited,
                  "last_day_possibly_incomplete": parsed.last_day_possibly_incomplete,
                  "run_at": parsed.run_at.isoformat() if parsed.run_at else None,
                  "issues": [{"row": i.row_no, "message": i.message} for i in parsed.issues[:100]]})

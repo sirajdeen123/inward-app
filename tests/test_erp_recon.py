@@ -210,3 +210,45 @@ def test_screens(client, at_erp):
     resp = c.post(reverse("iw:recon_run", args=[w["iw"].pk]), follow=True)
     assert "not fully matched" in resp.content.decode() and "NOT_FOUND" in resp.content.decode()
     assert "IRR import" in c.get(reverse("irr:home")).content.decode()
+
+
+def _incoming(rows, text):
+    from collections import Counter
+    from dataclasses import replace
+    out = {}
+    for t in rows:
+        r = replace(irr._row(t), trx_number=text)
+        out.setdefault(r.group_key, Counter())[r] += 1
+    return out
+
+
+def test_receipt_text_edited_in_erp_is_not_counted_twice(seeded, make_user):
+    """28-Oct-2026, IW-2627-000006: the challan text of PO receipt 44370 was edited in ERP after the first IRR
+    download; the next IRR brought the same receipt under the new text and the IW showed double the pieces."""
+    from inward.irrecon.models import IrrMark
+    clerk = make_user("clerk_ed", "DEPOT_CLERK")
+    old, new = "44370 / 2026-SE/26-27/453", "44370 / SE/26-27/453"
+    irr_rows([("Po Receipt", old, "F003990991050002", 200, None, "10000", "Receipt", ""),
+              ("Po Receipt", old, "F007500991040002", 375, None, "15000", "Receipt", "")])
+    stored = list(IrrTransaction.objects.filter(trx_number=old))
+    # first IRR with the edited text: the stored rows take it, nothing is added again
+    out = irr._edited_receipts(clerk, _incoming(stored, new))
+    assert [e["action"] for e in out] == ["renamed"]
+    assert IrrTransaction.objects.filter(trx_number=new, trx_reference="SE/26-27/453").count() == 2
+    assert not IrrTransaction.objects.filter(trx_number=old).exists()
+
+    # a double already stored (as on live): the old-text rows go, a user's mark moves to the twin
+    irr_rows([("Po Receipt", old, "F003990991050002", 200, None, "10000", "Receipt", ""),
+              ("Po Receipt", old, "F007500991040002", 375, None, "15000", "Receipt", "")])
+    stale = IrrTransaction.objects.get(trx_number=old, sku="F003990991050002")
+    IrrMark.objects.create(row=stale, reason="checked", marked_by=clerk)
+    out = irr._edited_receipts(clerk, _incoming(IrrTransaction.objects.filter(trx_number=new), new))
+    assert [e["action"] for e in out] == ["double removed"]
+    assert IrrTransaction.objects.filter(receipt_no="44370").count() == 2
+    assert IrrMark.objects.get().row.trx_number == new
+
+    # old rows that are not the same receipt content are kept for review
+    irr_rows([("Po Receipt", old, "F003990991050002", 150, None, "7500", "Receipt", "")])
+    out = irr._edited_receipts(clerk, _incoming(IrrTransaction.objects.filter(trx_number=new), new))
+    assert [e["action"] for e in out] == ["differs - kept for review"]
+    assert IrrTransaction.objects.filter(trx_number=old).count() == 1

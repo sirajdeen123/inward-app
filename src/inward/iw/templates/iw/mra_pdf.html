@@ -26,10 +26,10 @@
   </header>
 
   <table class="kv">
-    <tr><th>IW No</th><td>{{ c.iw.no }}</td><th>Arrival</th><td>{{ c.iw.arrival }}</td></tr>
+    <tr><th>IW No</th><td>{{ c.iw.no }}</td><th>Vehicle Arrival Date &amp; Time</th><td>{{ c.iw.arrival }}</td></tr>
     <tr><th>Load type</th><td>{{ c.iw.load_type }}</td><th>Source</th><td>{{ c.iw.source_org|default:"-" }}</td></tr>
     <tr><th>Vehicle</th><td>{{ c.iw.vehicle }}</td><th>Transporter / LR</th><td>{{ c.iw.transporter|default:"-" }}{% if c.iw.lr %} · LR {{ c.iw.lr }}{% endif %}</td></tr>
-    <tr><th>Driver</th><td>{{ c.iw.driver|default:"-" }}{% if c.iw.driver_mobile %} · {{ c.iw.driver_mobile }}{% endif %}</td><th>Verified</th><td>{{ c.iw.verified }}</td></tr>
+    <tr><th>Driver</th><td>{{ c.iw.driver|default:"-" }}{% if c.iw.driver_mobile %} · {{ c.iw.driver_mobile }}{% endif %}</td><th>Vehicle Out Date &amp; Time</th><td>{{ c.iw.verified|default:"-" }}</td></tr>
     {% if c.iw.gate_register %}<tr><th>Gate register No</th><td>{{ c.iw.gate_register }}</td><th></th><td></td></tr>{% endif %}
   </table>
 
@@ -82,7 +82,7 @@
 <section class="page">
   <header class="head">
     <div class="brandrow">{% if logo %}<img src="{{ logo }}" alt="logo" class="logo">{% endif %}<div>{% if c.depot.company %}<div class="company">{{ c.depot.company }}</div>{% endif %}<div class="depot">Depot {{ c.depot.code }} · {{ c.depot.name }}</div><div class="cfa">Operated by: {{ c.depot.cfa }} (CFA)</div><div class="title">{{ m.title }}</div></div></div>
-    <div class="right"><div><b>{{ c.iw.no }} · MRA {{ rev }}</b></div><div>{{ c.iw.vehicle }} · {{ c.iw.arrival }}</div><div>For: System Supervisor (Oracle entry)</div></div>
+    <div class="right"><div><b>{{ c.iw.no }} · MRA {{ rev }}</b></div><div>{{ c.iw.vehicle }} · In {{ c.iw.arrival }}{% if c.iw.verified %} · Out {{ c.iw.verified }}{% endif %}</div><div>For: System Supervisor (Oracle entry)</div></div>
   </header>
   <table class="grid fixed memo"><colgroup><col class="c-ref"><col class="c-full"><col><col class="c-q"><col class="c-val"><col class="c-act"><col class="c-rem"><col class="trx"></colgroup>
     <thead><tr><th>Reference</th><th>Full SKU</th><th>Description</th><th class="num">Pcs</th><th class="num">Value Rs</th><th>Oracle action</th><th>Remarks</th><th class="trx">TRX No</th></tr></thead>

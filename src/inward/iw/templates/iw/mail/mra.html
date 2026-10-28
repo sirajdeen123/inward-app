@@ -1,7 +1,7 @@
 {% extends "iw/mail/_base.html" %}
 {% block body %}
 <p>Dear Sir / Madam,</p>
-<p>Please find attached the <b>Materials Receipt Acknowledgment {{ c.iw.no }} {{ mra.label }}</b> for the vehicle <b>{{ c.iw.vehicle }}</b> received at Depot {{ c.depot.code }} {{ c.depot.name }} on {{ c.iw.arrival }}.</p>
+<p>Please find attached the <b>Materials Receipt Acknowledgment {{ c.iw.no }} {{ mra.label }}</b> for the vehicle <b>{{ c.iw.vehicle }}</b> received at Depot {{ c.depot.code }} {{ c.depot.name }} on {{ c.iw.arrival }}{% if c.iw.verified %} (vehicle out {{ c.iw.verified }}){% endif %}.</p>
 <table cellpadding="4" cellspacing="0" style="border-collapse:collapse;font-size:13px">
 {% for r in c.references %}<tr><td style="border:1px solid #ccc">{{ r.kind }}</td><td style="border:1px solid #ccc"><b>{{ r.ref }}</b></td><td style="border:1px solid #ccc">{{ r.detail }}</td></tr>{% endfor %}
 </table>

@@ -60,7 +60,7 @@ h3{font-size:10.5px;margin:6px 0 3px;color:#2E2560;text-transform:uppercase;lett
       <tr><td class="k">RCM</td><td>{{ r.rcm_by|default:"-" }}</td><td class="d">{{ r.rcm_date|date:"d-M-Y"|default:"-" }}</td></tr>
       {% if r.close_kind == 'REJECTED' or not r.status|lower == "processed" %}<tr><td class="k">Status</td><td colspan="2"><b>{{ r.status|default:"-" }}</b>{% if r.pending_at %} · pending with {{ r.pending_at }}{% endif %}</td></tr>{% endif %}
     </table>
-    <div class="so">Sales Officer (Cc): {% if so %}<b>{{ so.0 }}</b> (territory {{ so.2 }}) {{ so.1|default:"- no e-mail" }}{% else %}<span style="color:#777">not resolved</span>{% endif %}</div>
+    <div class="so">Sales Officer: {% if so %}<b>{{ so.0|default:"-" }}</b> · Territory {{ so.2 }}{% else %}<span style="color:#777">not resolved</span>{% endif %}</div>
   </div>
   <div class="box tat"><h2>Turnaround</h2>
     <div class="b first"><span>Portal request date</span><b>{{ r.requested_date|date:"d-M-Y"|default:"-" }}</b></div>

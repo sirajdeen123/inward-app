@@ -225,6 +225,7 @@ def test_full_flow(env, monkeypatch):
     from inward.rma import report
     page = report.html(r)
     assert "CLOSURE RECORD" in page and "Turnaround" in page and "Portal request date" in page and "Prasad" in page
+    assert "Territory 19" in page and "prasath@example.com" not in page and "(Cc)" not in page
 
 
 def test_same_portal_report_again_says_no_change(client, env):

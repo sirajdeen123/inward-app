@@ -479,3 +479,22 @@ def test_urgent_reminder_to_chosen_approvers_only(client, env):
                                    "reason_kind": "Credit note needed urgently", "action": "send"})
     assert MailMessage.objects.filter(purpose="RMA_APPR", to=["jv@example.com"]).exists()
     assert "Urgent reminder sent" in c.get(reverse("rma:detail", args=["3"])).content.decode()
+
+
+def test_search_finds_a_request_in_any_stage(client, env):
+    """29-Oct-2026: a search from the Approval tab found nothing for a request in another stage or from before
+    go-live, and every tab showed 0. Now it searches all requests and opens the tab with the match."""
+    svc.import_portal(env["clerk"], portal(env["tmp"], "p.xlsx", [
+        ("61107", "1187422-NATARAJA", "500", "DM Pending", "Jagan V", "", LINES),
+        ("60656", "1187422-NATARAJA", "501", "Processed", "", "", LINES),          # before go-live
+        ("62701", "1187422-NATARAJA", "502", "DM Pending", "Jagan V", "", LINES)]), "p.xlsx")
+    Request.objects.filter(pk="62701").update(status="Processed", rma_no="16043")  # tracked, waiting for the CN
+    c = verified_client(client, env["cfa"])
+    page = c.get(reverse("rma:index") + "?stage=APPROVAL&q=62701").content.decode()
+    assert "Waiting for Credit Note · 1" in page and "62701" in page and "1 request found" in page
+    page = c.get(reverse("rma:index") + "?stage=APPROVAL&q=60656").content.decode()
+    assert "Before go-live · 1" in page and "60656" in page and "Reference only" in page
+    page = c.get(reverse("rma:index") + "?stage=APPROVAL&q=99999").content.decode()
+    assert "No request matches" in page and "Before go-live · 0" in page
+    page = c.get(reverse("rma:index")).content.decode()             # no search: unchanged
+    assert "Approval pending · 1" in page and "Before go-live · 1" in page

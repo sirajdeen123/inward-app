@@ -97,15 +97,17 @@ def index(request):
     stage = request.GET.get("stage", "APPROVAL")
     q = request.GET.get("q", "").strip()
     qs = Request.objects.all()
-    if stage != "CLOSED":
-        qs = qs.filter(closed_at__isnull=True)
-    if q:
+    if q:   # a search looks at every request - any stage, closed, before go-live (29-Oct-2026)
         qs = qs.filter(Q(request_id__icontains=q) | Q(dealer_name__icontains=q) | Q(dealer_code=q) |
                        Q(invoice_no=q) | Q(rma_no=q) | Q(pending_at__icontains=q) | Q(grn_lines__grn__grn_no__icontains=q)).distinct()
     all_rows = svc.rows(qs)
     counts = {code: 0 for code, _ in svc.STAGES}
     for x in all_rows:
         counts[x.stage] += 1
+    before = qs.filter(tracked=False).count()
+    if q and stage != "GRN" and not (counts.get(stage) if stage != "BEFORE" else before):
+        # nothing in the open tab: open the tab where the match is
+        stage = next((code for code, _ in svc.STAGES if counts[code]), "BEFORE" if before else stage)
     if stage == "BEFORE":
         shown = svc.rows(qs.filter(tracked=False), untracked=True)
     else:
@@ -125,7 +127,7 @@ def index(request):
     uploads = upload_rows()
     return render(request, "rma/index.html", {
         "stage": stage, "q": q, "stages": [(c, label, counts.get(c, 0)) for c, label in svc.STAGES], "rows": shown,
-        "before": Request.objects.filter(tracked=False).count(), "can_close": _can(request.user, "RMA_CLOSE"),
+        "before": before, "found": len(all_rows) + before if q else None, "can_close": _can(request.user, "RMA_CLOSE"),
         "go_live": svc.go_live(),
         "unlinked": unlinked, "unmapped": unmapped, "uploads": uploads,
         "grns": Grn.objects.prefetch_related("lines")[:60] if stage == "GRN" else [],

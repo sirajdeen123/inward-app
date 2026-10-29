@@ -32,10 +32,11 @@
   <a href="?stage=GRN" class="chip kind{% if stage == 'GRN' %} chip-ok{% endif %}">GRNs · {{ unlinked|length }} not on portal</a>
   <a href="?stage=BEFORE{% if q %}&q={{ q|urlencode }}{% endif %}" class="chip kind{% if stage == 'BEFORE' %} chip-ok{% endif %}">Before go-live · {{ before }}</a>
 </div>
+{% if q %}<div class="alert {% if found %}alert-info{% else %}alert-warning{% endif %}">{% if found %}"{{ q }}": {{ found }} request{{ found|pluralize }} found in all stages - the count is on each tab.{% else %}No request matches "{{ q }}" - check the number, or upload the latest RMA Portal Report if the request is new.{% endif %}</div>{% endif %}
 {% if stage == "BEFORE" %}<div class="alert alert-info">Requests already processed or rejected before the go-live on {{ go_live|date:"d-M-Y" }}: kept for reference only, not chased and not in the daily report. Linking a GRN to one of them (or "Track it" on the request) brings it back into the flow.</div>{% endif %}
 {% if stage == "IRR" %}<div class="alert alert-info">The Credit Note is in; the app links the IRR "Rma Receipt" TRX on its own when exactly one TRX has the same SKUs and pieces. The rest are listed here - open the request and pick the suggested TRX.</div>{% endif %}
 {% if stage == "CLOSE" %}<div class="alert alert-info">RMA No, Credit Note and IRR receipt are in. Print the handover sheet, let the godown check the material, then close - straight from this list when every quantity agrees.</div>{% endif %}
-<form method="get" class="filters"><input type="hidden" name="stage" value="{{ stage }}"><label for="q">Search</label><input id="q" name="q" value="{{ q }}" placeholder="Request / dealer / invoice / RMA / GRN / approver"><button type="submit" class="btn btn-sm">Find</button>
+<form method="get" class="filters"><input type="hidden" name="stage" value="{{ stage }}"><label for="q">Search</label><input id="q" name="q" value="{{ q }}" placeholder="Request / dealer / invoice / RMA / GRN / approver"><button type="submit" class="btn btn-sm">Find</button>{% if q %} <a href="?stage={{ stage }}" class="btn btn-sm">Clear search</a>{% endif %}
   <a href="{% url 'rma:register' %}" class="btn btn-sm">Register (Excel)</a> <a href="{% url 'rma:daily_preview' %}" class="btn btn-sm">Today's report</a> <a href="{% url 'rma:urgent' %}" class="btn btn-sm">Urgent reminder</a>{% if can_master %} <a href="{% url 'rma:approvers' %}" class="btn btn-sm">Approvers &amp; Sales Officers</a>{% endif %}</form>
 
 {% if stage == "GRN" %}

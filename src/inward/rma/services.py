@@ -837,9 +837,10 @@ def trail(r: Request) -> dict:
                     "when": min((c[1] for c in cns if c[1]), default=r.cn_date), "state": "DONE" if cns or r.cn_no else "PENDING",
                     "note": f"credited Rs {cn_value:,.2f}" if cn_value is not None else ""})
     grns = list(Grn.objects.filter(lines__request=r).distinct())
-    out.append({"step": "Material received at the depot (GRN)", "who": ", ".join(g.grn_no for g in grns) or "-",
-                "when": min((g.grn_date for g in grns), default=None), "state": "DONE" if grns else "PENDING",
-                "note": ", ".join(f"gate entry {g.gate_entry_no}" for g in grns if g.gate_entry_no)})
+    if grns or not rejected:   # the material usually comes in first: the GRN, then the portal request
+        out.insert(0, {"step": "Material received at the depot (GRN)", "who": ", ".join(g.grn_no for g in grns) or "-",
+                       "when": min((g.grn_date for g in grns), default=None), "state": "DONE" if grns else "PENDING",
+                       "note": ", ".join(f"gate entry {g.gate_entry_no}" for g in grns if g.gate_entry_no)})
     if not rejected:
         trx = [x.trx_number for x in r.irr_links.all()]
         irr_day = min((x.trx_date for x in irr_rows(trx)), default=None) if trx else None
@@ -854,6 +855,10 @@ def trail(r: Request) -> dict:
     start = r.requested_date
     for s in out:
         s["day"] = (s["when"] - start).days if s.get("when") and start else None
+        if s["day"] is not None and s["day"] < 0:
+            s["note"] = ", ".join(x for x in (s["note"], f"{-s['day']} day{'s' if s['day'] < -1 else ''} before the portal "
+                                                          "request") if x)
+            s["day"] = None
         s.setdefault("seen", False)
 
     def days_to(step):

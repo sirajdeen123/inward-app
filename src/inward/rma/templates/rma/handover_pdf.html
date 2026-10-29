@@ -2,38 +2,39 @@
 <html><head><meta charset="utf-8"><title>Return {{ r.request_id }} - {% if r.closed_at %}closure record{% else %}handover{% endif %}</title>
 <style>
 @page{size:A4 portrait;margin:12mm}
-body{font-family:Arial,Helvetica,sans-serif;font-size:10px;color:#1a1a1a}
+body{font-family:Arial,Helvetica,sans-serif;font-size:10px;color:#000}
 .hd{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #2E2560;padding-bottom:6px}
 .brand{display:flex;gap:10px;align-items:center}.brand img{width:62px}
-.co{font-size:14px;font-weight:bold;color:#2E2560}.dp{color:#555;font-size:9.5px}
+.co{font-size:14px;font-weight:bold;color:#2E2560}.dp{color:#000;font-size:9.5px}
 .doc{text-align:right}.doc .t{font-size:13px;font-weight:bold;letter-spacing:.3px}
 .doc .no{font-size:16px;font-weight:bold;color:#2E2560;margin-top:2px}
 .chip{display:inline-block;margin-top:3px;padding:1px 8px;border-radius:9px;font-size:9px;font-weight:bold;border:1px solid}
 .chip.ok{color:#1b6b30;border-color:#1b6b30;background:#E7F4EA}.chip.bad{color:#b00020;border-color:#b00020;background:#FDECEE}
 .chip.wait{color:#8a5a00;border-color:#c98a00;background:#FFF6E0}
-.grid{display:flex;flex-wrap:wrap;border:1px solid #d5d5e0;border-radius:4px;margin:10px 0 8px}
-.cell{width:33.33%;box-sizing:border-box;padding:5px 8px;border-bottom:1px solid #e6e6ee}
-.cell .l{font-size:8px;text-transform:uppercase;letter-spacing:.4px;color:#777}
-.cell .v{font-size:10.5px;font-weight:bold;margin-top:1px}.cell .s{font-size:9px;color:#555;font-weight:normal}
+.grid{display:flex;flex-wrap:wrap;border:1px solid #888;border-radius:4px;margin:10px 0 8px}
+.cell{width:33.33%;box-sizing:border-box;padding:5px 8px;border-bottom:1px solid #aaa}
+.cell .l{font-size:8.5px;font-weight:bold;text-transform:uppercase;letter-spacing:.4px;color:#000}
+.cell .v{font-size:10.5px;font-weight:bold;margin-top:1px}.cell .s{font-size:9.5px;color:#222;font-weight:normal}
 .row2{display:flex;gap:10px;margin-bottom:8px}
-.box{border:1px solid #d5d5e0;border-radius:4px;padding:6px 8px}
+.box{border:1px solid #888;border-radius:4px;padding:6px 8px}
 .box h2{font-size:10.5px;margin:0 0 4px;color:#2E2560;text-transform:uppercase;letter-spacing:.4px}
 .appr{flex:1.25}.appr table{width:100%;border-collapse:collapse;margin:0}
-.appr td{border:none;border-bottom:1px solid #eee;padding:3px 4px}.appr td.k{width:70px;color:#555}
+.appr td{border:none;border-bottom:1px solid #aaa;padding:3px 4px}.appr td.k{width:70px;color:#000;font-weight:bold}
 .appr td.d{width:78px;text-align:right;white-space:nowrap}
 .so{margin-top:5px;font-size:9.5px}
-.tat{flex:1}.tat .b{display:flex;justify-content:space-between;border-bottom:1px solid #eee;padding:3px 2px}
+.tat{flex:1}.tat .b{display:flex;justify-content:space-between;border-bottom:1px solid #aaa;padding:3px 2px}
 .tat .b b{font-size:11px}.tat .first b{color:#2E2560}
 table.items{border-collapse:collapse;width:100%;margin:2px 0 8px}
-.items th,.items td{border:1px solid #c8c8d2;padding:3px 5px;text-align:left;vertical-align:top}
-.items th{background:#2E2560;color:#fff;font-weight:bold;font-size:9.5px}
+.items th,.items td{border:1px solid #888;padding:3px 5px;text-align:left;vertical-align:top}
+.items th{background:#E4E4EC;color:#000;font-weight:bold;font-size:9.5px}
 .num{text-align:right!important}.ok td{background:#F1F8F3}.bad td{background:#FBE3E6}
 h3{font-size:10.5px;margin:6px 0 3px;color:#2E2560;text-transform:uppercase;letter-spacing:.4px}
 .closed{border-left:3px solid #1b6b30;background:#F4FAF5;padding:5px 8px;margin:4px 0}
 .closed.rej{border-color:#b00020;background:#FDF1F2}
 .sign{margin-top:30px;display:flex;justify-content:space-between}
 .sign div{border-top:1px solid #333;width:30%;padding-top:4px;text-align:center}
-.foot{color:#777;font-size:8.5px;margin-top:12px}
+.foot{color:#222;font-size:9px;margin-top:12px}
+.ck{font-weight:bold;text-align:center;white-space:nowrap}
 </style></head><body>
 <div class="hd">
   <div class="brand">{% if logo %}<img src="{{ logo }}" alt="">{% endif %}<div><div class="co">{{ depot.company|default:"BERGER PAINTS INDIA LIMITED" }}</div><div class="dp">Depot {{ depot.code }} · {{ depot.name }}{% if depot.cfa %} · operated by {{ depot.cfa }}{% endif %}</div></div></div>
@@ -60,7 +61,7 @@ h3{font-size:10.5px;margin:6px 0 3px;color:#2E2560;text-transform:uppercase;lett
       <tr><td class="k">RCM</td><td>{{ r.rcm_by|default:"-" }}</td><td class="d">{{ r.rcm_date|date:"d-M-Y"|default:"-" }}</td></tr>
       {% if r.close_kind == 'REJECTED' or not r.status|lower == "processed" %}<tr><td class="k">Status</td><td colspan="2"><b>{{ r.status|default:"-" }}</b>{% if r.pending_at %} · pending with {{ r.pending_at }}{% endif %}</td></tr>{% endif %}
     </table>
-    <div class="so">Sales Officer: {% if so %}<b>{{ so.0|default:"-" }}</b> · Territory {{ so.2 }}{% else %}<span style="color:#777">not resolved</span>{% endif %}</div>
+    <div class="so">Sales Officer: {% if so %}<b>{{ so.0|default:"-" }}</b> · Territory {{ so.2 }}{% else %}<span>not resolved</span>{% endif %}</div>
   </div>
   <div class="box tat"><h2>Turnaround</h2>
     <div class="b first"><span>Portal request date</span><b>{{ r.requested_date|date:"d-M-Y"|default:"-" }}</b></div>
@@ -71,8 +72,8 @@ h3{font-size:10.5px;margin:6px 0 3px;color:#2E2560;text-transform:uppercase;lett
 </div>
 
 <h3>Items</h3>
-<table class="items"><tr><th>SKU</th><th>Description</th><th>Condition</th><th class="num">GRN</th><th class="num">Portal</th><th class="num">CN</th><th class="num">IRR</th><th>Locator</th><th>Found (godown)</th></tr>
-{% for ln in recon.lines %}<tr class="{% if ln.status == 'MATCH' %}ok{% elif ln.status == 'MISMATCH' %}bad{% endif %}"><td>{{ ln.sku }}</td><td>{{ ln.description }}</td><td>{{ ln.condition|default:"-" }}</td><td class="num">{{ ln.grn|default:"-" }}</td><td class="num">{{ ln.portal|default:"-" }}</td><td class="num">{{ ln.cn|default:"-" }}</td><td class="num">{{ ln.irr|default:"-" }}</td><td>{{ ln.locator|default:"-" }}</td><td style="width:70px"></td></tr>{% endfor %}</table>
+<table class="items"><tr><th>SKU</th><th>Description</th><th>Condition</th><th class="num">GRN</th><th class="num">Portal</th><th class="num">CN</th><th class="num">IRR</th><th>Locator</th><th>Check</th><th>Found (godown)</th></tr>
+{% for ln in recon.lines %}<tr class="{% if ln.status == 'MATCH' %}ok{% elif ln.status == 'MISMATCH' %}bad{% endif %}"><td>{{ ln.sku }}</td><td>{{ ln.description }}</td><td>{{ ln.condition|default:"-" }}</td><td class="num">{{ ln.grn|default:"-" }}</td><td class="num">{{ ln.portal|default:"-" }}</td><td class="num">{{ ln.cn|default:"-" }}</td><td class="num">{{ ln.irr|default:"-" }}</td><td>{{ ln.locator|default:"-" }}</td><td class="ck">{% if ln.status == 'MATCH' %}OK{% elif ln.status == 'MISMATCH' %}DIFFERS{% else %}-{% endif %}</td><td style="width:70px"></td></tr>{% endfor %}</table>
 {% if r.closed_at %}<div class="closed{% if r.close_kind == 'REJECTED' %} rej{% endif %}"><b>Closed</b> {{ r.closed_at|date:"d-M-Y h:i A" }} by {{ r.closed_by.full_name|default:r.closed_by.username }} · {{ r.close_kind|title }}{% if r.verified_by %} · checked by {{ r.verified_by }}{% if r.verified_on %} on {{ r.verified_on|date:"d-M-Y" }}{% endif %}{% endif %}{% if r.close_note %}<br>{{ r.close_note }}{% endif %}</div>{% endif %}
 <div class="sign"><div>Godown keeper</div><div>Floor in-charge</div><div>CFA / supervisor</div></div>
 <p class="foot">Generated {{ generated|date:"d-M-Y h:i A" }} by the Stock Inward application. Approvers and dates as given in the RMA Portal Report.</p>

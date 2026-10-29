@@ -7,38 +7,21 @@
 {% if unmapped %}<div class="alert alert-warning">{{ unmapped }} portal approver name{{ unmapped|pluralize }} without an e-mail - their pending mails cannot go. {% if can_master %}<a href="{% url 'rma:approvers' %}">Map them on Approvers</a>{% else %}Ask the CFA Manager to map them.{% endif %}</div>{% endif %}
 {% if not as_on %}<div class="alert alert-info">No RMA Portal Report uploaded yet - upload it below to start the approval tracking.</div>{% endif %}
 
-<div class="card"><h2>Uploads</h2>
-  <table class="tbl stack"><thead><tr><th>File</th><th>When</th><th>Last upload</th><th>Upload</th></tr></thead><tbody>
-  {% for u in uploads %}<tr>
-    <td data-label="File"><b>{{ u.label }}</b>{% if u.note %}<div class="muted">{{ u.note }}</div>{% endif %}</td>
-    <td data-label="When">{{ u.when }}</td>
-    <td data-label="Last upload" class="muted">{% if u.batch %}{{ u.batch.uploaded_at|date:"d-M-Y h:i A" }}{% if u.kind == "PORTAL" and u.batch.summary.as_on %}<br>report as on {{ u.batch.summary.as_on }}{% endif %}{% if u.count %}<br>{{ u.count }}{% endif %}{% elif u.kind == "GRN" %}{% if u.count %}{{ u.count }}{% else %}none yet{% endif %}{% else %}<span class="warn-text">not uploaded yet</span>{% endif %}</td>
-    <td data-label="Upload"><form method="post" action="{% url 'rma:upload' %}" enctype="multipart/form-data" class="inline">{% csrf_token %}<input type="hidden" name="kind" value="{{ u.kind }}">
-      <label class="sr-only" for="up-{{ u.kind }}">{{ u.label }}</label><input id="up-{{ u.kind }}" type="file" name="file" accept="{{ u.accept }}" required>
-      <button type="submit" class="btn btn-sm{% if u.kind == 'GRN' or u.kind == 'PORTAL' %} btn-primary{% endif %}">Upload</button></form></td></tr>{% endfor %}
-  </tbody></table>
-  <p><b>CN report from Gmail today:</b> {% if cn_today %}{% if cn_today.ok %}<span class="chip chip-ok">loaded</span>{% else %}<span class="chip chip-warn">not received</span>{% endif %} {{ cn_today.text }}{% else %}<span class="muted">not yet - checked every 10 minutes from {{ cn_auto.fetch_time|time:"h:i A" }} for a mail with "{{ cn_auto.subject }}"</span>{% endif %}
-    <form method="post" action="{% url 'rma:cn_fetch' %}" class="inline-form">{% csrf_token %}<button type="submit" class="btn btn-sm">Fetch CN report from Gmail now</button></form></p>
-  {% if can_master %}<details><summary class="muted">CN report mail settings</summary>
-    <form method="post" action="{% url 'rma:cn_fetch_settings' %}" class="form-grid">{% csrf_token %}
-      <div class="field span-all"><label for="cs-sub">Subject contains</label><input id="cs-sub" name="subject" value="{{ cn_auto.subject }}"></div>
-      <div class="field"><label for="cs-t">Look from (HH:MM)</label><input id="cs-t" name="fetch_time" value="{{ cn_auto.fetch_time|time:'H:i' }}"></div>
-      <div class="field"><label for="cs-d">Missing after (HH:MM)</label><input id="cs-d" name="deadline" value="{{ cn_auto.deadline|time:'H:i' }}"></div>
-      <div class="field"><label>&nbsp;</label><button type="submit" class="btn btn-sm">Save</button></div></form></details>{% endif %}
+<div id="list">
+<div class="stages">
+  {% for code, label, n in stages %}<a href="?stage={{ code }}{% if q %}&q={{ q|urlencode }}{% endif %}#list" class="stage-card{% if code == stage %} on{% endif %}{% if not n %} zero{% elif code == 'CLOSE' %} act{% endif %}"><span class="step">{% if code == 'REJECTED' %}-{% elif code == 'CLOSED' %}&#10003;{% else %}{{ forloop.counter }}{% endif %}</span><div class="n">{{ n }}</div><div class="t">{{ label }}</div></a>{% endfor %}
 </div>
-
-<div class="kindbar">
-  {% for code, label, n in stages %}<a href="?stage={{ code }}{% if q %}&q={{ q|urlencode }}{% endif %}" class="chip kind{% if code == stage %} chip-ok{% endif %}">{{ label }} · {{ n }}</a>{% endfor %}
-  <a href="?stage=GRN" class="chip kind{% if stage == 'GRN' %} chip-ok{% endif %}">GRNs · {{ unlinked|length }} not on portal</a>
-  <a href="?stage=BEFORE{% if q %}&q={{ q|urlencode }}{% endif %}" class="chip kind{% if stage == 'BEFORE' %} chip-ok{% endif %}">Before go-live · {{ before }}</a>
+<div class="stage-extra">
+  <a href="?stage=GRN#list" class="stage-btn warn{% if stage == 'GRN' %} on{% endif %}">GRNs not on portal <b>{{ unlinked|length }}</b></a>
+  <a href="?stage=BEFORE{% if q %}&q={{ q|urlencode }}{% endif %}#list" class="stage-btn{% if stage == 'BEFORE' %} on{% endif %}">Before go-live (reference) <b>{{ before }}</b></a>
 </div>
-{% if q %}<div class="alert {% if found %}alert-info{% else %}alert-warning{% endif %}">{% if found %}"{{ q }}": {{ found }} request{{ found|pluralize }} found in all stages - the count is on each tab.{% else %}No request matches "{{ q }}" - check the number, or upload the latest RMA Portal Report if the request is new.{% endif %}</div>{% endif %}
+<form method="get" action="#list" class="rma-search"><input type="hidden" name="stage" value="{{ stage }}"><label class="sr-only" for="q">Search</label><input id="q" name="q" value="{{ q }}" placeholder="Request / dealer / invoice / RMA / GRN / approver"><button type="submit" class="btn btn-primary">Find</button>{% if q %}<a href="?stage={{ stage }}#list" class="btn">Clear search</a>{% endif %}
+  <div class="tools"><a href="{% url 'rma:register' %}" class="btn btn-sm">Register (Excel)</a><a href="{% url 'rma:daily_preview' %}" class="btn btn-sm">Today's report</a><a href="{% url 'rma:urgent' %}" class="btn btn-sm">Urgent reminder</a>{% if can_master %}<a href="{% url 'rma:approvers' %}" class="btn btn-sm">Approvers &amp; Sales Officers</a>{% endif %}</div></form>
+</div>
+{% if q %}<div class="alert {% if found %}alert-info{% else %}alert-warning{% endif %}">{% if found %}"{{ q }}": {{ found }} request{{ found|pluralize }} found in all stages - the count is on each card.{% else %}No request matches "{{ q }}" - check the number, or upload the latest RMA Portal Report if the request is new.{% endif %}</div>{% endif %}
 {% if stage == "BEFORE" %}<div class="alert alert-info">Requests already processed or rejected before the go-live on {{ go_live|date:"d-M-Y" }}: kept for reference only, not chased and not in the daily report. Linking a GRN to one of them (or "Track it" on the request) brings it back into the flow.</div>{% endif %}
 {% if stage == "IRR" %}<div class="alert alert-info">The Credit Note is in; the app links the IRR "Rma Receipt" TRX on its own when exactly one TRX has the same SKUs and pieces. The rest are listed here - open the request and pick the suggested TRX.</div>{% endif %}
 {% if stage == "CLOSE" %}<div class="alert alert-info">RMA No, Credit Note and IRR receipt are in. Print the handover sheet, let the godown check the material, then close - straight from this list when every quantity agrees.</div>{% endif %}
-<form method="get" class="filters"><input type="hidden" name="stage" value="{{ stage }}"><label for="q">Search</label><input id="q" name="q" value="{{ q }}" placeholder="Request / dealer / invoice / RMA / GRN / approver"><button type="submit" class="btn btn-sm">Find</button>{% if q %} <a href="?stage={{ stage }}" class="btn btn-sm">Clear search</a>{% endif %}
-  <a href="{% url 'rma:register' %}" class="btn btn-sm">Register (Excel)</a> <a href="{% url 'rma:daily_preview' %}" class="btn btn-sm">Today's report</a> <a href="{% url 'rma:urgent' %}" class="btn btn-sm">Urgent reminder</a>{% if can_master %} <a href="{% url 'rma:approvers' %}" class="btn btn-sm">Approvers &amp; Sales Officers</a>{% endif %}</form>
-
 {% if stage == "GRN" %}
 <div class="card"><h2>GRN invoices not yet raised on the portal</h2>
   <table class="tbl stack"><thead><tr><th>GRN</th><th>Dealer</th><th>Invoice</th><th class="num">Lines / pcs</th><th>Days</th></tr></thead>
@@ -71,4 +54,23 @@
   {% empty %}<tr><td colspan="7" class="muted">Nothing here.</td></tr>{% endfor %}</tbody></table></div>
 {% endif %}
 <p class="muted">Daily report at 09:30 to the Admin Officer, Cc CFA Manager{% if cc_rcm %} and RCM{% else %} (RCM copy switched off){% endif %}. Approvers get their pending list at 09:30 and a mail the same day a request reaches them.</p>
+<details class="card" id="uploads"{% if not as_on %} open{% endif %}><summary><h2 style="display:inline">Uploads</h2> <span class="muted">GRN PDF · RMA Portal Report · CN report · Dealer master · TSI Master{% if as_on %} - portal report as on {{ as_on.report|default:"-" }}{% endif %}</span></summary>
+  <table class="tbl stack"><thead><tr><th>File</th><th>When</th><th>Last upload</th><th>Upload</th></tr></thead><tbody>
+  {% for u in uploads %}<tr>
+    <td data-label="File"><b>{{ u.label }}</b>{% if u.note %}<div class="muted">{{ u.note }}</div>{% endif %}</td>
+    <td data-label="When">{{ u.when }}</td>
+    <td data-label="Last upload" class="muted">{% if u.batch %}{{ u.batch.uploaded_at|date:"d-M-Y h:i A" }}{% if u.kind == "PORTAL" and u.batch.summary.as_on %}<br>report as on {{ u.batch.summary.as_on }}{% endif %}{% if u.count %}<br>{{ u.count }}{% endif %}{% elif u.kind == "GRN" %}{% if u.count %}{{ u.count }}{% else %}none yet{% endif %}{% else %}<span class="warn-text">not uploaded yet</span>{% endif %}</td>
+    <td data-label="Upload"><form method="post" action="{% url 'rma:upload' %}" enctype="multipart/form-data" class="inline">{% csrf_token %}<input type="hidden" name="kind" value="{{ u.kind }}">
+      <label class="sr-only" for="up-{{ u.kind }}">{{ u.label }}</label><input id="up-{{ u.kind }}" type="file" name="file" accept="{{ u.accept }}" required>
+      <button type="submit" class="btn btn-sm{% if u.kind == 'GRN' or u.kind == 'PORTAL' %} btn-primary{% endif %}">Upload</button></form></td></tr>{% endfor %}
+  </tbody></table>
+  <p><b>CN report from Gmail today:</b> {% if cn_today %}{% if cn_today.ok %}<span class="chip chip-ok">loaded</span>{% else %}<span class="chip chip-warn">not received</span>{% endif %} {{ cn_today.text }}{% else %}<span class="muted">not yet - checked every 10 minutes from {{ cn_auto.fetch_time|time:"h:i A" }} for a mail with "{{ cn_auto.subject }}"</span>{% endif %}
+    <form method="post" action="{% url 'rma:cn_fetch' %}" class="inline-form">{% csrf_token %}<button type="submit" class="btn btn-sm">Fetch CN report from Gmail now</button></form></p>
+  {% if can_master %}<details><summary class="muted">CN report mail settings</summary>
+    <form method="post" action="{% url 'rma:cn_fetch_settings' %}" class="form-grid">{% csrf_token %}
+      <div class="field span-all"><label for="cs-sub">Subject contains</label><input id="cs-sub" name="subject" value="{{ cn_auto.subject }}"></div>
+      <div class="field"><label for="cs-t">Look from (HH:MM)</label><input id="cs-t" name="fetch_time" value="{{ cn_auto.fetch_time|time:'H:i' }}"></div>
+      <div class="field"><label for="cs-d">Missing after (HH:MM)</label><input id="cs-d" name="deadline" value="{{ cn_auto.deadline|time:'H:i' }}"></div>
+      <div class="field"><label>&nbsp;</label><button type="submit" class="btn btn-sm">Save</button></div></form></details>{% endif %}
+</details>
 {% endblock %}

@@ -515,6 +515,13 @@ def test_urgent_reminder_to_chosen_approvers_only(client, env):
     assert "Urgent reminder sent" in c.get(reverse("rma:detail", args=["3"])).content.decode()
 
 
+def _counts(page: str) -> dict:
+    import re
+    out = {t: int(n) for n, t in re.findall(r'<div class="n">(\d+)</div><div class="t">([^<]+)</div>', page)}
+    out.update({t.strip(): int(n) for t, n in re.findall(r'class="stage-btn[^"]*">([^<]+)<b>(\d+)</b>', page)})
+    return out
+
+
 def test_search_finds_a_request_in_any_stage(client, env):
     """29-Oct-2026: a search from the Approval tab found nothing for a request in another stage or from before
     go-live, and every tab showed 0. Now it searches all requests and opens the tab with the match."""
@@ -525,10 +532,13 @@ def test_search_finds_a_request_in_any_stage(client, env):
     Request.objects.filter(pk="62701").update(status="Processed", rma_no="16043")  # tracked, waiting for the CN
     c = verified_client(client, env["cfa"])
     page = c.get(reverse("rma:index") + "?stage=APPROVAL&q=62701").content.decode()
-    assert "Waiting for Credit Note · 1" in page and "62701" in page and "1 request found" in page
+    assert _counts(page)["Waiting for Credit Note"] == 1 and "62701" in page and "1 request found" in page
+    assert 'class="stage-card on zero"' not in page and _counts(page)["Approval pending"] == 0
     page = c.get(reverse("rma:index") + "?stage=APPROVAL&q=60656").content.decode()
-    assert "Before go-live · 1" in page and "60656" in page and "Reference only" in page
+    assert _counts(page)["Before go-live (reference)"] == 1 and "60656" in page and "Reference only" in page
     page = c.get(reverse("rma:index") + "?stage=APPROVAL&q=99999").content.decode()
-    assert "No request matches" in page and "Before go-live · 0" in page
+    assert "No request matches" in page and _counts(page)["Before go-live (reference)"] == 0
     page = c.get(reverse("rma:index")).content.decode()             # no search: unchanged
-    assert "Approval pending · 1" in page and "Before go-live · 1" in page
+    assert _counts(page)["Approval pending"] == 1 and _counts(page)["Before go-live (reference)"] == 1
+    assert page.index('class="stages"') < page.index('id="uploads"')        # stages and list first, uploads below
+    assert 'action="#list"' in page and "?stage=CN#list" in page              # Find / a card open at the list

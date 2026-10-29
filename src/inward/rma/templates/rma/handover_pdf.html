@@ -1,5 +1,5 @@
 <!doctype html>
-<html><head><meta charset="utf-8"><title>Return {{ r.request_id }} - handover</title>
+<html><head><meta charset="utf-8"><title>Return {{ r.request_id }} - {% if r.closed_at %}closure record{% else %}handover{% endif %}</title>
 <style>
 @page{size:A4 portrait;margin:12mm}
 body{font-family:Arial,Helvetica,sans-serif;font-size:10.5px;color:#111}
@@ -11,14 +11,26 @@ th,td{border:1px solid #999;padding:3px 5px;text-align:left;vertical-align:top}t
 .num{text-align:right}.bad{background:#F8D7DA}.ok{background:#E7F4EA}
 .kv td{border:none;padding:1px 6px 1px 0}.sign{margin-top:28px;display:flex;justify-content:space-between}
 .sign div{border-top:1px solid #333;width:30%;padding-top:4px;text-align:center}
+h2{font-size:12px;margin:10px 0 3px;color:#2E2560}
+.trail td.st{width:62px;text-align:center;font-weight:bold;font-size:9.5px}.trail .DONE td.st{color:#1b6b30}
+.trail .PENDING td.st{color:#8a5a00}.trail .REJECTED td.st{color:#b00020}.trail .PENDING{color:#555}
+.tat{display:flex;gap:8px;margin:4px 0 2px}.tat div{border:1px solid #bbb;padding:3px 8px;background:#f6f6fb}
+.muted{color:#666;font-size:9px}
 </style></head><body>
 <div class="hd">{% if logo %}<img src="{{ logo }}" alt="">{% endif %}<div><div class="co">{{ depot.company|default:"BERGER PAINTS INDIA LIMITED" }}</div><div>Depot {{ depot.code }} · {{ depot.name }}{% if depot.cfa %} · operated by {{ depot.cfa }}{% endif %}</div></div></div>
-<h1>Material return - handover for physical check · Request {{ r.request_id }}</h1>
+<h1>Material return - {% if r.closed_at %}closure record{% else %}handover for physical check{% endif %} · RMA Portal Request {{ r.request_id }}</h1>
 <table class="kv"><tr><td><b>Dealer</b></td><td>{{ r.dealer_code }} · {{ r.dealer_name }}</td><td><b>Return type</b></td><td>{{ r.return_type|title }}</td></tr>
-<tr><td><b>Invoice</b></td><td>{{ r.invoice_no }} ({{ r.invoice_date|date:"d-m-Y" }})</td><td><b>Requested</b></td><td>{{ r.requested_date|date:"d-m-Y" }} · Rs {{ r.total_value|floatformat:2 }}</td></tr>
+<tr><td><b>Invoice</b></td><td>{{ r.invoice_no }} ({{ r.invoice_date|date:"d-m-Y" }})</td><td><b>Portal request date</b></td><td>{{ r.requested_date|date:"d-m-Y" }}{% if r.requested_by %} · raised by {{ r.requested_by }}{% endif %}</td></tr>
+<tr><td><b>Request value</b></td><td>Rs {{ r.total_value|floatformat:2 }}</td><td><b>Portal status</b></td><td>{{ r.status|default:"-" }}{% if trail.approved_on %} · approved by {{ trail.approved_on|date:"d-m-Y" }}{% endif %}</td></tr>
 <tr><td><b>RMA No</b></td><td>{{ r.rma_no|default:"-" }} {{ r.rma_date|date:"d-m-Y" }}</td><td><b>Credit Note</b></td><td>{{ recon.cn|join:", "|default:"-" }} · credited Rs {{ recon.credited_value }}</td></tr>
 <tr><td><b>GRN</b></td><td>{% for g in grns %}{{ g.grn_no }} ({{ g.grn_date|date:"d-m-Y" }}{% if g.gate_entry_no %}, gate {{ g.gate_entry_no }}{% endif %}){% if not forloop.last %}, {% endif %}{% empty %}-{% endfor %}</td><td><b>IRR TRX</b></td><td>{{ recon.trx|join:", "|default:"-" }}</td></tr>
 <tr><td><b>Check</b></td><td colspan="3"><b>{{ recon_text }}</b></td></tr></table>
+<h2>Approval and closure trail</h2>
+{% if trail.to_rma is not None or trail.to_cn is not None or trail.to_close is not None %}<div class="tat">{% if trail.to_rma is not None %}<div>Request &rarr; RMA No: <b>{{ trail.to_rma }} day{{ trail.to_rma|pluralize }}</b></div>{% endif %}{% if trail.to_cn is not None %}<div>Request &rarr; Credit Note: <b>{{ trail.to_cn }} day{{ trail.to_cn|pluralize }}</b></div>{% endif %}{% if trail.to_close is not None %}<div>Request &rarr; closed: <b>{{ trail.to_close }} day{{ trail.to_close|pluralize }}</b></div>{% endif %}</div>{% endif %}
+<table class="trail"><tr><th style="width:24px">#</th><th>Step</th><th>By / reference</th><th style="width:70px">Date</th><th style="width:40px" class="num">Day</th><th>Status</th><th>Note</th></tr>
+{% for s in trail.steps %}<tr class="{{ s.state }}"><td>{{ forloop.counter }}</td><td>{{ s.step }}</td><td>{{ s.who|default:"-" }}</td><td>{{ s.when|date:"d-m-Y"|default:"-" }}{% if s.seen %}*{% endif %}</td><td class="num">{{ s.day|default_if_none:"-" }}</td><td class="st">{% if s.state == "DONE" %}Done{% elif s.state == "REJECTED" %}Rejected{% else %}Pending{% endif %}</td><td>{{ s.note }}</td></tr>{% endfor %}</table>
+<p class="muted">Day = days from the portal request date. Admin, RSM and RCM approvers and dates are as given in the RMA Portal Report; the portal does not name the CNF / DM approver, so those rows show who it was pending with and (*) the date of the portal upload that first showed it approved.</p>
+<h2>Items</h2>
 <table><tr><th>SKU</th><th>Description</th><th>Condition</th><th class="num">GRN</th><th class="num">Portal</th><th class="num">CN</th><th class="num">IRR</th><th>Locator</th><th>Found (godown)</th></tr>
 {% for ln in recon.lines %}<tr class="{% if ln.status == 'MATCH' %}ok{% elif ln.status == 'MISMATCH' %}bad{% endif %}"><td>{{ ln.sku }}</td><td>{{ ln.description }}</td><td>{{ ln.condition|default:"-" }}</td><td class="num">{{ ln.grn|default:"-" }}</td><td class="num">{{ ln.portal|default:"-" }}</td><td class="num">{{ ln.cn|default:"-" }}</td><td class="num">{{ ln.irr|default:"-" }}</td><td>{{ ln.locator|default:"-" }}</td><td style="width:70px"></td></tr>{% endfor %}</table>
 {% if r.closed_at %}<p><b>Closed</b> {{ r.closed_at|date:"d-m-Y h:i A" }} · {{ r.close_kind|title }} · checked by {{ r.verified_by|default:"-" }} on {{ r.verified_on|date:"d-m-Y" }}{% if r.close_note %} · {{ r.close_note }}{% endif %}</p>{% endif %}

@@ -15,7 +15,7 @@ def html(r: Request) -> str:
     grns = list(Grn.objects.filter(lines__request=r).distinct())
     return pdf.render_html("rma/handover_pdf.html", {
         "r": r, "recon": recon, "recon_text": svc.RECON_TEXT.get(recon["status"], recon["status"]), "grns": grns,
-        "depot": depot_info(), "logo": branding.logo_data_uri(), "generated": timezone.localtime()})
+        "trail": svc.trail(r), "depot": depot_info(), "logo": branding.logo_data_uri(), "generated": timezone.localtime()})
 
 
 def generate(r: Request, user=None):

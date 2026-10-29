@@ -180,11 +180,21 @@ def upload(request):
             finally:
                 path.unlink(missing_ok=True)
             if kind == "PORTAL":
-                messages.success(request, f"{label}: {res['requests']} request(s) - {res['new']} new, {res['changed']} "
+                now = svc.stage_counts()
+                now_text = " · ".join(f"{lbl} {now[code]}" for code, lbl in svc.STAGES if code not in ("CLOSED", "REJECTED")
+                                      or now[code])
+                as_on = f" (report as on {res['as_on']:%d-%b-%Y})" if res["as_on"] else ""
+                if res["same"]:   # 29-Oct-2026: a second export of the same report read as "0 new, 0 moved"
+                    messages.info(request, f"{label}{as_on}: same as the last upload - no request changed "
+                                           f"({res['requests']} requests). Now: {now_text}.")
+                    return upload_done(request, back)
+                messages.success(request, f"{label}{as_on}: {res['requests']} request(s) - {res['new']} new, {res['changed']} "
                                           f"moved to another stage / approver; {res['linked']} GRN invoice(s) linked"
                                           + (f"; {res['irr_linked']} IRR receipt(s) linked automatically" if res["irr_linked"] else "")
                                           + (f"; {res['before_go_live']} already processed / rejected before go-live kept "
-                                             "for reference only" if res["before_go_live"] else "") + ".")
+                                             "for reference only" if res["before_go_live"] else "")
+                                          + (f"; {res['updated'] - res['changed']} updated (RMA No, CN, dates)"
+                                             if res["updated"] > res["changed"] else "") + f". Now: {now_text}.")
                 if res["unmapped"]:
                     messages.warning(request, f"{res['unmapped']} approver name(s) have no e-mail yet - map them on "
                                               "Approvers so the pending mails reach them.")

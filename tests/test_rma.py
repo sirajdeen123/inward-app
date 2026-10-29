@@ -209,6 +209,39 @@ def test_full_flow(env, monkeypatch):
     r.refresh_from_db()
     assert r.closed_at and r.close_kind == "RECONCILED" and svc.stage(r) == "CLOSED"
 
+    # closure record (29-Oct-2026): request date, who raised it, every approval level, RMA No, CN, GRN, IRR, check, closure
+    t = svc.trail(r)
+    steps = {x["step"]: x for x in t["steps"]}
+    assert steps["Request raised on the RMA Portal"]["who"] == "Clerk"
+    assert steps["Request raised on the RMA Portal"]["when"] == date(2026, 9, 18)
+    assert steps["Admin approval"]["who"] == "Muraleedharan K M" and steps["Admin approval"]["seen"]
+    assert steps["DM approval"]["who"] == "S Muthusamy" and steps["DM approval"]["state"] == "DONE"
+    assert steps["RMA No created in Oracle"]["who"] == "15999" and steps["RMA No created in Oracle"]["day"] == 7
+    assert steps["Credit Note to the dealer"]["who"] == "035-1800" and "8,000.00" in steps["Credit Note to the dealer"]["note"]
+    assert steps["Received in Oracle (IRR Rma Receipt)"]["who"] == "43100"
+    assert steps["Physical check by the godown"]["who"] == "Murugan"
+    assert steps["Closed in the Stock Inward app"]["state"] == "DONE" and "Reconciled" in steps["Closed in the Stock Inward app"]["note"]
+    assert all(x["state"] == "DONE" for x in t["steps"]) and t["to_rma"] == 7 and t["to_cn"] == 8
+    from inward.rma import report
+    page = report.html(r)
+    assert "closure record" in page and "Approval and closure trail" in page and "raised by Clerk" in page
+
+
+def test_same_portal_report_again_says_no_change(client, env):
+    """29-Oct-2026: a second export of the same report showed '0 new, 0 moved' - now it says it is the same."""
+    reqs = [("61107", "1187422-NATARAJA", "500", "DM Pending", "Jagan V", "", LINES)]
+    c = verified_client(client, env["clerk"])
+    with open(portal(env["tmp"], "a.xlsx", reqs), "rb") as f:
+        page = c.post(reverse("rma:upload"), {"kind": "PORTAL", "file": f}, follow=True).content.decode()
+    assert "1 new" in page and "Now: Approval pending 1" in page
+    ImportBatch.objects.filter(kind="RMA_PORTAL").update(sha256="another export")   # a new file, same content
+    with open(env["tmp"] / "a.xlsx", "rb") as f:
+        page = c.post(reverse("rma:upload"), {"kind": "PORTAL", "file": f}, follow=True).content.decode()
+    assert "same as the last upload - no request changed" in page and "Now: Approval pending 1" in page
+    res = svc.import_portal(env["clerk"], portal(env["tmp"], "b.xlsx", [("61107", "1187422-NATARAJA", "500", "Processed",
+                                                                         "", "16043", LINES)]), "b.xlsx")
+    assert not res["same"] and res["changed"] == 1
+
 
 def test_mismatch_needs_a_reason_and_rejected_closure(env, monkeypatch):
     clerk, cfa, tmp = env["clerk"], env["cfa"], env["tmp"]

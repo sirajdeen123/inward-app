@@ -292,7 +292,7 @@ def import_portal(user: User, path: Path, filename: str) -> dict:
     batch = _batch("RMA_PORTAL", path, filename, user)
     today = timezone.localdate()
     known = {r.pk: r for r in Request.objects.filter(pk__in=list(report.requests)).select_for_update()}
-    new = changed = untracked = 0
+    new = changed = untracked = updated = 0
     for rid, pr in report.requests.items():
         v = dict(pr.values)
         if v.get("cn_value") is None and rid in known:
@@ -308,11 +308,14 @@ def import_portal(user: User, path: Path, filename: str) -> dict:
             moved = True
             r.stage_since = today
             changed += 1
+        before = None if r._state.adding else [getattr(r, k) for k in PORTAL_FIELDS]
         for k in PORTAL_FIELDS:
             val = v.get(k)
             if val is None:
                 val = ZERO if k == "total_value" else "" if k in TEXT_FIELDS else None
             setattr(r, k, val)
+        if before is not None and before != [getattr(r, k) for k in PORTAL_FIELDS]:
+            updated += 1
         r.last_seen = batch
         r.save()
         if pr.lines:
@@ -328,14 +331,22 @@ def import_portal(user: User, path: Path, filename: str) -> dict:
     irr_linked = auto_link_irr()
     batch.row_count = batch.accepted_count = len(report.requests)
     batch.summary = {"as_on": str(report.as_on or ""), "new": new, "changed": changed, "linked": linked,
-                     "before_go_live": untracked}
+                     "before_go_live": untracked, "updated": updated}
     batch.save(update_fields=["row_count", "accepted_count", "summary"])
     unmapped = Approver.objects.filter(active=True, email="", redirect_to__isnull=True).count()
     audit.record("RMA_PORTAL_IMPORTED", "import_batch", batch.pk, user=user,
                  after={"file": filename, "requests": len(report.requests), "new": new, "changed": changed,
                         "linked_grn_invoices": linked, "as_on": str(report.as_on or "")})
     return {"requests": len(report.requests), "new": new, "changed": changed, "linked": linked, "unmapped": unmapped,
-            "as_on": report.as_on, "before_go_live": untracked, "irr_linked": irr_linked}
+            "as_on": report.as_on, "before_go_live": untracked, "irr_linked": irr_linked, "updated": updated,
+            "same": not (new or updated or linked or irr_linked)}
+
+
+def stage_counts() -> dict:
+    counts = {code: 0 for code, _ in STAGES}
+    for x in rows(Request.objects.filter(closed_at__isnull=True)):
+        counts[x.stage] += 1
+    return counts
 
 
 def go_live() -> date:
@@ -768,6 +779,90 @@ def steps(r: Request, recon: dict) -> list[dict]:
             s["current"] = True
             break
     return out
+
+
+LEVELS = [("CNF", "CNF check"), ("ADMIN", "Admin approval"), ("DM", "DM approval"), ("RSM", "RSM approval"),
+          ("RCM", "RCM approval")]
+LEVEL_COLS = {"ADMIN": ("admin_by", "admin_date"), "RSM": ("rsm_by", "rsm_date"), "RCM": ("rcm_by", "rcm_date")}
+
+
+def _level(status: str) -> str:
+    return (status or "").split(" ")[0].upper()
+
+
+def trail(r: Request) -> dict:
+    """The request's whole journey for the closure record (29-Oct-2026): raised on the portal, every approval level
+    (who, when), RMA No, Credit Note, GRN, IRR receipt, the godown check and the closure. Admin / RSM / RCM come from
+    the portal report; CNF and DM are not named there, so they come from the Pending At the app saw on each upload
+    (the date is the upload that showed the next step - marked 'seen')."""
+    events = list(r.events.all())
+    seen: dict[str, dict] = {}
+    for i, e in enumerate(events):
+        if not is_pending(e.status):
+            continue
+        s = seen.setdefault(_level(e.status), {"names": e.pending_at, "since": timezone.localdate(e.seen_at),
+                                               "until": None})
+        if i + 1 < len(events):
+            s["until"] = timezone.localdate(events[i + 1].seen_at)
+    rejected = _level(r.status) if is_rejected(r.status) else ""
+    rejected_on = next((timezone.localdate(e.seen_at) for e in events if e.status == r.status), None) if rejected else None
+    current = _level(r.status) if is_pending(r.status) else ""
+    out = [{"step": "Request raised on the RMA Portal", "who": r.requested_by, "when": r.requested_date,
+            "state": "DONE", "note": f"Rs {r.total_value:,.2f} · {r.return_type.title()}"}]
+    for code, label in LEVELS:
+        by, on = (getattr(r, f) for f in LEVEL_COLS[code]) if code in LEVEL_COLS else ("", None)
+        s = seen.get(code)
+        if code == rejected:
+            out.append({"step": label, "who": (s or {}).get("names", "") or by, "when": rejected_on or on,
+                        "state": "REJECTED", "note": r.status + (" (date seen on the portal upload)" if rejected_on else ""),
+                        "seen": bool(rejected_on)})
+            break
+        if code == current:
+            out.append({"step": label, "who": r.pending_at, "when": s["since"] if s else r.stage_since, "state": "PENDING",
+                        "note": "pending with them"})
+            break
+        if by or on:
+            out.append({"step": label, "who": by or "-", "when": on, "state": "DONE",
+                        "note": "" if by else "no approver named on the portal (passed)"})
+        elif s:
+            out.append({"step": label, "who": s["names"], "when": s["until"], "state": "DONE", "seen": True,
+                        "note": "pending with them from " + s["since"].strftime("%d-%m-%Y")
+                                + "; the portal does not name who approved"})
+    if not rejected and not current and r.status:
+        out.append({"step": "RMA No created in Oracle", "who": r.rma_no or "-", "when": r.rma_date,
+                    "state": "DONE" if r.rma_no else "PENDING", "note": ""})
+        cns = list(CnLine.objects.filter(rma_no=r.rma_no).values_list("cn_no", "cn_date").distinct()) if r.rma_no else []
+        cn_value = sum(((ln.cn_nop * (ln.cn_rate or ZERO)) for ln in CnLine.objects.filter(rma_no=r.rma_no)), ZERO)             if cns else None
+        out.append({"step": "Credit Note to the dealer", "who": ", ".join(sorted({c[0] for c in cns})) or r.cn_no or "-",
+                    "when": min((c[1] for c in cns if c[1]), default=r.cn_date), "state": "DONE" if cns or r.cn_no else "PENDING",
+                    "note": f"credited Rs {cn_value:,.2f}" if cn_value is not None else ""})
+    grns = list(Grn.objects.filter(lines__request=r).distinct())
+    out.append({"step": "Material received at the depot (GRN)", "who": ", ".join(g.grn_no for g in grns) or "-",
+                "when": min((g.grn_date for g in grns), default=None), "state": "DONE" if grns else "PENDING",
+                "note": ", ".join(f"gate entry {g.gate_entry_no}" for g in grns if g.gate_entry_no)})
+    if not rejected:
+        trx = [x.trx_number for x in r.irr_links.all()]
+        irr_day = min((x.trx_date for x in irr_rows(trx)), default=None) if trx else None
+        out.append({"step": "Received in Oracle (IRR Rma Receipt)", "who": ", ".join(trx) or "-", "when": irr_day,
+                    "state": "DONE" if trx else "PENDING", "note": ""})
+        out.append({"step": "Physical check by the godown", "who": r.verified_by or "-", "when": r.verified_on,
+                    "state": "DONE" if r.verified_by else "PENDING", "note": ""})
+    closer = (r.closed_by.full_name or r.closed_by.username) if r.closed_by_id else "-"
+    out.append({"step": "Closed in the Stock Inward app", "who": closer,
+                "when": timezone.localdate(r.closed_at) if r.closed_at else None, "state": "DONE" if r.closed_at else "PENDING",
+                "note": (r.close_kind.title() + (f" - {r.close_note}" if r.close_note else "")) if r.closed_at else ""})
+    start = r.requested_date
+    for s in out:
+        s["day"] = (s["when"] - start).days if s.get("when") and start else None
+        s.setdefault("seen", False)
+
+    def days_to(step):
+        s = next((x for x in out if x["step"] == step and x["state"] == "DONE" and x["day"] is not None), None)
+        return s["day"] if s else None
+    return {"steps": out, "to_rma": days_to("RMA No created in Oracle"), "to_cn": days_to("Credit Note to the dealer"),
+            "to_close": days_to("Closed in the Stock Inward app"), "approved_on": max(
+                (s["when"] for s in out if s["step"] in dict(LEVELS).values() and s["when"] and s["state"] == "DONE"),
+                default=None)}
 
 
 RECON_TEXT = {"NO_GRN": "No GRN linked", "WAIT_CN": "Waiting for the Credit Note", "WAIT_IRR": "Waiting for the IRR receipt",

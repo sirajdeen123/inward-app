@@ -224,7 +224,7 @@ def test_full_flow(env, monkeypatch):
     assert all(x["state"] == "DONE" for x in t["steps"]) and t["to_rma"] == 7 and t["to_cn"] == 8
     from inward.rma import report
     page = report.html(r)
-    assert "closure record" in page and "Approval and closure trail" in page and "raised by Clerk" in page
+    assert "CLOSURE RECORD" in page and "Turnaround" in page and "Portal request date" in page and "Prasad" in page
 
 
 def test_same_portal_report_again_says_no_change(client, env):

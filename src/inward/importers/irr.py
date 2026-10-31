@@ -57,9 +57,13 @@ class IrrRow:
 
     @property
     def receipt_no(self) -> str | None:
-        """'42637 / 51882836' -> '42637' for stock and PO receipts."""
-        if self.type.upper() in RECEIPT_TYPES and "/" in self.trx_number:
-            return self.trx_number.split("/", 1)[0].strip()
+        """'42637 / 51882836' -> '42637' for stock and PO receipts; a receipt saved in ERP without the reference text
+        has the bare number ('44514', 31-Oct-2026)."""
+        if self.type.upper() in RECEIPT_TYPES:
+            if "/" in self.trx_number:
+                return self.trx_number.split("/", 1)[0].strip()
+            if self.trx_number.strip().isdigit():
+                return self.trx_number.strip()
         return None
 
     @property
@@ -67,7 +71,7 @@ class IrrRow:
         """Ship ID for stock receipts, vendor challan text for PO receipts."""
         if self.type.upper() in RECEIPT_TYPES and "/" in self.trx_number:
             return self.trx_number.split("/", 1)[1].strip()
-        return None
+        return "" if self.receipt_no else None
 
     @property
     def is_zero(self) -> bool:

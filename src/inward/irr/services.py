@@ -72,7 +72,7 @@ def _edited_receipts(user: User, incoming: dict) -> list[dict]:
         if not old:
             continue
         stored_new = list(IrrTransaction.objects.filter(type_key=type_key, trx_number=new, trx_date=day))
-        ref = new.split("/", 1)[1].strip()[:60]
+        ref = new.split("/", 1)[1].strip()[:60] if "/" in new else ""
         for old_text in sorted({t.trx_number for t in old}):
             rows = [t for t in old if t.trx_number == old_text]
             if not stored_new:             # first time the edit is seen: the stored rows take the new text

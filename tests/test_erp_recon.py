@@ -252,3 +252,33 @@ def test_receipt_text_edited_in_erp_is_not_counted_twice(seeded, make_user):
     out = irr._edited_receipts(clerk, _incoming(IrrTransaction.objects.filter(trx_number=new), new))
     assert [e["action"] for e in out] == ["differs - kept for review"]
     assert IrrTransaction.objects.filter(trx_number=old).count() == 1
+
+
+def test_po_receipt_without_challan_text(seeded, make_user, settings, tmp_path):
+    """31-Oct-2026, IW-2627-000026: receipt 44514 was saved in ERP without the challan text - the IRR shows only
+    '44514' as TRX Number; it was not read as a receipt and the IW stayed PARTIAL."""
+    from inward.importers.irr import IrrRow
+    row = IrrRow(type="Po Receipt", trx_number="44514", trx_date=date(2026, 10, 31), source_subinv="035BAG", lot_number="",
+                 source_locator="", dest_subinv="", dest_locator="", reason_code="", reason_description="",
+                 shipping_id_date=None, shipping_id="", item_description="", sku="F000WC0991040002",
+                 no_of_pack=Decimal(400), volume_ltr=None, weight_kg=Decimal(16000), transaction_type="Receipt")
+    assert (row.receipt_no, row.trx_reference) == ("44514", "")
+    settings.DOCUMENT_ROOT = tmp_path
+    clerk = make_user("clerk_po2", "DEPOT_CLERK")
+    iw = services.create(clerk, services.IwData(arrival_at=datetime(2026, 10, 30, 9, 0, tzinfo=IST),
+                                                load_type=LoadType.objects.get(code="VENDOR"), source_org=None,
+                                                vehicle_no="TN01AB2"))
+    Vendor.objects.create(code="V60", name="SANJAY ENTERPRISES")
+    cons = vendor.add_manual(clerk, iw.pk, vendor_code="V60", vendor_name="", po_no="PO-2", challan_no="SE/26-27/470",
+                             lines=[("F003990991050002", "PUTTY 50 K", "K", "200", "10000"),
+                                    ("F000WC0991040002", "PUTTY 40 K", "K", "400", "16000")], warehouse="INDUSTRIAL")
+    Iw.objects.filter(pk=iw.pk).update(status=Iw.Status.MRA_ISSUED)
+    erp.add_receipt(clerk, iw.pk, f"VENDOR:{cons.pk}", "PO", "44510")
+    erp.add_receipt(clerk, iw.pk, f"VENDOR:{cons.pk}", "PO", "44514")
+    irr_rows([("Po Receipt", "44510 / 2026-SE/26-27/470", "F003990991050002", 200, None, "10000", "Receipt", "")])
+    IrrTransaction.objects.create(batch=_batch(), type="Po Receipt", type_key="PO RECEIPT", trx_number="44514",
+                                  trx_date=date(2026, 10, 31), receipt_no=row.receipt_no, trx_reference=row.trx_reference,
+                                  sku="F000WC0991040002", no_of_pack=Decimal(400), weight_kg=Decimal(16000),
+                                  transaction_type="Receipt")
+    r = recon.reconcile(Iw.objects.get(pk=iw.pk))[0]
+    assert r.status == "FULL" and "Info: receipt 44514 has no challan text in the IRR." in r.notes

@@ -139,7 +139,7 @@ def _receipt_rows(numbers: list[str], ship_id: str, notes: list[str], also_misc:
             review = True
             notes.append(f"Receipt {no} exists in the IRR as {other.first().type} - not a Ship receipt.")
         for r in found:
-            if r.trx_reference != ship_id:
+            if r.trx_reference and r.trx_reference != ship_id:
                 review = True
                 notes.append(f"Receipt {no} belongs to Ship {r.trx_reference} in the IRR, not {ship_id}.")
                 continue
@@ -190,8 +190,10 @@ def vendor_results(iw: Iw, tol: Decimal) -> list[Result]:
                 res.notes.append(f"Receipt {no} exists in the IRR with another type - review.")
             if not found:
                 res.notes.append(f"PO Receipt {no} not found in the IRR yet.")
-            refs = {r.trx_reference for r in found}
-            if found and not any(cons.challan_key.replace("/", "") in x.upper().replace(" ", "").replace("/", "") for x in refs):
+            if any(not r.trx_reference for r in found):
+                res.notes.append(f"Info: receipt {no} has no challan text in the IRR.")
+            refs = {r.trx_reference for r in found if r.trx_reference}
+            if refs and not any(cons.challan_key.replace("/", "") in x.upper().replace(" ", "").replace("/", "") for x in refs):
                 res.notes.append(f"Info: challan text in the IRR ({', '.join(sorted(refs))}) differs from {cons.challan_no}.")
             rows += found
         if not rows and not review:

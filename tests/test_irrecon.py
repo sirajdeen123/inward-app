@@ -153,7 +153,7 @@ def test_dates_with_open_exceptions(client, seeded, make_user):
     engine.run()
     days = open_dates()
     assert [(x["date"], x["open"], x["total"]) for x in days] == [(d1, 1, 1), (d2, 2, 2)]
-    assert days[1]["families"] == [("Subinventory transfers", 2)]
+    assert days[1]["families"] == [("Sub-inventory transfer", 2)]
     oct_ = next(m for m in calendar() if m["title"] == "October 2026")
     state = {c["date"]: c["state"] for c in oct_["cells"] if c}
     assert (state[d1], state[d2], state[d3], state[date(2026, 10, 14)]) == ("bad", "bad", "ok", "none")

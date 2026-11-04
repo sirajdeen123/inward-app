@@ -14,6 +14,9 @@ FAMILIES = [("SUBINV", "Subinventory transfers"), ("PICK", "Internal order picks
             ("INBOUND", "Receipts (stock / PO)"), ("RETURN", "Customer returns"), ("RESIDUAL", "Residual rows"),
             ("MISC", "Other miscellaneous"), ("OTHER", "Unknown types")]
 STATUSES = IrrMatch.Status.choices
+SHORT = {"SUBINV": "Sub-inventory transfer", "PICK": "Pick", "SHIP": "Shipment", "CONVERT": "Conversion",
+         "LSCCR": "LSCCR", "INBOUND": "Receipt", "RETURN": "Customer return", "RESIDUAL": "Residual",
+         "MISC": "Miscellaneous", "OTHER": "Other"}
 
 
 def summary(d1: date | None = None, d2: date | None = None) -> dict:
@@ -73,7 +76,7 @@ def by_reason(d1: date | None = None, d2: date | None = None) -> list[dict]:
 def open_dates() -> list[dict]:
     """The IRR dates that still have open exceptions, oldest first, with what kind (4-Nov-2026): the clerk works the
     backlog date by date."""
-    label = dict(FAMILIES)
+    label = SHORT
     days: dict[date, dict] = {}
     for d, fam, n in (IrrMatch.objects.filter(status="OPEN").values_list("row__trx_date", "family")
                       .annotate(n=Count("pk")).order_by("row__trx_date")):

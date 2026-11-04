@@ -231,3 +231,21 @@ label.check input{margin-top:3px}
 .rma-search .tools{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
 @media (max-width:1100px){.stages{grid-template-columns:repeat(4,1fr)}}
 @media (max-width:600px){.stages{grid-template-columns:repeat(2,1fr)}.rma-search .tools{margin-left:0}}
+/* IRR reconciliation: dates with open exceptions + calendar (4-Nov-2026) */
+.issue-days{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.issue-day{display:block;text-decoration:none;color:var(--ink);border:1px solid #f1b8bd;background:#FDECEE;border-radius:10px;padding:8px 12px;min-width:160px}
+.issue-day:hover{color:var(--ink);border-color:var(--red);box-shadow:0 2px 6px rgba(214,47,47,.18)}
+.issue-day .d{font-weight:700;font-size:15px}.issue-day .n{color:#b00020;font-weight:700}.issue-day .f{font-size:12px;color:var(--muted);margin-top:2px}
+.issue-day.oldest{border-color:var(--red)}.issue-day.on{box-shadow:0 0 0 2px #2E2560 inset;border-color:#2E2560}
+.irr-cal{margin-top:12px}.irr-cal summary{cursor:pointer;font-weight:600}
+.irr-cal .months{display:flex;gap:18px;flex-wrap:wrap;margin-top:10px}.irr-cal .cal{width:290px}
+.irr-cal h3{font-size:14px;margin:0 0 6px;text-align:center}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}.cal-grid .wd{font-size:11px;color:var(--muted);text-align:center;font-weight:700}
+.cal-day{display:block;height:40px;border-radius:7px;text-align:center;font-size:12.5px;padding-top:3px;text-decoration:none;line-height:1.15;color:var(--ink)}
+.cal-day small{display:block;font-size:10.5px;font-weight:700}
+.cal-day.ok{background:var(--ok-bg);color:var(--ok)}.cal-day.bad{background:var(--red);color:#fff;font-weight:700}
+.cal-day.none{background:#f3f4f6;color:#b5b9c3}.cal-day.blank{background:transparent}
+a.cal-day:hover{outline:2px solid #2E2560}.cal-day.on{outline:2px solid #2E2560}
+.cal-legend{display:flex;gap:14px;font-size:12.5px;color:var(--muted);margin-top:10px;flex-wrap:wrap}
+.cal-legend span:before{content:"";display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.cal-legend .l-ok:before{background:var(--ok-bg)}.cal-legend .l-bad:before{background:var(--red)}.cal-legend .l-none:before{background:#f3f4f6}

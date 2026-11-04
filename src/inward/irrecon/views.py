@@ -20,7 +20,7 @@ from inward.irrecon import engine
 from inward.irrecon.models import IrrMark, IrrMatch, IrrReconRun
 from inward.web.views import needs
 
-from inward.irrecon.summary import FAMILIES, STATUSES, by_reason, summary
+from inward.irrecon.summary import FAMILIES, STATUSES, by_reason, calendar, open_dates, summary
 
 
 def _d(text):
@@ -53,11 +53,15 @@ def _rows(request):
 @needs("SEARCH_REPORTS")
 def home(request):
     qs, status = _rows(request)
-    if request.GET.get("xlsx"):
+    f = request.GET
+    if f.get("xlsx"):
         return _xlsx(qs)
     sm = summary(_d(request.GET.get("from")), _d(request.GET.get("to")))
     page = Paginator(qs, 100).get_page(request.GET.get("page"))
+    days = open_dates()
     return render(request, "irrecon/home.html", {
+        "open_days": days, "open_rows": sum(x["open"] for x in days), "months": calendar(),
+        "one_day": f.get("from") if f.get("from") and f.get("from") == f.get("to") else "",
         "sm": sm, "reasons": by_reason(_d(request.GET.get("from")), _d(request.GET.get("to"))), "table": sm["table"], "total": sm["total"], "open": sm["open"], "pct": sm["pct"], "presets": _presets(),
         "run": IrrReconRun.objects.select_related("run_by").first(), "page": page, "status": status,
         "families": FAMILIES, "statuses": STATUSES, "f": request.GET,

@@ -21,7 +21,8 @@
 <tr style="background:#eee"><th style="{{ t }};text-align:left">Reason / TRX</th><th style="{{ t }};text-align:left">SKU</th><th style="{{ t }}">Pcs</th><th style="{{ t }};text-align:left">From → To</th><th style="{{ t }};text-align:left">Why</th></tr>
 {% for m in r.y_open_rows %}<tr><td style="{{ c }}">{{ m.row.reason_description|default:m.row.type }}<br>{{ m.row.transaction_type }} {{ m.row.trx_number }}</td><td style="{{ c }}">{{ m.row.sku }}<br><span style="font-size:10px">{{ m.row.item_description|truncatechars:34 }}</span></td><td style="{{ c }};text-align:right">{{ m.row.no_of_pack|floatformat:"-3" }}</td><td style="{{ c }}">{{ m.row.source_subinv|default:"-" }} → {{ m.row.dest_subinv|default:"-" }}</td><td style="{{ c }}">{{ m.note }}</td></tr>{% endfor %}
 </table>{% if r.y_open_count > r.y_open_rows|length %}<p style="font-size:11px">... {{ r.y_open_count }} in all - see the app.</p>{% endif %}{% endif %}
-{% if r.older_open %}<p style="font-size:12px">Earlier days still have <b>{{ r.older_open }}</b> open exception(s) - see IRR reconciliation in the app.</p>{% endif %}
+{% if r.older_open %}<p style="font-size:12px">Earlier days still have <b>{{ r.older_open }}</b> open exception(s) - see IRR reconciliation in the app.</p>
+<p style="font-size:12px;margin-top:2px"><b>Dates with open exceptions:</b> {% for x in r.open_days %}<b style="color:#b00020">{{ x.date|date:"d-M" }}</b> ({{ x.open }}){% if not forloop.last %} · {% endif %}{% endfor %}</p>{% endif %}
 <p style="font-size:11px;color:#666">Only rows dated {{ r.prev|date:"d-M-Y" }} are summarised, whatever period the IRR file covers. Reconciled = matched with the other half / chain in the IRR, linked to an IW or internal damage report, explained by a user, or information (receipts, returns, zero rows). Engine run {% if r.run %}{{ r.run.run_at|date:"d-M-Y h:i A" }}{% else %}-{% endif %}.</p>
 {% endwith %}
 {% endblock %}

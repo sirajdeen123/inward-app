@@ -30,7 +30,7 @@ def erp_page(request, pk):
         "can_scan": "GRANT" in modes_for(request.user, "SCAN_UPLOAD"),
         "ships": iw.ship_links.select_related("ship").prefetch_related("receipts").order_by("linked_at"),
         "vendors": iw.vendor_consignments.prefetch_related("receipts"), "memos": erp.memos(iw), "run": run,
-        "live": live})
+        "live": live, "irr_open": recon.open_irr_dates(live) if live and iw.status in erp.ERP_STAGES else []})
 
 
 def _back(pk):

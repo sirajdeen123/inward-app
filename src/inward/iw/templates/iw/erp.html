@@ -55,6 +55,8 @@
     {% if live %}<a class="btn" href="{% url 'iw:recon_detail' iw.pk %}" target="_blank" rel="noopener">Detailed report (SKUs &amp; locators)</a>{% endif %}
     <a class="btn" href="{% url 'irr:home' %}">IRR import</a></div>
   {% if run %}<p class="muted">Last saved run {{ run.run_at|date:"d-M-Y h:i A" }} by {{ run.run_by.username }} · {% if run.all_ok %}<span class="chip chip-ok">all reconciled</span>{% else %}<span class="chip chip-warn">not complete</span>{% endif %}. Live view below.</p>{% endif %}
+  {% if irr_open %}<div class="alert alert-warning"><b>The IRR has open exceptions on {% for x in irr_open %}{{ x.date|date:"d-M-Y" }} ({{ x.open }}){% if not forloop.last %}, {% endif %}{% endfor %}</b> - the date{{ irr_open|pluralize }} of this IW's receipts / TRX. Check {{ irr_open|pluralize:"it,them" }} in
+    {% for x in irr_open %}<a href="{% url 'irrecon:home' %}?from={{ x.date|date:'Y-m-d' }}&amp;to={{ x.date|date:'Y-m-d' }}&amp;status=OPEN#rows">IRR reconciliation {{ x.date|date:"d-M" }}</a>{% if not forloop.last %} · {% endif %}{% endfor %}.</div>{% endif %}
   {% if live %}
   <table class="tbl stack"><thead><tr><th>Item</th><th>Numbers</th><th>Result</th><th>Details</th></tr></thead>
     <tbody>{% for r in live %}<tr><td data-label="Item">{{ r.track }}</td><td data-label="Numbers" class="mono">{{ r.numbers|join:", "|default:"-" }}</td>

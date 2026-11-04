@@ -241,7 +241,7 @@ def irr_summary(day: date | None = None, fetched: dict | None = None) -> dict:
     """IRR Reconciliation Summary of YESTERDAY only (the IRR file may cover the whole month - only yesterday's rows
     are summarised), by IRR Reason Description, with yesterday's open exceptions (decision 18-Oct-2026)."""
     from inward.irrecon.models import IrrMatch, IrrReconRun
-    from inward.irrecon.summary import by_reason, summary
+    from inward.irrecon.summary import by_reason, open_dates, summary
     day = day or timezone.localdate()
     prev = day - timedelta(days=1)
     open_y = IrrMatch.objects.filter(status="OPEN", row__trx_date=prev).select_related("row").order_by(
@@ -249,6 +249,7 @@ def irr_summary(day: date | None = None, fetched: dict | None = None) -> dict:
     return {"day": day, "prev": prev, "fetched": fetched, "yesterday": summary(prev, prev),
             "reasons": by_reason(prev, prev), "y_open_rows": list(open_y[:300]), "y_open_count": open_y.count(),
             "older_open": IrrMatch.objects.filter(status="OPEN", row__trx_date__lt=prev).count(),
+            "open_days": [x for x in open_dates() if x["date"] < prev],
             "run": IrrReconRun.objects.first()}
 
 

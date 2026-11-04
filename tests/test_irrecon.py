@@ -135,3 +135,41 @@ def test_period_and_summary_mail(client, seeded, make_user):
     assert "Reason Description" in html and "RETURN" not in html                     # the 40-day-old return
     page = c.get(reverse("irrecon:home"), {"from": y.isoformat(), "to": y.isoformat()}).content.decode()
     assert "By IRR Reason Description" in page
+
+
+def test_dates_with_open_exceptions(client, seeded, make_user):
+    """4-Nov-2026: the dates with open exceptions are shown (oldest first, with the kind), on a calendar, on the IW
+    screen of an IW whose receipts / TRX fall on such a date, and in the daily summary mail."""
+    from django.template.loader import render_to_string
+
+    from inward.irrecon.summary import calendar, open_dates
+    from inward.iw import recon, reports
+    b = _batch()
+    d1, d2, d3 = date(2026, 10, 13), date(2026, 10, 22), date(2026, 10, 23)
+    _row(b, "Subinventory Transfer", "3000", A, 1, "Issue", "035FLR", "035RCK", day=d1)        # no other half: open
+    _row(b, "Subinventory Transfer", "3100", A, 2, "Issue", "035FLR", "035RCK", day=d2)
+    _row(b, "Subinventory Transfer", "3101", B, 3, "Issue", "035FLR", "035RCK", day=d2)
+    _row(b, "Rma Receipt", "7000", A, 3, "Receipt", "035RCK", "", "RETURN", day=d3)           # information only
+    engine.run()
+    days = open_dates()
+    assert [(x["date"], x["open"], x["total"]) for x in days] == [(d1, 1, 1), (d2, 2, 2)]
+    assert days[1]["families"] == [("Subinventory transfers", 2)]
+    oct_ = next(m for m in calendar() if m["title"] == "October 2026")
+    state = {c["date"]: c["state"] for c in oct_["cells"] if c}
+    assert (state[d1], state[d2], state[d3], state[date(2026, 10, 14)]) == ("bad", "bad", "ok", "none")
+
+    c = verified_client(client, make_user("sup_d", "SYSTEM_SUPERVISOR"))
+    page = c.get(reverse("irrecon:home")).content.decode()
+    assert "Dates with open exceptions" in page and "2 dates · 3 rows to look at" in page
+    assert "Start with the oldest date &rarr; 13-Oct-2026" in page and "?from=2026-10-13&amp;to=2026-10-13&amp;status=OPEN#rows" in page
+    assert 'id="rows"' in page and "Calendar - every IRR date" in page
+
+    assert [x["date"] for x in recon.open_irr_dates([recon.Result("SED", "SED", ["3100"], "FULL")])] == [d2]
+    assert recon.open_irr_dates([recon.Result("Ship", "SHIP", ["7000"], "FULL")]) == []
+
+    r = reports.irr_summary(date(2026, 10, 25))
+    html = render_to_string("irrecon/mail_summary.html", {"r": r, "b": {}, "stamp": "x"})
+    assert "Dates with open exceptions:" in html and "13-Oct" in html and "22-Oct" in html
+
+    IrrMatch.objects.filter(status="OPEN").update(status="EXPLAINED")
+    assert "All dates reconciled" in c.get(reverse("irrecon:home")).content.decode()

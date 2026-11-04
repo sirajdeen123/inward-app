@@ -6,6 +6,22 @@
   <a class="btn" href="{% url 'irr:home' %}">IRR import</a></div>
 <p class="muted">Every row of the imported IRR is checked: transfers and picks must find their other half, picks must leave in the day's shipments, conversions must tally in litres / kilos, transfers to DMG need an approved internal damage report, LSCCR postings belong to an IW. It runs after every IRR import. Separate from the IW flow.</p>
 
+<div class="card">
+  {% if open_days %}
+  <div class="bar"><h2 style="margin:0">Dates with open exceptions</h2><span class="muted">{{ open_days|length }} date{{ open_days|pluralize }} · {{ open_rows }} row{{ open_rows|pluralize }} to look at</span><div class="grow"></div>
+    {% with d=open_days.0.date|date:"Y-m-d" %}<a class="btn btn-primary" href="?from={{ d }}&amp;to={{ d }}&amp;status=OPEN#rows">Start with the oldest date &rarr; {{ open_days.0.date|date:"d-M-Y" }}</a>{% endwith %}</div>
+  <div class="issue-days">{% for x in open_days %}{% with d=x.date|date:"Y-m-d" %}
+    <a class="issue-day{% if forloop.first %} oldest{% endif %}{% if d == one_day %} on{% endif %}" href="?from={{ d }}&amp;to={{ d }}&amp;status=OPEN#rows"><div class="d">{{ x.date|date:"D d-M-Y" }}</div>
+      <div class="n">{{ x.open }} open of {{ x.total }}</div><div class="f">{% for lbl, n in x.families %}{{ lbl }} {{ n }}{% if not forloop.last %} · {% endif %}{% endfor %}</div></a>{% endwith %}{% endfor %}</div>
+  {% else %}<h2 style="margin:0">Dates with open exceptions</h2><p><span class="chip chip-ok">All dates reconciled</span> - no open exception on any IRR date.</p>{% endif %}
+  {% if months %}<details class="irr-cal"{% if not open_days %} open{% endif %}><summary>Calendar - every IRR date</summary>
+    <div class="months">{% for mo in months %}<div class="cal"><h3>{{ mo.title }}</h3><div class="cal-grid">
+      <div class="wd">M</div><div class="wd">T</div><div class="wd">W</div><div class="wd">T</div><div class="wd">F</div><div class="wd">S</div><div class="wd">S</div>
+      {% for c in mo.cells %}{% if c %}{% with d=c.date|date:"Y-m-d" %}{% if c.state == "none" %}<span class="cal-day none">{{ c.date.day }}</span>{% else %}<a class="cal-day {{ c.state }}{% if d == one_day %} on{% endif %}" href="?from={{ d }}&amp;to={{ d }}&amp;status={% if c.open %}OPEN{% endif %}#rows" title="{{ c.date|date:'D d-M-Y' }}{% if c.open %} - {{ c.open }} open{% else %} - all reconciled{% endif %}">{{ c.date.day }}{% if c.open %}<small>{{ c.open }} open</small>{% endif %}</a>{% endif %}{% endwith %}{% else %}<span class="cal-day blank"></span>{% endif %}{% endfor %}
+    </div></div>{% endfor %}</div>
+    <div class="cal-legend"><span class="l-ok">all reconciled</span><span class="l-bad">open exceptions (count)</span><span class="l-none">no IRR rows</span></div></details>{% endif %}
+</div>
+
 <form method="get" class="filters card">
   <b>Period</b>
   <label for="p-fr">From</label><input id="p-fr" type="date" name="from" value="{{ f.from }}">
@@ -37,7 +53,7 @@
       <td class="num" data-label="Reconciled">{{ x.pct }} %</td><td class="num" data-label="Open">{% if x.open %}<a href="?status=OPEN&amp;q={{ x.reason|urlencode }}&amp;from={{ f.from }}&amp;to={{ f.to }}"><b class="warn-text">{{ x.open }}</b></a>{% else %}0{% endif %}</td></tr>{% endfor %}</tbody></table>
 </details>
 
-<form method="get" class="filters card">
+<form method="get" action="#rows" class="filters card">
   <label for="f-st">Result</label><select id="f-st" name="status"><option value=""{% if not status %} selected{% endif %}>All</option>{% for s, l in statuses %}<option value="{{ s }}"{% if s == status %} selected{% endif %}>{{ l }}</option>{% endfor %}</select>
   <label for="f-fa">Family</label><select id="f-fa" name="family"><option value="">All</option>{% for c, l in families %}<option value="{{ c }}"{% if c == f.family %} selected{% endif %}>{{ l }}</option>{% endfor %}</select>
   <input type="hidden" name="from" value="{{ f.from }}"><input type="hidden" name="to" value="{{ f.to }}">
@@ -46,7 +62,7 @@
   <a class="btn btn-sm" href="?{{ request.GET.urlencode }}&amp;xlsx=1">Excel</a>
 </form>
 
-<form method="post" action="{% url 'irrecon:mark' %}" class="card">{% csrf_token %}<input type="hidden" name="back" value="{{ request.get_full_path }}">
+<form method="post" action="{% url 'irrecon:mark' %}" class="card" id="rows">{% csrf_token %}<input type="hidden" name="back" value="{{ request.get_full_path }}">
   <h2>{{ page.paginator.count }} row(s){% if status %} · {% for s, l in statuses %}{% if s == status %}{{ l }}{% endif %}{% endfor %}{% endif %}</h2>
   <div class="scroll"><table class="tbl stack"><thead><tr>{% if can_mark %}<th></th>{% endif %}<th>Date</th><th>Type / TRX</th><th>SKU</th><th class="num">Pcs</th><th>From → To</th><th>Result</th><th>Why</th></tr></thead>
     <tbody>{% for m in page %}{% with r=m.row %}<tr>

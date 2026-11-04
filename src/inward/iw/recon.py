@@ -306,6 +306,18 @@ def detail(iw: Iw) -> dict:
             "skus": sum(len(r["lines"]) for r in results), "total": total, "receipts": len(stock)}
 
 
+def open_irr_dates(results: list[Result]) -> list[dict]:
+    """The IRR dates of this IW's receipts / TRX that still have open exceptions in the IRR reconciliation engine
+    (4-Nov-2026): told on the IW screen so the clerk checks that day first."""
+    from inward.irrecon.summary import open_dates
+    nums = {n for r in results for n in r.numbers}
+    if not nums:
+        return []
+    days = set(IrrTransaction.objects.filter(Q(receipt_no__in=nums) | Q(trx_number__in=nums))
+               .values_list("trx_date", flat=True))
+    return [x for x in open_dates() if x["date"] in days] if days else []
+
+
 def reconcile(iw: Iw) -> list[Result]:
     tol = _tolerance()
     return ship_results(iw, tol) + vendor_results(iw, tol) + sed_results(iw, tol)

@@ -68,3 +68,44 @@ def by_reason(d1: date | None = None, d2: date | None = None) -> list[dict]:
         m["pct"] = round(100 * m["done"] / m["rows"], 1) if m["rows"] else 0
         out.append(m)
     return sorted(out, key=lambda m: (-m["open"], -m["rows"], m["reason"]))
+
+
+def open_dates() -> list[dict]:
+    """The IRR dates that still have open exceptions, oldest first, with what kind (4-Nov-2026): the clerk works the
+    backlog date by date."""
+    label = dict(FAMILIES)
+    days: dict[date, dict] = {}
+    for d, fam, n in (IrrMatch.objects.filter(status="OPEN").values_list("row__trx_date", "family")
+                      .annotate(n=Count("pk")).order_by("row__trx_date")):
+        x = days.setdefault(d, {"date": d, "open": 0, "families": []})
+        x["open"] += n
+        x["families"].append((label.get(fam, fam), n))
+    totals = dict(IrrMatch.objects.filter(row__trx_date__in=list(days)).values_list("row__trx_date")
+                  .annotate(n=Count("pk")))
+    for d, x in days.items():
+        x["total"] = totals.get(d, 0)
+        x["families"].sort(key=lambda f: -f[1])
+    return list(days.values())
+
+
+def calendar(months: int = 3) -> list[dict]:
+    """Month grids of the last few months with IRR rows: each day all reconciled / open (count) / no IRR rows."""
+    import calendar as cal
+    last = IrrMatch.objects.order_by("-row__trx_date").values_list("row__trx_date", flat=True).first()
+    if not last:
+        return []
+    opn = {x["date"]: x["open"] for x in open_dates()}
+    out = []
+    y, m = last.year, last.month
+    for _ in range(months):
+        start, end = date(y, m, 1), date(y, m, cal.monthrange(y, m)[1])
+        have = set(IrrMatch.objects.filter(row__trx_date__range=(start, end)).values_list("row__trx_date", flat=True)
+                   .distinct())
+        cells = [None] * start.weekday()
+        for day in range(1, end.day + 1):
+            d = date(y, m, day)
+            cells.append({"date": d, "open": opn.get(d, 0), "state": "bad" if opn.get(d) else "ok" if d in have else "none"})
+        if have or any(c and c["open"] for c in cells):
+            out.append({"title": start.strftime("%B %Y"), "cells": cells})
+        y, m = (y, m - 1) if m > 1 else (y - 1, 12)
+    return list(reversed(out))

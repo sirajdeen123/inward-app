@@ -14,3 +14,5 @@ class IwConfig(AppConfig):
         approvals.register("IW_CORRECT", services.apply_correction)
         approvals.register("UNLOADING_EXEMPT", unloading.apply_exempt)
         approvals.register("IW_REOPEN", closure.apply_reopen)
+        from inward.iw import ewb
+        approvals.register("EWB_MRA_RELEASE", ewb.apply_release)

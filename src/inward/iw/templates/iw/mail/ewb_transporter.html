@@ -1,0 +1,17 @@
+{% extends "iw/mail/_base.html" %}
+{% block body %}
+<p>Dear Sir / Madam,</p>
+{% if reminder %}<p style="color:#b00020"><b>Reminder</b> - our request of {{ first.at|date:"d-M-Y h:i A" }} is still pending. The material cannot move to the destination until the E-way bill is updated.</p>{% endif %}
+<p>The vehicle <b>{{ iw.vehicle_no }}</b>{% if iw.lr_no %} (LR {{ iw.lr_no }}){% endif %} from {{ iw.source_org|default:"your location" }} arrived at Depot {{ b.depot_code }} {{ b.depot_name }} on {{ iw.arrival_at|date:"d-M-Y h:i A" }} ({{ iw.iw_no }}). It carries the following outbound transhipment Ship(s), which we move on to the destination.</p>
+<p><b>Kindly update the Transporter ID in the E-way bill(s) below:</b></p>
+<table cellpadding="6" cellspacing="0" style="border-collapse:collapse;font-size:14px;margin:4px 0 10px">
+<tr><td style="border:1px solid #999;background:#eee"><b>Transporter ID</b></td><td style="border:1px solid #999;font-size:16px"><b>{{ st.transporter_id }}</b></td></tr>
+<tr><td style="border:1px solid #999;background:#eee"><b>Transporter name</b></td><td style="border:1px solid #999"><b>{{ st.transporter_name }}</b></td></tr>
+</table>
+<table cellpadding="5" cellspacing="0" style="border-collapse:collapse;font-size:13px">
+<tr style="background:#eee"><th style="border:1px solid #999;text-align:left">#</th><th style="border:1px solid #999;text-align:left">E-way bill No</th><th style="border:1px solid #999;text-align:left">Ship ID</th><th style="border:1px solid #999;text-align:left">Destination</th><th style="border:1px solid #999;text-align:right">LTR</th><th style="border:1px solid #999;text-align:right">KG</th></tr>
+{% for s in st.ships %}<tr><td style="border:1px solid #999">{{ forloop.counter }}</td><td style="border:1px solid #999"><b>{{ s.ewb_no }}</b></td><td style="border:1px solid #999">{{ s.ship_id }}</td><td style="border:1px solid #999">{{ s.destination }}</td><td style="border:1px solid #999;text-align:right">{{ s.doc_ltr|floatformat:"-3" }}</td><td style="border:1px solid #999;text-align:right">{{ s.doc_kg|floatformat:"-3" }}</td></tr>{% endfor %}
+</table>
+<p>Please reply to this mail once updated.</p>
+<p>Regards,</p>
+{% endblock %}

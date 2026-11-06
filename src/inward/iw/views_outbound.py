@@ -76,7 +76,7 @@ def outbound_add_ship(request, pk):
                               destination=request.POST.get("destination", ""), doc_ltr=request.POST.get("doc_ltr", ""),
                               doc_kg=request.POST.get("doc_kg", ""), doc_nop=request.POST.get("doc_nop", ""),
                               source=request.POST.get("source", OutboundSource.DESPATCH),
-                              gross_kg=request.POST.get("gross_kg", ""))
+                              gross_kg=request.POST.get("gross_kg", ""), ewb_no=request.POST.get("ewb_no", ""))
         messages.success(request, f"Outbound Ship {s.ship_id} added - now {NEXT_STEP[s.source]}.")
         return redirect(ROWS_PAGE[s.source], ship_pk=s.pk)
     except (IwError, PermissionDenied) as exc:

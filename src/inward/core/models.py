@@ -84,6 +84,9 @@ class DepotOperator(models.Model):
     depot = models.ForeignKey(Depot, on_delete=models.PROTECT, related_name="operators")
     cfa_name = models.CharField(max_length=120)
     cfa_short_name = models.CharField(max_length=60)
+    # the CFA's Transporter ID the source puts in the E-way bill for an outbound transhipment (6-Nov-2026)
+    transporter_id = models.CharField(max_length=15, blank=True)
+    transporter_name = models.CharField(max_length=120, blank=True)
     effective_from = models.DateField()
     effective_to = models.DateField(null=True, blank=True)
 

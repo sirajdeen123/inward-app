@@ -27,6 +27,7 @@
     <div class="field"><label for="ob-kg">KG of KG products (putty, powder - UOM K) *</label><input id="ob-kg" name="doc_kg" inputmode="decimal" placeholder="0 if all items are in litres"><span class="muted small">Not the gross weight.</span></div>
     <div class="field"><label for="ob-gross">Gross weight (KG) on document</label><input id="ob-gross" name="gross_kg" inputmode="decimal"><span class="muted small">For the record only - not tallied.</span></div>
     <div class="field"><label for="ob-nop">Packages on document (optional)</label><input id="ob-nop" name="doc_nop" inputmode="decimal"></div>
+    <div class="field"><label for="ob-ewb">E-way bill No (12 digits) *</label><input id="ob-ewb" name="ewb_no" inputmode="numeric" maxlength="14" pattern="[0-9 ]{12,14}"><span class="muted small">Needed for the Transporter ID update mail to the source.</span></div>
     <div class="field span-all"><label>Rows of this Ship come from *</label>
       <label class="check"><input type="radio" name="source" value="DESPATCH"{% if reports %} checked{% else %} disabled{% endif %}> A · Despatch Detail Report{% if not reports %} (upload it above first){% endif %}</label>
       <label class="check"><input type="radio" name="source" value="DEST_SIT"{% if not reports %} checked{% endif %}> B · Destination depot's SIT report (when the Despatch report is not available)</label>
@@ -39,9 +40,11 @@
   <h2>3 · Outbound Ships on this vehicle</h2>
   {% if state.ships %}
   <table class="tbl">
-    <thead><tr><th>Ship ID</th><th>Destination</th><th>Rows from</th><th class="num">LTR doc / ticked</th><th class="num">KG doc / ticked</th><th class="num">Packages doc / ticked</th><th>Status</th><th></th></tr></thead>
+    <thead><tr><th>Ship ID</th><th>E-way bill No</th><th>Destination</th><th>Rows from</th><th class="num">LTR doc / ticked</th><th class="num">KG doc / ticked</th><th class="num">Packages doc / ticked</th><th>Status</th><th></th></tr></thead>
     <tbody>{% for s in state.ships %}
-      <tr><td class="mono">{{ s.ship.ship_id }}</td><td>{{ s.ship.destination }}</td><td>{{ s.ship.get_source_display }}</td>
+      <tr><td class="mono">{{ s.ship.ship_id }}</td>
+      <td><form method="post" action="{% url 'iw:ewb_set' s.ship.pk %}" class="inline-form">{% csrf_token %}<input type="hidden" name="back" value="{{ request.path }}"><input name="ewb_no" value="{{ s.ship.ewb_no }}" class="input-inline mono{% if not s.ship.ewb_no %} input-missing{% endif %}" inputmode="numeric" maxlength="14" size="13" placeholder="12 digits" aria-label="E-way bill No of Ship {{ s.ship.ship_id }}"><button type="submit" class="btn btn-sm">Save</button></form></td>
+      <td>{{ s.ship.destination }}</td><td>{{ s.ship.get_source_display }}</td>
       <td class="num">{{ s.ship.doc_ltr|floatformat:"-3" }} / {{ s.ticked.ltr|floatformat:"-3" }}</td>
       <td class="num">{{ s.ship.doc_kg|floatformat:"-3" }} / {{ s.ticked.kg|floatformat:"-3" }}{% if s.ship.gross_kg is not None %}<div class="muted small">gross {{ s.ship.gross_kg|floatformat:"-3" }}</div>{% endif %}</td>
       <td class="num">{{ s.ship.doc_nop|floatformat:"-3"|default:"-" }} / {{ s.ticked.nop|floatformat:"-3" }}</td>
@@ -54,6 +57,7 @@
     {% endfor %}</tbody>
   </table>
   {% if state.ready %}<p><span class="chip chip-ok">All outbound Ships tallied - ready for the unloading checklist</span></p>{% endif %}
+  <p><a href="{% url 'iw:ewb' iw.pk %}" class="btn btn-primary">E-way bill - Transporter ID update mail to the source</a></p>
   {% else %}<p class="muted">No outbound Ship yet.</p>{% endif %}
 </div>
 {{ org_pick|json_script:"org-pick-data" }}

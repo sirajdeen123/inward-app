@@ -25,6 +25,7 @@ PURPOSES = {
     "SED_REPORT": "Monthly SED report (1st of the month)",
     "IRR_RECON_REPORT": "IRR Reconciliation Report (when an IW is closed)",
     "RMA_APPROVAL": "Material return approval pending - copy of the mails to the portal approvers",
+    "EWB_TRANSPORTER": "Outbound transhipment - copy of the E-way bill Transporter ID update request to the source",
     "RMA_DAILY": "Material returns daily report (09:30)",
     "PACKAGING_CHANGE": "SKU packaging added / changed by a user (gathered every few minutes)",
 }

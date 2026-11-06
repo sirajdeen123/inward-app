@@ -1,0 +1,72 @@
+{% extends "web/base.html" %}
+{% load iw_ui %}
+{% block title %}E-way bill · {{ iw }}{% endblock %}
+{% block content %}
+<p><a href="{% url 'iw:detail' iw.pk %}">&larr; {{ iw }}</a> · <a href="{% url 'iw:outbound' iw.pk %}">Outbound transhipment</a></p>
+<h1>E-way bill - Transporter ID update</h1>
+{% next_step iw %}
+{% if not st.needed %}
+<div class="card"><p class="muted">This IW carries no outbound transhipment Ship - nothing to send.</p></div>
+{% else %}
+<p class="muted">The source generated the E-way bill(s). Before the material moves on to the destination, the source must put our Transporter ID in them. Enter the E-way bill No of every outbound Ship, then send one mail to the source. The MRA cannot be issued before this mail (or a CFA Manager release); the IW cannot be closed before the source's update is recorded.</p>
+
+{% if st.confirmed %}<div class="alert alert-success"><b>Done</b> - the source updated the Transporter ID ({{ iw.ewb_confirmed_at|date:"d-M-Y h:i A" }}, recorded by {{ iw.ewb_confirmed_by }}{% if iw.ewb_confirm_note %} - {{ iw.ewb_confirm_note }}{% endif %}).</div>
+{% elif st.covered %}<div class="alert alert-info"><b>Request sent</b> {{ st.request.at|date:"d-M-Y h:i A" }} by {{ st.request.by }} - waiting for the source to update the E-way bill(s).</div>
+{% else %}<div class="alert alert-error"><b>Mandatory:</b> {% if st.missing_ewb %}enter the E-way bill No of Ship {{ st.missing_ewb|join:", " }}, then {% endif %}send the Transporter ID update mail to the source{% if st.request %} again - the outbound Ships changed after the last mail{% endif %}.{% if st.release %} <span class="chip">MRA released by the CFA Manager - {{ st.release.reason }}</span>{% endif %}</div>{% endif %}
+{% if st.pending_release %}<div class="alert alert-warning">MRA release requested by {{ st.pending_release.requested_by }} on {{ st.pending_release.created_at|date:"d-M-Y h:i A" }}: "{{ st.pending_release.reason }}" - waiting for the CFA Manager (Approvals).</div>{% endif %}
+
+<div class="card">
+  <h2>Transporter ID the source must enter</h2>
+  {% if st.transporter_id %}<p><span class="ewb-tid">{{ st.transporter_id }}</span> &nbsp; <b>{{ st.transporter_name }}</b></p>
+  {% else %}<div class="alert alert-error">The Transporter ID is not set in the Depot master (operating CFA) - ask the Administrator.</div>{% endif %}
+</div>
+
+<div class="card">
+  <h2>1 · E-way bill No of each outbound Ship</h2>
+  <table class="tbl stack"><thead><tr><th>Ship ID</th><th>Destination</th><th class="num">LTR / KG</th><th>E-way bill No (12 digits)</th></tr></thead>
+    <tbody>{% for s in st.ships %}<tr><td data-label="Ship ID" class="mono">{{ s.ship_id }}</td><td data-label="Destination">{{ s.destination }}</td>
+      <td data-label="LTR / KG" class="num">{{ s.doc_ltr|floatformat:"-3" }} / {{ s.doc_kg|floatformat:"-3" }}</td>
+      <td data-label="E-way bill No">{% if open %}<form method="post" action="{% url 'iw:ewb_set' s.pk %}" class="inline-form">{% csrf_token %}<input type="hidden" name="back" value="{{ request.path }}">
+        <input name="ewb_no" value="{{ s.ewb_no }}" class="input-inline mono{% if not s.ewb_no %} input-missing{% endif %}" inputmode="numeric" maxlength="14" size="14" placeholder="12 digits" aria-label="E-way bill No of Ship {{ s.ship_id }}" required>
+        <button type="submit" class="btn btn-sm">Save</button></form>{% else %}<span class="mono">{{ s.ewb_no|default:"-" }}</span>{% endif %}</td></tr>{% endfor %}</tbody></table>
+</div>
+
+<div class="card">
+  <h2>2 · Mail to the source</h2>
+  {% if p %}
+  <p><b>To:</b> {{ p.to|join:", "|default:"- no e-mail on file for the source -" }}<br><b>Cc:</b> {{ p.cc|join:", "|default:"-" }}<br><b>Subject:</b> {{ p.subject }}</p>
+  <details{% if not st.covered %} open{% endif %}><summary>Preview of the mail</summary><div class="mail-preview">{{ p.html|safe }}</div></details>
+  {% if open %}<div class="bar" style="margin-top:10px">
+    {% if not st.covered %}<form method="post" action="{% url 'iw:ewb_send' iw.pk %}" class="inline-form">{% csrf_token %}<button type="submit" class="btn btn-primary"{% if not p.to or not st.transporter_id %} disabled{% endif %}>Send the update request</button></form>
+    {% elif not st.confirmed %}<form method="post" action="{% url 'iw:ewb_send' iw.pk %}" class="inline-form">{% csrf_token %}<input type="hidden" name="reminder" value="1"><button type="submit" class="btn"{% if not st.can_remind %} disabled{% endif %}>Send reminder</button></form>
+      {% if not st.can_remind %}<span class="muted">reminder possible from {{ st.remind_at|date:"h:i A" }}</span>{% endif %}{% endif %}
+  </div>{% endif %}
+  {% else %}<p class="muted">Enter every E-way bill No above - the mail lists all of them in one mail.</p>{% endif %}
+</div>
+
+{% if open and not st.confirmed and st.covered or open and not st.confirmed and st.release %}
+<div class="card">
+  <h2>3 · The source updated the E-way bill(s)</h2>
+  <form method="post" action="{% url 'iw:ewb_confirm' iw.pk %}" class="inline">{% csrf_token %}
+    <label for="cf-note">How confirmed</label><input id="cf-note" name="note" class="input-inline" maxlength="200" placeholder="e.g. reply mail from the source 11:20 AM / checked on the E-way bill portal" style="min-width:360px">
+    <button type="submit" class="btn btn-primary">Record the update</button></form>
+  <p class="muted">Needed before the IW can be closed.</p>
+</div>{% endif %}
+
+{% if can_release and open %}
+<details class="card"><summary>MRA release without this mail (CFA Manager approval)</summary>
+  <form method="post" action="{% url 'iw:ewb_release' iw.pk %}" class="form-grid">{% csrf_token %}
+    <div class="field"><label for="rl-k">Reason *</label><select id="rl-k" name="reason_kind" required><option value="">- choose -</option>{% for r in reasons %}<option>{{ r }}</option>{% endfor %}</select></div>
+    <div class="field span-all"><label for="rl-r">Remark (mandatory for Other)</label><input id="rl-r" name="remark" maxlength="200"></div>
+    <div class="field"><button type="submit" class="btn">Request MRA release</button></div></form>
+  <p class="muted">Only when the mail cannot go. The CFA Manager approves in Approvals; the MRA can then be issued for these Ships. The mail and the source's update are still needed before closure. A Ship added or changed later cancels the release.</p>
+</details>{% endif %}
+
+{% if events %}<div class="card"><h2>History</h2>
+  <table class="tbl stack"><thead><tr><th>When</th><th>What</th><th>By</th><th>Ships / E-way bills</th><th>Mail</th></tr></thead>
+    <tbody>{% for e in events %}<tr><td data-label="When">{{ e.at|date:"d-M-Y h:i A" }}</td><td data-label="What">{{ e.get_kind_display }}{% if e.reason %}<div class="muted">{{ e.reason }}</div>{% endif %}</td><td data-label="By">{{ e.by }}</td>
+      <td data-label="Ships" class="mono small">{% for sid, no in e.ships.items %}{{ sid }} &rarr; {{ no }}<br>{% endfor %}</td>
+      <td data-label="Mail">{% if e.mail %}<span class="chip{% if e.mail.status == 'SENT' %} chip-ok{% elif e.mail.status == 'FAILED' %} chip-bad{% endif %}">{{ e.mail.get_status_display }}</span><div class="muted small">{{ e.mail.stamp }}</div>{% else %}-{% endif %}</td></tr>{% endfor %}</tbody></table>
+</div>{% endif %}
+{% endif %}
+{% endblock %}

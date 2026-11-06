@@ -58,6 +58,10 @@ def blockers(iw: Iw) -> list[str]:
         out.append("Enter the security gate register No on the IW (Edit IW).")
     if _operator(iw) is None:
         out.append("No operating CFA is set in the Depot master for the arrival date.")
+    from inward.iw import ewb
+    e = ewb.mra_blocker(iw)
+    if e:
+        out.append(e)
     return out
 
 

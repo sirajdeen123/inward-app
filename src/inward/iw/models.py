@@ -54,6 +54,10 @@ class Iw(models.Model):
     # co-loaded truck (22-Oct-2026): the first IW of the truck; null for the lead and for a normal IW
     coload_lead = models.ForeignKey("self", null=True, blank=True, on_delete=models.PROTECT, related_name="coload_members")
     coload_charge_each = models.BooleanField(default=False)   # on the lead: unloading charged separately on each IW
+    # outbound transhipment (6-Nov-2026): the source confirmed the Transporter ID update in the E-way bill(s)
+    ewb_confirmed_at = models.DateTimeField(null=True, blank=True)
+    ewb_confirmed_by = models.ForeignKey(USER, null=True, blank=True, on_delete=models.PROTECT, related_name="+")
+    ewb_confirm_note = models.CharField(max_length=200, blank=True)
     version = models.PositiveIntegerField(default=1)
 
     class Meta:
@@ -179,6 +183,7 @@ class OutboundShip(models.Model):
     doc_ltr = models.DecimalField(max_digits=18, decimal_places=3, default=0)
     doc_kg = models.DecimalField(max_digits=18, decimal_places=3, default=0)
     gross_kg = models.DecimalField(max_digits=12, decimal_places=3, null=True, blank=True)  # from the Ship document
+    ewb_no = models.CharField(max_length=12, blank=True)   # E-way bill No of this Ship (6-Nov-2026)
     source = models.CharField(max_length=10, choices=OutboundSource.choices, default=OutboundSource.DESPATCH)
     status = models.CharField(max_length=14, choices=TrackStatus.choices, default=TrackStatus.LINKED)
     tallied_at = models.DateTimeField(null=True, blank=True)  # rows saved and totals matched
@@ -505,6 +510,7 @@ class MailMessage(models.Model):
         RMA_APPROVAL = "RMA_APPR", "Material return approval pending"
         RMA_DAILY = "RMA_DAILY", "Material returns daily report"
         PACKAGING_CHANGE = "PKG_CHANGE", "SKU packaging changes"
+        EWB_TRANSPORTER = "EWB_TRANS", "E-way bill Transporter ID update request"
 
     class Status(models.TextChoices):
         PENDING = "PENDING", "Waiting to send"
@@ -535,6 +541,28 @@ class MailMessage(models.Model):
     class Meta:
         db_table = "mail_message"
         ordering = ["created_at", "id"]
+
+
+class EwbEvent(models.Model):
+    """Outbound transhipment E-way bill (6-Nov-2026): the Transporter ID update request mailed to the source, its
+    reminders, and an MRA release without it (CFA Manager approval). `ships` is the Ship ID -> E-way bill No set it
+    covered - a Ship added or changed later needs a new request (or release)."""
+    class Kind(models.TextChoices):
+        REQUEST = "REQUEST", "Update request mailed"
+        REMINDER = "REMINDER", "Reminder mailed"
+        RELEASE = "RELEASE", "MRA released without the mail"
+
+    iw = models.ForeignKey(Iw, on_delete=models.CASCADE, related_name="ewb_events")
+    kind = models.CharField(max_length=10, choices=Kind.choices)
+    ships = models.JSONField(default=dict)
+    mail = models.ForeignKey("MailMessage", null=True, blank=True, on_delete=models.PROTECT, related_name="+")
+    reason = models.CharField(max_length=300, blank=True)
+    by = models.ForeignKey(USER, on_delete=models.PROTECT, related_name="+")
+    at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "iw_ewb_event"
+        ordering = ["-at", "-id"]
 
 
 class SedApproval(models.Model):

@@ -59,7 +59,8 @@ def test_outbound_transhipment_only(env):  # noqa: F811
     outbound.add_ship(clerk, iw.pk, ship_id="52611001", destination="094", doc_ltr="80", doc_kg="0",
                       source="MANUAL")
     iw = Iw.objects.get(pk=iw.pk)
-    assert iw.status == Iw.Status.MATERIAL_LINKED and ops.actions(iw)[0].text == "Tally every outbound Ship"
+    assert iw.status == Iw.Status.MATERIAL_LINKED and "Tally every outbound Ship" in [a.text for a in ops.actions(iw)]
+    assert ops.actions(iw)[0].track == "E-way bill"            # the Transporter ID mail first (6-Nov-2026)
 
 
 def test_status_colour_and_next_step(client, ready):  # noqa: F811

@@ -16,6 +16,7 @@ from inward.iw.forms import IwForm, VoidForm
 from inward.iw.linking import LIVE
 from inward.iw.outbound import state as outbound_state
 from inward.iw.erp import ERP_STAGES
+from inward.iw.ewb import state as ewb_state
 from inward.iw.models import Iw, ShipLink
 from inward.sit.models import SitShip
 from inward.web.views import needs
@@ -143,6 +144,7 @@ def iw_detail(request, pk):
         "can_request_void": iw.is_editable and iw.status != Iw.Status.DRAFT and not pending_void
                             and bool(void_modes & {"REQUEST", "APPROVE"}),
         "pending_correct": pending_correct, "corrected": corrected,
+        "ewb": ewb_state(iw) if iw.status not in (Iw.Status.DRAFT, Iw.Status.VOID) else None,
         "can_request_correct": iw.status == Iw.Status.MRA_ISSUED and not pending_correct
                                and bool(modes_for(request.user, "IW_CORRECT") & {"REQUEST", "APPROVE"}),
     })

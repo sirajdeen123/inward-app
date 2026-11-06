@@ -1,6 +1,6 @@
 from django.urls import path
 
-from inward.iw import views, views_checklist, views_erp, views_link, views_outbound, views_mra, views_ops, views_reports, views_sed, views_unloading
+from inward.iw import views, views_checklist, views_erp, views_ewb, views_link, views_outbound, views_mra, views_ops, views_reports, views_sed, views_unloading
 
 app_name = "iw"
 urlpatterns = [
@@ -24,6 +24,11 @@ urlpatterns = [
     path("<int:pk>/non-stock/add/", views_link.add_non_stock, name="add_non_stock"),
     path("non-stock/<int:ref_pk>/remove/", views_link.remove_non_stock, name="remove_non_stock"),
     path("<int:pk>/outbound/", views_outbound.outbound_page, name="outbound"),
+    path("<int:pk>/ewb/", views_ewb.ewb_page, name="ewb"),
+    path("<int:pk>/ewb/send/", views_ewb.ewb_send, name="ewb_send"),
+    path("<int:pk>/ewb/confirm/", views_ewb.ewb_confirm, name="ewb_confirm"),
+    path("<int:pk>/ewb/release/", views_ewb.ewb_release, name="ewb_release"),
+    path("outbound/ships/<int:ship_pk>/ewb/", views_ewb.ewb_set, name="ewb_set"),
     path("<int:pk>/outbound/ships/add/", views_outbound.outbound_add_ship, name="outbound_add_ship"),
     path("outbound/ships/<int:ship_pk>/remove/", views_outbound.outbound_remove_ship, name="outbound_remove_ship"),
     path("<int:pk>/outbound/upload/", views_outbound.outbound_upload, name="outbound_upload"),

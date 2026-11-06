@@ -44,7 +44,14 @@ def world(seeded, tmp_path, settings, make_user):
     path = tmp_path / "d.xlsx"
     shutil.copy(sample("Outbound SIT sample.xlsx"), path)
     outbound.upload_report(clerk, iw.pk, path, "Outbound SIT sample.xlsx")
-    ob = outbound.add_ship(clerk, iw.pk, ship_id="52611001", destination="094", doc_ltr="80", doc_kg="0")
+    ob = outbound.add_ship(clerk, iw.pk, ship_id="52611001", destination="094", doc_ltr="80", doc_kg="0",
+                           ewb_no="123456789012")
+    # the E-way bill Transporter ID mail went and the source updated it (6-Nov-2026; covered in test_ewb)
+    from django.utils import timezone
+
+    from inward.iw.models import EwbEvent
+    EwbEvent.objects.create(iw=iw, kind=EwbEvent.Kind.REQUEST, ships={"52611001": "123456789012"}, by=clerk)
+    Iw.objects.filter(pk=iw.pk).update(ewb_confirmed_at=timezone.now())
     return {"clerk": clerk, "iw": iw, "ob": ob, "tmp": tmp_path}
 
 

@@ -109,7 +109,7 @@ def report_destinations(iw: Iw) -> list[tuple[str, str, int]]:
 
 @transaction.atomic
 def add_ship(user: User, iw_pk: int, *, ship_id: str, destination: str, doc_ltr="", doc_kg="", doc_nop="",
-             source: str = OutboundSource.DESPATCH, gross_kg="") -> OutboundShip:
+             source: str = OutboundSource.DESPATCH, gross_kg="", ewb_no="") -> OutboundShip:
     require(user, "MATERIAL_LINK")
     iw = Iw.objects.select_for_update().select_related("load_type").get(pk=iw_pk)
     _require_outbound(iw)
@@ -126,12 +126,15 @@ def add_ship(user: User, iw_pk: int, *, ship_id: str, destination: str, doc_ltr=
     if source == OutboundSource.DESPATCH and not iw.despatch_reports.filter(kind=OutboundSource.DESPATCH).exists():
         raise IwError("Upload the Despatch Detail Report first, or choose the destination SIT / manual entry.")
     ltr, kg, nop, gross = _figures(doc_ltr, doc_kg, doc_nop, gross_kg)
+    ewb = clean_text(ewb_no).replace(" ", "")
+    if ewb and not (ewb.isdigit() and len(ewb) == 12):
+        raise IwError("E-way bill No must be 12 digits.")
     ship = OutboundShip.objects.create(iw=iw, ship_id=sid, destination=_org(destination), doc_ltr=ltr, doc_kg=kg,
-                                       doc_nop=nop, gross_kg=gross, source=source, linked_by=user)
+                                       doc_nop=nop, gross_kg=gross, source=source, linked_by=user, ewb_no=ewb)
     _refresh_status(iw)
     audit.record("OUTBOUND_SHIP_ADDED", "iw", iw.pk, user=user, iw_id=iw.pk,
                  after={"ship": sid, "destination": ship.destination_id, "ltr": ltr, "kg": kg, "nop": nop,
-                        "gross_kg": gross, "source": source})
+                        "gross_kg": gross, "source": source, "ewb_no": ewb})
     return ship
 
 

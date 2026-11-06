@@ -39,6 +39,8 @@ PERMISSIONS = {
     "IW_VOID": "VOID IW (before MRA only)",
     "IW_CORRECT": "Correct an IW after its MRA, before any ERP entry (reopened; the MRA is re-issued)",
     "MAIL_PENDING_RELEASE": "Mail-Pending Release",
+    "EWB_MAIL": "Outbound transhipment: E-way bill Nos, Transporter ID update mail to the source, confirmation",
+    "EWB_MRA_RELEASE": "Issue the MRA without the E-way bill Transporter ID update mail (CFA Manager approves)",
     "EXCEPTION_RESOLVE": "Resolve critical exceptions",
     "MASTER_CHANGE": "Propose / approve master changes",
     "SKU_PACKAGING_EDIT": "Upload / add / edit SKU packaging",
@@ -70,6 +72,8 @@ MATRIX: dict[str, dict[str, str]] = {
     "IW_VOID": {"DEPOT_CLERK": R, "SYSTEM_SUPERVISOR": R, "CFA_MANAGER": A},
     "IW_CORRECT": {"DEPOT_CLERK": R, "SYSTEM_SUPERVISOR": R, "CFA_MANAGER": A},
     "MAIL_PENDING_RELEASE": {"CFA_MANAGER": G},
+    "EWB_MAIL": {"DEPOT_CLERK": G, "SYSTEM_SUPERVISOR": G, "CFA_MANAGER": G},       # 6-Nov-2026
+    "EWB_MRA_RELEASE": {"DEPOT_CLERK": R, "SYSTEM_SUPERVISOR": R, "CFA_MANAGER": A},
     "EXCEPTION_RESOLVE": {"SYSTEM_SUPERVISOR": R, "CFA_MANAGER": A},
     "MASTER_CHANGE": {"DEPOT_CLERK": R, "SYSTEM_SUPERVISOR": R, "CFA_MANAGER": A},
     "SKU_PACKAGING_EDIT": {"DEPOT_CLERK": G, "SYSTEM_SUPERVISOR": G, "CFA_MANAGER": G, "ADMINISTRATOR": G,
@@ -170,6 +174,7 @@ NOTIFICATION_PURPOSES = {
     "IRR_EXCEPTIONS": [("System Supervisor", "TO"), ("CFA Manager", "TO"), ("Admin Officer", "TO")],
     # material returns (21-Oct-2026): the approvers themselves are mapped on the Approvers screen
     "RMA_APPROVAL": [("Admin Officer", "CC"), ("Godown", "CC")],
+    "EWB_TRANSPORTER": [("CFA Manager", "CC"), ("Admin Officer", "CC")],
     "PACKAGING_CHANGE": [("CFA Manager", "TO")],
     "RMA_DAILY": [("Admin Officer", "TO"), ("CFA Manager", "CC"), ("RCM", "CC")],
 }

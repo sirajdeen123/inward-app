@@ -123,6 +123,10 @@ def gates(iw: Iw, results=None) -> list[Gate]:
     out.append(Gate("Signed MRA scan", bool(sc["signed_mra"])))
     if lr_required(iw):
         out.append(Gate("Transporter LR scan", bool(sc["lr_scan"])))
+    from inward.iw import ewb
+    if ewb.needed(iw):
+        ok, why = ewb.closure_ok(iw)
+        out.append(Gate("E-way bill Transporter ID updated by the source", ok, why))
     crit = _critical(iw)
     out.append(Gate("No unresolved critical exception", not crit, "; ".join(e.message[:80] for e in crit[:3])))
     return out

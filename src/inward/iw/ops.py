@@ -47,7 +47,18 @@ def progress(iw: Iw) -> list[tuple[str, str]]:
 
 
 def actions(iw: Iw) -> list[Action]:
-    """The exact missing actions of one IW, with the screen that resolves each."""
+    """The exact missing actions of one IW, with the screen that resolves each. An outbound transhipment's E-way bill
+    mail comes first from the moment the Ships are known (the source must act before the material moves on)."""
+    out = _actions(iw)
+    if iw.status in (S.MATERIAL_LINKED, S.UNLOADING_IN_PROGRESS):
+        from inward.iw import ewb
+        e = ewb.mra_blocker(iw)
+        if e:
+            out.insert(0, Action(e, reverse("iw:ewb", args=[iw.pk]), "E-way bill"))
+    return out
+
+
+def _actions(iw: Iw) -> list[Action]:
     u = lambda name: reverse(f"iw:{name}", args=[iw.pk])  # noqa: E731
     st = iw.status
     if st == S.DRAFT:
@@ -63,8 +74,10 @@ def actions(iw: Iw) -> list[Action]:
         return [Action(x, u("unloading"), "G04-DMG" if "photo" in x else "Checklist") for x in b] or [
             Action("Record SED (if any) and confirm physical verification", u("unloading"), "Verification")]
     if st == S.PHYSICALLY_VERIFIED:
-        out = [Action(x, u("charges") if ("package" in x.lower() or "unloading" in x.lower()) else u("unloading"),
-                      "G04-ULC" if "unloading" in x.lower() else "MRA") for x in mra.blockers(iw)]
+        out = [Action(x, u("ewb") if "E-way bill" in x else
+                      u("charges") if ("package" in x.lower() or "unloading" in x.lower()) else u("unloading"),
+                      "E-way bill" if "E-way bill" in x else "G04-ULC" if "unloading" in x.lower() else "MRA")
+               for x in mra.blockers(iw)]
         if out:
             return out
         last = iw.mras.first()
@@ -100,7 +113,8 @@ def actions(iw: Iw) -> list[Action]:
             return [Action("Import the latest IRR and run the reconciliation" + (f" ({', '.join(bad[:3])})" if bad else ""),
                            u("erp"), "IRR")]
         gates = [g for g in closure.gates(iw, []) if not g.ok and "reconciled" not in g.label]
-        return [Action(g.label + (f": {g.detail}" if g.detail else ""), u("erp"), "Closure") for g in gates] or [
+        return [Action(g.label + (f": {g.detail}" if g.detail else ""), u("ewb") if "E-way bill" in g.label else u("erp"),
+                       "Closure") for g in gates] or [
             Action("Close the IW", u("erp"), "Closure")]
     return []
 

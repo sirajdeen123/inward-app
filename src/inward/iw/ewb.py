@@ -171,8 +171,10 @@ def recipients(iw: Iw) -> tuple[list[str], list[str]]:
 def preview(iw: Iw, reminder: bool = False) -> dict:
     st = state(iw)
     to, cc = recipients(iw)
-    subject = (("REMINDER: " if reminder else "") + f"Request to update Transporter ID in E-way Bill - {iw.vehicle_no} - "
-               f"{iw.iw_no} - Depot {comms._branding(iw)['depot_code']}")
+    nos = [s.ewb_no for s in st.ships if s.ewb_no]
+    subject = (("REMINDER: " if reminder else "") + "Request to update Transporter ID in E-way Bill "
+               + (", ".join(nos[:3]) + (f" +{len(nos) - 3}" if len(nos) > 3 else "") + " - " if nos else "- ")
+               + f"{iw.iw_no} - Depot {comms._branding(iw)['depot_code']}")
     ctx = {"st": st, "reminder": reminder, "first": st.request}
     from django.template.loader import render_to_string
     html = render_to_string("iw/mail/ewb_transporter.html", {"iw": iw, "b": comms._branding(iw), "stamp": "(stamp)", **ctx})

@@ -3,7 +3,7 @@
 {% with th="border:1px solid #9a9ab0;background:#EDEBF7;padding:7px 10px;text-align:left;font-size:13px;white-space:nowrap" td="border:1px solid #9a9ab0;padding:7px 10px;font-size:13px" %}
 <p style="margin:0 0 10px">Dear Sir / Madam,</p>
 {% if reminder %}<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;margin:0 0 12px"><tr><td style="border:2px solid #b00020;background:#FDECEE;padding:8px 12px;color:#b00020;font-size:14px"><b>REMINDER</b> - our request of {{ first.at|date:"d-M-Y h:i A" }} is still pending. The material cannot move to the destination until the E-way bill is updated.</td></tr></table>{% endif %}
-<p style="margin:0 0 12px">The vehicle below carries outbound transhipment material that we move on from our depot to the destination. <b>Kindly update the Transporter ID in the E-way bill(s) listed below.</b></p>
+<p style="margin:0 0 12px">The outbound transhipment material of the E-way bill(s) below has reached our depot {{ b.depot_code }} {{ b.depot_name }} and will be forwarded by us to the destination. <b>Kindly update the Transporter ID in these E-way bill(s).</b></p>
 
 <table cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%;margin:0 0 14px">
 <tr><td colspan="2" style="background:#2E2560;color:#fff;padding:8px 10px;font-size:14px;font-weight:bold">1. Update the E-way bill with this Transporter</td></tr>
@@ -17,14 +17,7 @@
 {% for s in st.ships %}<tr><td style="{{ td }}">{{ forloop.counter }}</td><td style="{{ td }};font-size:15px;font-weight:bold;letter-spacing:.5px">{{ s.ewb_no }}</td><td style="{{ td }}">{{ s.ship_id }}</td><td style="{{ td }}">{{ s.destination }}</td><td style="{{ td }};text-align:right">{{ s.doc_ltr|floatformat:"-3" }}</td><td style="{{ td }};text-align:right">{{ s.doc_kg|floatformat:"-3" }}</td></tr>{% endfor %}
 </table>
 
-<table cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%;margin:0 0 14px">
-<tr><td colspan="4" style="background:#2E2560;color:#fff;padding:8px 10px;font-size:14px;font-weight:bold">3. Vehicle details</td></tr>
-<tr><td style="{{ th }};width:130px">Vehicle No</td><td style="{{ td }}"><b>{{ iw.vehicle_no }}</b></td><td style="{{ th }};width:130px">LR No</td><td style="{{ td }}">{{ iw.lr_no|default:"-" }}</td></tr>
-<tr><td style="{{ th }}">From (source)</td><td style="{{ td }}">{{ iw.source_org|default:"-" }}</td><td style="{{ th }}">Arrived at depot</td><td style="{{ td }}">{{ iw.arrival_at|date:"d-M-Y h:i A" }}</td></tr>
-<tr><td style="{{ th }}">Depot</td><td style="{{ td }}">{{ b.depot_code }} · {{ b.depot_name }}</td><td style="{{ th }}">Our reference</td><td style="{{ td }}">{{ iw.iw_no }}</td></tr>
-</table>
-
-<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;margin:0 0 6px"><tr><td style="border-left:4px solid #2E2560;background:#F3F2FA;padding:8px 12px;font-size:13px">Please <b>reply to this mail</b> once the Transporter ID is updated, so that the material can be moved to the destination without delay.</td></tr></table>
+<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;margin:0 0 6px"><tr><td style="border-left:4px solid #2E2560;background:#F3F2FA;padding:8px 12px;font-size:13px">Please update <b>only the Transporter ID</b>. The vehicle number (Part B) will be updated by us when we forward the material to the destination. Kindly <b>reply to this mail</b> once the Transporter ID is updated.</td></tr></table>
 <p style="margin:12px 0 0">Regards,</p>
 {% endwith %}
 {% endblock %}

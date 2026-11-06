@@ -25,7 +25,9 @@ def w(env, make_user):  # noqa: F811
     Organisation.objects.create(code="095", name="Salem", org_type="DEPOT")
     OrganisationEmail.objects.create(organisation_id="390", email="hindupur@example.com", kind="TO",
                                      status=EmailStatus.VERIFIED)
-    NotificationRecipient.objects.filter(purpose="EWB_TRANSPORTER", role_label="CFA Manager").update(email="cfa@example.com")
+    for label, mail in (("CFA Manager", "cfa@example.com"), ("Godown", "coimbatoregodown@bergerindia.com")):
+        NotificationRecipient.objects.update_or_create(purpose="EWB_TRANSPORTER", role_label=label,
+                                                       defaults={"kind": "CC", "email": mail, "active": True})
     clerk = env["clerk"]
     iw = _iw(clerk)
     a = outbound.add_ship(clerk, iw.pk, ship_id="52611001", destination="094", doc_ltr="72", doc_kg="20",
@@ -62,7 +64,9 @@ def test_mail_needs_every_eway_bill_and_lists_them_all(w):
     assert m.purpose == MailMessage.Purpose.EWB_TRANSPORTER and m.to == ["hindupur@example.com"]
     assert "cfa@example.com" in m.cc and "Request to update Transporter ID in E-way Bill" in m.subject
     assert "coimbatoregodown@bergerindia.com" in m.cc                           # the godown (clerk) copied
-    assert "2. E-way bills to update (2)" in m.html_body and "3. Vehicle details" in m.html_body
+    assert "2. E-way bills to update (2)" in m.html_body and "Vehicle details" not in m.html_body
+    assert "123456789012, 987654321098" in m.subject and "TN60E8139" not in m.subject      # no inbound vehicle
+    assert "only the Transporter ID" in m.html_body and "(Part B) will be updated by us" in m.html_body
     for text in (TID, "RAINBOW LOGISTICS", "123456789012", "987654321098", "52611001", "52611002"):
         assert text in m.html_body                                              # one mail with every Ship
     iw = _iw_now(w)

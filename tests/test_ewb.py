@@ -61,6 +61,8 @@ def test_mail_needs_every_eway_bill_and_lists_them_all(w):
     m = ewb.send(clerk, iw.pk)
     assert m.purpose == MailMessage.Purpose.EWB_TRANSPORTER and m.to == ["hindupur@example.com"]
     assert "cfa@example.com" in m.cc and "Request to update Transporter ID in E-way Bill" in m.subject
+    assert "coimbatoregodown@bergerindia.com" in m.cc                           # the godown (clerk) copied
+    assert "2. E-way bills to update (2)" in m.html_body and "3. Vehicle details" in m.html_body
     for text in (TID, "RAINBOW LOGISTICS", "123456789012", "987654321098", "52611001", "52611002"):
         assert text in m.html_body                                              # one mail with every Ship
     iw = _iw_now(w)
@@ -69,7 +71,7 @@ def test_mail_needs_every_eway_bill_and_lists_them_all(w):
         ewb.send(clerk, iw.pk, reminder=True)
     EwbEvent.objects.update(at=timezone.now() - timedelta(hours=3))
     r = ewb.send(clerk, iw.pk, reminder=True)
-    assert r.subject.startswith("REMINDER:") and "Reminder" in r.html_body
+    assert r.subject.startswith("REMINDER:") and "<b>REMINDER</b>" in r.html_body
 
     # closure needs the source's update; a changed Ship needs a new mail
     gate = next(g for g in closure.gates(iw, []) if "E-way bill" in g.label)

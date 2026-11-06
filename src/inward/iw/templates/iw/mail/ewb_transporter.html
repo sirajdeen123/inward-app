@@ -1,17 +1,30 @@
 {% extends "iw/mail/_base.html" %}
 {% block body %}
-<p>Dear Sir / Madam,</p>
-{% if reminder %}<p style="color:#b00020"><b>Reminder</b> - our request of {{ first.at|date:"d-M-Y h:i A" }} is still pending. The material cannot move to the destination until the E-way bill is updated.</p>{% endif %}
-<p>The vehicle <b>{{ iw.vehicle_no }}</b>{% if iw.lr_no %} (LR {{ iw.lr_no }}){% endif %} from {{ iw.source_org|default:"your location" }} arrived at Depot {{ b.depot_code }} {{ b.depot_name }} on {{ iw.arrival_at|date:"d-M-Y h:i A" }} ({{ iw.iw_no }}). It carries the following outbound transhipment Ship(s), which we move on to the destination.</p>
-<p><b>Kindly update the Transporter ID in the E-way bill(s) below:</b></p>
-<table cellpadding="6" cellspacing="0" style="border-collapse:collapse;font-size:14px;margin:4px 0 10px">
-<tr><td style="border:1px solid #999;background:#eee"><b>Transporter ID</b></td><td style="border:1px solid #999;font-size:16px"><b>{{ st.transporter_id }}</b></td></tr>
-<tr><td style="border:1px solid #999;background:#eee"><b>Transporter name</b></td><td style="border:1px solid #999"><b>{{ st.transporter_name }}</b></td></tr>
+{% with th="border:1px solid #9a9ab0;background:#EDEBF7;padding:7px 10px;text-align:left;font-size:13px;white-space:nowrap" td="border:1px solid #9a9ab0;padding:7px 10px;font-size:13px" %}
+<p style="margin:0 0 10px">Dear Sir / Madam,</p>
+{% if reminder %}<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;margin:0 0 12px"><tr><td style="border:2px solid #b00020;background:#FDECEE;padding:8px 12px;color:#b00020;font-size:14px"><b>REMINDER</b> - our request of {{ first.at|date:"d-M-Y h:i A" }} is still pending. The material cannot move to the destination until the E-way bill is updated.</td></tr></table>{% endif %}
+<p style="margin:0 0 12px">The vehicle below carries outbound transhipment material that we move on from our depot to the destination. <b>Kindly update the Transporter ID in the E-way bill(s) listed below.</b></p>
+
+<table cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%;margin:0 0 14px">
+<tr><td colspan="2" style="background:#2E2560;color:#fff;padding:8px 10px;font-size:14px;font-weight:bold">1. Update the E-way bill with this Transporter</td></tr>
+<tr><td style="{{ th }};width:190px">Transporter ID</td><td style="{{ td }};font-size:20px;font-weight:bold;letter-spacing:1px;color:#2E2560">{{ st.transporter_id }}</td></tr>
+<tr><td style="{{ th }}">Transporter name</td><td style="{{ td }};font-size:15px;font-weight:bold">{{ st.transporter_name }}</td></tr>
 </table>
-<table cellpadding="5" cellspacing="0" style="border-collapse:collapse;font-size:13px">
-<tr style="background:#eee"><th style="border:1px solid #999;text-align:left">#</th><th style="border:1px solid #999;text-align:left">E-way bill No</th><th style="border:1px solid #999;text-align:left">Ship ID</th><th style="border:1px solid #999;text-align:left">Destination</th><th style="border:1px solid #999;text-align:right">LTR</th><th style="border:1px solid #999;text-align:right">KG</th></tr>
-{% for s in st.ships %}<tr><td style="border:1px solid #999">{{ forloop.counter }}</td><td style="border:1px solid #999"><b>{{ s.ewb_no }}</b></td><td style="border:1px solid #999">{{ s.ship_id }}</td><td style="border:1px solid #999">{{ s.destination }}</td><td style="border:1px solid #999;text-align:right">{{ s.doc_ltr|floatformat:"-3" }}</td><td style="border:1px solid #999;text-align:right">{{ s.doc_kg|floatformat:"-3" }}</td></tr>{% endfor %}
+
+<table cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%;margin:0 0 14px">
+<tr><td colspan="6" style="background:#2E2560;color:#fff;padding:8px 10px;font-size:14px;font-weight:bold">2. E-way bills to update ({{ st.ships|length }})</td></tr>
+<tr><th style="{{ th }}">#</th><th style="{{ th }}">E-way bill No</th><th style="{{ th }}">Ship ID</th><th style="{{ th }}">Destination</th><th style="{{ th }};text-align:right">LTR</th><th style="{{ th }};text-align:right">KG</th></tr>
+{% for s in st.ships %}<tr><td style="{{ td }}">{{ forloop.counter }}</td><td style="{{ td }};font-size:15px;font-weight:bold;letter-spacing:.5px">{{ s.ewb_no }}</td><td style="{{ td }}">{{ s.ship_id }}</td><td style="{{ td }}">{{ s.destination }}</td><td style="{{ td }};text-align:right">{{ s.doc_ltr|floatformat:"-3" }}</td><td style="{{ td }};text-align:right">{{ s.doc_kg|floatformat:"-3" }}</td></tr>{% endfor %}
 </table>
-<p>Please reply to this mail once updated.</p>
-<p>Regards,</p>
+
+<table cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%;margin:0 0 14px">
+<tr><td colspan="4" style="background:#2E2560;color:#fff;padding:8px 10px;font-size:14px;font-weight:bold">3. Vehicle details</td></tr>
+<tr><td style="{{ th }};width:130px">Vehicle No</td><td style="{{ td }}"><b>{{ iw.vehicle_no }}</b></td><td style="{{ th }};width:130px">LR No</td><td style="{{ td }}">{{ iw.lr_no|default:"-" }}</td></tr>
+<tr><td style="{{ th }}">From (source)</td><td style="{{ td }}">{{ iw.source_org|default:"-" }}</td><td style="{{ th }}">Arrived at depot</td><td style="{{ td }}">{{ iw.arrival_at|date:"d-M-Y h:i A" }}</td></tr>
+<tr><td style="{{ th }}">Depot</td><td style="{{ td }}">{{ b.depot_code }} · {{ b.depot_name }}</td><td style="{{ th }}">Our reference</td><td style="{{ td }}">{{ iw.iw_no }}</td></tr>
+</table>
+
+<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;margin:0 0 6px"><tr><td style="border-left:4px solid #2E2560;background:#F3F2FA;padding:8px 12px;font-size:13px">Please <b>reply to this mail</b> once the Transporter ID is updated, so that the material can be moved to the destination without delay.</td></tr></table>
+<p style="margin:12px 0 0">Regards,</p>
+{% endwith %}
 {% endblock %}

@@ -174,7 +174,7 @@ NOTIFICATION_PURPOSES = {
     "IRR_EXCEPTIONS": [("System Supervisor", "TO"), ("CFA Manager", "TO"), ("Admin Officer", "TO")],
     # material returns (21-Oct-2026): the approvers themselves are mapped on the Approvers screen
     "RMA_APPROVAL": [("Admin Officer", "CC"), ("Godown", "CC")],
-    "EWB_TRANSPORTER": [("CFA Manager", "CC"), ("Admin Officer", "CC")],
+    "EWB_TRANSPORTER": [("CFA Manager", "CC"), ("Admin Officer", "CC"), ("Godown", "CC")],
     "PACKAGING_CHANGE": [("CFA Manager", "TO")],
     "RMA_DAILY": [("Admin Officer", "TO"), ("CFA Manager", "CC"), ("RCM", "CC")],
 }

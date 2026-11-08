@@ -150,3 +150,28 @@ def test_add_sku_screen_and_all_users_and_manager_mail(client, env, make_user):
     assert m.to == ["cfa@example.com"] and "3 change(s)" in m.subject     # the manager's own change not mailed
     assert "F00N090TGH030001" in m.html_body and "F00N090TGH030004" not in m.html_body
     assert packaging_notify.due(later) == 0 and not PackagingChange.objects.filter(notified=False).exists()
+
+
+def test_download_excel_round_trips(client, env, make_user):
+    """9-Nov-2026: the packaging master as Excel - the upload's six columns first (so it can be uploaded again), then
+    floor SKU, group, source, verify note, last change and review; the screen's filter applies."""
+    import io
+    _load(env, [("F000000134001000", "LUXOL SKY BLUE 1 L", "L", 1, "CARTON BOX", 6),
+                ("F002980000020000", "WEATHERCOAT GLOW WHITE 20 L", "L", 20, "DRUM", 1)])
+    c = verified_client(client, make_user("viewer_x", "VIEWER"))
+    page = c.get(reverse("core:packaging")).content.decode()
+    assert "Download Excel" in page
+    resp = c.get(reverse("core:packaging_xlsx"))
+    assert resp.status_code == 200 and "SKU packaging Depot" in resp["Content-Disposition"]
+    ws = openpyxl.load_workbook(io.BytesIO(resp.content)).active
+    rows = list(ws.iter_rows(values_only=True))
+    assert list(rows[0][:6]) == ["SKU Code", "SKU Name", "UOM", "Volume", "Pack Type", "Units Per Box"]
+    assert rows[0][7] == "Package group" and ws.freeze_panes == "B2"
+    luxol = next(r for r in rows if r[0] == "F000000134001000")
+    assert luxol[1] == "LUXOL SKY BLUE 1 L" and luxol[4] == "CARTON BOX" and luxol[5] == 6 and luxol[6] == "000 134"
+    path = env["tmp"] / "back.xlsx"
+    path.write_bytes(resp.content)
+    back, issues = packaging.read_company_list(path)                    # the same file can be uploaded again
+    assert {r.sku: r.units for r in back} == {"F000000134001000": 6, "F002980000020000": 1} and not issues
+    one = openpyxl.load_workbook(io.BytesIO(c.get(reverse("core:packaging_xlsx"), {"q": "LUXOL"}).content)).active
+    assert [r[0] for r in one.iter_rows(min_row=2, values_only=True)] == ["F000000134001000"]

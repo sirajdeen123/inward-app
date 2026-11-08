@@ -9,5 +9,6 @@ urlpatterns = [
     path("packaging/upload/", views_packaging.packaging_upload, name="packaging_upload"),
     path("packaging/upload/<int:pk>/", views_packaging.packaging_preview, name="packaging_preview"),
     path("packaging/review/", views_packaging.packaging_review, name="packaging_review"),
+    path("packaging/download.xlsx", views_packaging.packaging_xlsx, name="packaging_xlsx"),
     path("packaging/<str:sku>/", views_packaging.packaging_sku, name="packaging_sku"),
 ]

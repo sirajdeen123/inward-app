@@ -18,9 +18,8 @@ from inward.importers.common import ImportFailed
 from inward.web.views import PreviewForm, needs
 
 
-@needs("SEARCH_REPORTS")
-def packaging_home(request):
-    qs = SkuPackaging.objects.select_related("package_type")
+def _filtered(request):
+    qs = SkuPackaging.objects.select_related("package_type", "updated_by")
     q = request.GET.get("q", "").strip()
     show = request.GET.get("show", "")
     if q:
@@ -31,7 +30,13 @@ def packaging_home(request):
         qs = qs.exclude(verify_note="")
     elif show == "clerk":
         qs = qs.filter(source=SkuPackaging.Source.CLERK)
-    page = Paginator(qs.order_by("sku"), 50).get_page(request.GET.get("page"))
+    return qs.order_by("sku"), q, show
+
+
+@needs("SEARCH_REPORTS")
+def packaging_home(request):
+    qs, q, show = _filtered(request)
+    page = Paginator(qs, 50).get_page(request.GET.get("page"))
     return render(request, "core/packaging.html", {
         "page": page, "q": q, "show": show, "total": SkuPackaging.objects.count(),
         "not_set": SkuPackaging.objects.filter(units_per_package__isnull=True).count(),
@@ -40,6 +45,58 @@ def packaging_home(request):
         "uploads": PackagingUpload.objects.select_related("uploaded_by")[:5],
         "can_edit": "GRANT" in modes_for(request.user, "SKU_PACKAGING_EDIT"),
         "can_review": "GRANT" in modes_for(request.user, "PACKAGING_REVIEW")})
+
+
+@needs("SEARCH_REPORTS")
+def packaging_xlsx(request):
+    """The packaging master as Excel (9-Nov-2026): the first six columns are the upload format (SKU Code ... Units Per
+    Box), so the file can be corrected and uploaded again; the rest is for reference. Follows the screen's filter."""
+    import io
+
+    from django.conf import settings
+    from django.http import HttpResponse
+    from django.utils import timezone
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill
+    from openpyxl.utils import get_column_letter
+
+    qs, q, show = _filtered(request)
+    last, pending = {}, set()
+    for ch in PackagingChange.objects.select_related("changed_by").order_by("sku", "-changed_at"):
+        last.setdefault(ch.sku, ch)
+        if ch.review == PackagingChange.Review.PENDING:
+            pending.add(ch.sku)
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "SKU packaging"
+    head = ["SKU Code", "SKU Name", "UOM", "Volume", "Pack Type", "Units Per Box",
+            "Floor SKU", "Package group", "Business line", "Source", "Verify physically", "Last changed", "Changed by",
+            "Last change", "Review"]
+    ws.append(head)
+    for p in qs:
+        ch = last.get(p.sku)
+        ws.append([p.sku, p.description, p.uom, float(p.pack_size) if p.pack_size is not None else None, p.pack_type_text,
+                   p.units_per_package, p.floor_sku, p.package_type.name, p.business_line, p.get_source_display(),
+                   p.verify_note, timezone.localtime(ch.changed_at).strftime("%d-%m-%Y %H:%M") if ch else "",
+                   (ch.changed_by.full_name or ch.changed_by.username) if ch and ch.changed_by else "",
+                   f"{ch.action.title()}{' - ' + ch.reason if ch.reason else ''}" if ch else "",
+                   "To review" if p.sku in pending else ""])
+    bold, fill = Font(bold=True), PatternFill("solid", fgColor="E4E4EC")
+    for i, h in enumerate(head, 1):
+        c = ws.cell(row=1, column=i)
+        c.font, c.fill = bold, fill
+        ws.column_dimensions[get_column_letter(i)].width = {"SKU Code": 20, "SKU Name": 42, "Verify physically": 40,
+                                                            "Last change": 36}.get(h, 14)
+    ws.freeze_panes = "B2"
+    ws.auto_filter.ref = ws.dimensions
+    out = io.BytesIO()
+    wb.save(out)
+    depot = settings.INWARD["DEPOT_CODE"]
+    resp = HttpResponse(out.getvalue(),
+                        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    resp["Content-Disposition"] = (f'attachment; filename="SKU packaging Depot {depot} {timezone.localdate():%Y-%m-%d}'
+                                   f'{" (filtered)" if q or show else ""}.xlsx"')
+    return resp
 
 
 @require_POST

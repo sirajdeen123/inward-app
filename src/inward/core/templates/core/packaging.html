@@ -28,6 +28,7 @@
     <option value="verify"{% if show == 'verify' %} selected{% endif %}>Verify physically</option>
     <option value="clerk"{% if show == 'clerk' %} selected{% endif %}>Added / edited by clerk</option></select>
   <button type="submit" class="btn btn-sm">Filter</button>
+  <a class="btn btn-sm btn-primary" href="{% url 'core:packaging_xlsx' %}{% if q or show %}?q={{ q|urlencode }}&amp;show={{ show }}{% endif %}">Download Excel{% if q or show %} (this filter){% endif %}</a>
   {% if can_edit %}<a class="btn btn-sm" href="{% url 'core:packaging_sku' 'NEW' %}">Add a SKU</a>{% endif %}
 </form>
 <div class="scroll"><table class="tbl">

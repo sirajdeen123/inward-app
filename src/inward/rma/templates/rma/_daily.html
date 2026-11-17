@@ -7,10 +7,11 @@
 {% for s in r.by_stage %}<tr><td>{{ s.label }}</td><td>{{ s.count }}</td><td>{{ s.value|floatformat:0 }}</td><td>{{ s.overdue }}</td></tr>{% endfor %}
 <tr><td>GRN invoices not yet on the portal</td><td>{{ r.unlinked|length }}</td><td>-</td><td>-</td></tr></table>
 
-<h4>Approval pending - by approver</h4>
-{% if r.groups or r.unmapped %}<table class="rt"><tr><th>Approver</th><th>Requests</th><th>Value (Rs)</th><th>Oldest at stage (days)</th><th>Over the red limit</th></tr>
-{% for g in r.groups %}<tr><td>{{ g.approver.name }}</td><td>{{ g.rows|length }}</td><td>{{ g.value|floatformat:0 }}</td><td>{{ g.oldest }}</td><td>{{ g.overdue }}</td></tr>{% endfor %}
-{% for u in r.unmapped %}<tr><td style="color:#8B1E2B">{{ u.name }} - no e-mail, not chased</td><td>{{ u.rows|length }}</td><td>-</td><td>-</td><td>-</td></tr>{% endfor %}</table>{% else %}<p>None.</p>{% endif %}
+<h4>Approval pending - by approver group ({{ r.approval|length }} request{{ r.approval|pluralize }})</h4>
+{% if r.approval_groups %}<table class="rt"><tr><th>Approver group (as on the portal)</th><th>Requests</th><th>Value (Rs)</th><th>Oldest at stage (days)</th><th>Over the red limit</th><th>Mail</th></tr>
+{% for g in r.approval_groups %}<tr{% if not g.mailed %} style="background:#F8D7DA"{% endif %}><td>{{ g.names|join:" / " }}</td><td>{{ g.rows|length }}</td><td>{{ g.value|floatformat:0 }}</td><td>{{ g.oldest }}</td><td>{{ g.overdue }}</td>
+<td>{% if not g.mailed %}<b style="color:#8B1E2B">not chased - no e-mail on file</b>{% elif g.missing %}sent to {{ g.mailed|length }} of {{ g.people }}<br><span style="color:#8B1E2B;font-size:11px">no e-mail: {{ g.missing|join:", " }}</span>{% else %}sent to {% if g.mailed|length > 1 %}all {{ g.mailed|length }}{% else %}{{ g.mailed.0.name }}{% endif %}{% endif %}</td></tr>{% endfor %}
+<tr style="background:#f6f6f6"><td><b>Total</b></td><td><b>{{ r.approval|length }}</b></td><td colspan="4"></td></tr></table>{% else %}<p>None.</p>{% endif %}
 
 <h4>Approval pending - requests</h4>
 {% if r.approval %}<table class="rt"><tr><th>Request</th><th>Dealer</th><th>Invoice</th><th>Value (Rs)</th><th>Status</th><th>Pending at</th><th>Days total</th><th>Days at stage</th><th>GRN</th></tr>

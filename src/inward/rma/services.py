@@ -979,6 +979,37 @@ def pending_groups(rws: list[Row]) -> list[dict]:
     return list(groups.values())
 
 
+def approval_groups(rws: list[Row]) -> list[dict]:
+    """Requests pending approval grouped by their portal Pending At group (18-Nov-2026) - one line per group, so each
+    request is counted once: who gets the mail (left -> replacement), who has no e-mail, and groups nobody can be
+    mailed for. The daily report reads it the same way the approval mails go."""
+    approvers = {a.key: a for a in Approver.objects.select_related("redirect_to")}
+    groups: dict[tuple, dict] = {}
+    for row in rws:
+        if row.stage != "APPROVAL":
+            continue
+        names = pending_names(row.r.pending_at)
+        key = tuple(sorted(name_key(n) for n in names)) or ("-",)
+        g = groups.setdefault(key, {"names": names or ["(not named on the portal)"], "mailed": {}, "missing": [],
+                                    "rows": []})
+        for n in names:
+            a = final(approvers.get(name_key(n)))
+            if a is not None and a.email:
+                g["mailed"][a.pk] = a
+            elif n not in g["missing"]:
+                g["missing"].append(n)
+        g["rows"].append(row)
+    out = []
+    for g in groups.values():
+        g["mailed"] = list(g["mailed"].values())
+        g["people"] = len(g["mailed"]) + len(g["missing"])
+        g["value"] = sum((x.r.total_value for x in g["rows"]), ZERO)
+        g["overdue"] = sum(1 for x in g["rows"] if x.stage_flag == "RED")
+        g["oldest"] = max((x.days_at_stage or 0) for x in g["rows"])
+        out.append(g)
+    return sorted(out, key=lambda g: (bool(g["mailed"]), -g["oldest"]))
+
+
 def pending_by_approver(rws: list[Row]) -> list[dict]:
     """Requests pending approval grouped by the person who must act (left -> replacement)."""
     groups: dict[int, dict] = {}

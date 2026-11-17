@@ -409,6 +409,31 @@ def test_one_mail_per_pending_group_all_in_to(env):
     assert "any one of you" not in alone.html_body and both.cc[:2] == ["ao@example.com", "godown@example.com"]
 
 
+def test_daily_report_counts_each_request_once_by_group(env):
+    """18-Nov-2026: the daily report listed every approver separately (S Muthusamy 65 + Vignesh Kuttalam 65 for the
+    same 65 requests). Now one line per Pending At group, as the mails go; a group nobody can be mailed is red."""
+    from django.template.loader import render_to_string
+    clerk, cfa, tmp = env["clerk"], env["cfa"], env["tmp"]
+    svc.import_portal(clerk, portal(tmp, "p.xlsx", [
+        ("1", "1187422-NATARAJA", "500", "DM Pending", "S Muthusamy , Vignesh Kuttalam", "", LINES),
+        ("2", "1187422-NATARAJA", "501", "DM Pending", "S Muthusamy , Vignesh Kuttalam", "", LINES),
+        ("3", "1187422-NATARAJA", "502", "DM Pending", "Karthick G , Pathinti Raja", "", LINES),
+        ("4", "1187422-NATARAJA", "503", "RSM Pending", "SATHYADEVAN V.V.", "", LINES)]), "p.xlsx")
+    for name, mail in (("S Muthusamy", "sm@example.com"), ("Vignesh Kuttalam", "vk@example.com"),
+                       ("Karthick G", "kg@example.com")):
+        svc.save_approver(cfa, svc.approver_for(name).pk, mail, True)
+    groups = svc.approval_groups(svc.rows())
+    assert sum(len(g["rows"]) for g in groups) == 4 and len(groups) == 3          # each request once
+    first = groups[0]                                                             # nobody to mail: on top
+    assert first["names"] == ["SATHYADEVAN V.V."] and not first["mailed"]
+    kg = next(g for g in groups if g["names"][0] == "Karthick G")
+    assert [a.name for a in kg["mailed"]] == ["Karthick G"] and kg["missing"] == ["Pathinti Raja"] and kg["people"] == 2
+    html = render_to_string("rma/_daily.html", {"r": mails.daily_report()})
+    assert "by approver group (4 requests)" in html and "S Muthusamy / Vignesh Kuttalam" in html
+    assert "sent to all 2" in html and "sent to 1 of 2" in html and "no e-mail: Pathinti Raja" in html
+    assert "not chased - no e-mail on file" in html and html.count("<td>S Muthusamy / Vignesh Kuttalam</td>") == 1
+
+
 class CnInbox:
     def __init__(self, received=None, files=()):
         self.received, self.files, self.calls = received, list(files), 0

@@ -227,7 +227,7 @@ def daily_report(day: date | None = None) -> dict:
         by_stage.append({"code": code, "label": label, "count": len(rs),
                          "value": sum((x.r.total_value for x in rs), ZERO),
                          "overdue": sum(1 for x in rs if x.flag == "RED")})
-    groups, unmapped = svc.pending_by_approver(open_rows)
+    approval_groups = svc.approval_groups(open_rows)
     approval = sorted([x for x in open_rows if x.stage == "APPROVAL"], key=lambda x: -(x.days_at_stage or 0))
     yday = day - timedelta(days=1)
     closed = svc.rows(Request.objects.filter(closed_at__date=yday))
@@ -238,7 +238,7 @@ def daily_report(day: date | None = None) -> dict:
     no_grn = [x for x in open_rows if not x.grns and x.stage not in ("REJECTED",)]
     from inward.rma import autofetch
     cn_today, cn_yesterday = autofetch.today_status(day), autofetch.today_status(day - timedelta(days=1))
-    return {"day": day, "by_stage": by_stage, "no_grn": no_grn, "cn_today": cn_today, "cn_yesterday": cn_yesterday, "groups": groups, "unmapped": unmapped, "approval": approval,
+    return {"day": day, "by_stage": by_stage, "no_grn": no_grn, "cn_today": cn_today, "cn_yesterday": cn_yesterday, "approval_groups": approval_groups, "approval": approval,
             "unlinked": svc.unlinked_grns(day), "waiting": [x for x in open_rows if x.stage in ("RMA", "CN", "IRR")],
             "ready": [x for x in open_rows if x.stage == "CLOSE"],
             "rejected": [x for x in open_rows if x.stage == "REJECTED"], "closed": closed,

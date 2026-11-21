@@ -39,6 +39,7 @@ PERMISSIONS = {
     "IW_VOID": "VOID IW (before MRA only)",
     "IW_CORRECT": "Correct an IW after its MRA, before any ERP entry (reopened; the MRA is re-issued)",
     "MAIL_PENDING_RELEASE": "Mail-Pending Release",
+    "MASTER_UPLOAD": "Upload master files (TSI, Customer Master, portal approvers) - changes who gets the mails",
     "EWB_MAIL": "Outbound transhipment: E-way bill Nos, Transporter ID update mail to the source, confirmation",
     "EWB_MRA_RELEASE": "Issue the MRA without the E-way bill Transporter ID update mail (CFA Manager approves)",
     "EXCEPTION_RESOLVE": "Resolve critical exceptions",
@@ -72,6 +73,7 @@ MATRIX: dict[str, dict[str, str]] = {
     "IW_VOID": {"DEPOT_CLERK": R, "SYSTEM_SUPERVISOR": R, "CFA_MANAGER": A},
     "IW_CORRECT": {"DEPOT_CLERK": R, "SYSTEM_SUPERVISOR": R, "CFA_MANAGER": A},
     "MAIL_PENDING_RELEASE": {"CFA_MANAGER": G},
+    "MASTER_UPLOAD": {"CFA_MANAGER": G},     # 21-Nov-2026: the CFA Manager may give it to others (Roles)
     "EWB_MAIL": {"DEPOT_CLERK": G, "SYSTEM_SUPERVISOR": G, "CFA_MANAGER": G},       # 6-Nov-2026
     "EWB_MRA_RELEASE": {"DEPOT_CLERK": R, "SYSTEM_SUPERVISOR": R, "CFA_MANAGER": A},
     "EXCEPTION_RESOLVE": {"SYSTEM_SUPERVISOR": R, "CFA_MANAGER": A},

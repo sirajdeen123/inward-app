@@ -371,6 +371,30 @@ class IwCounter(models.Model):
 # ---------------------------------------------------------------- imports and exceptions
 
 
+class MasterUpload(models.Model):
+    """A master file (TSI, Customer Master, approvers ...) downloaded, edited in Excel and uploaded back (21-Nov-2026):
+    previewed first, applied on confirmation; the file and the result stay on record."""
+    class Status(models.TextChoices):
+        PREVIEW = "PREVIEW", "Preview - not applied"
+        APPLIED = "APPLIED", "Applied"
+        CANCELLED = "CANCELLED", "Cancelled"
+
+    kind = models.CharField(max_length=20, db_index=True)
+    filename = models.CharField(max_length=260)
+    document = models.ForeignKey(Document, on_delete=models.PROTECT, related_name="+")
+    plan = models.JSONField(default=dict)                  # the preview: new / changed / left / removed / errors
+    result = models.JSONField(default=dict, blank=True)    # what was applied
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.PREVIEW)
+    uploaded_by = models.ForeignKey(USER, on_delete=models.PROTECT, related_name="+")
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+    decided_by = models.ForeignKey(USER, null=True, blank=True, on_delete=models.PROTECT, related_name="+")
+    decided_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "master_upload"
+        ordering = ["-uploaded_at", "-id"]
+
+
 class ImportBatch(models.Model):
     kind = models.CharField(max_length=12)    # SIT / IRR / DESPATCH / VENDOR
     source = models.CharField(max_length=10)  # MANUAL / GMAIL

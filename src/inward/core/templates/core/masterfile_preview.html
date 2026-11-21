@@ -1,0 +1,27 @@
+{% extends "web/base.html" %}
+{% block title %}{{ spec.label }} - upload{% endblock %}
+{% block content %}
+<p><a href="{% url 'core:masterfiles' %}">&larr; Master files</a></p>
+<h1>{{ spec.label }} - {% if up.status == 'PREVIEW' %}check before applying{% else %}{{ up.get_status_display|lower }}{% endif %}</h1>
+<p class="muted">{{ up.filename }} · uploaded {{ up.uploaded_at|date:"d-M-Y h:i A" }} by {{ up.uploaded_by }}{% if up.decided_by %} · {{ up.get_status_display|lower }} {{ up.decided_at|date:"d-M-Y h:i A" }} by {{ up.decided_by }}{% endif %}</p>
+<div class="kpis">
+  <div class="card kpi"><div class="kpi-label">New</div><div class="kpi-value">{{ p.new|length }}</div></div>
+  <div class="card kpi"><div class="kpi-label">Changed</div><div class="kpi-value">{{ p.changed|length }}</div></div>
+  <div class="card kpi"><div class="kpi-label">Left / removed</div><div class="kpi-value">{{ gone }}</div></div>
+  <div class="card kpi"><div class="kpi-label">Unchanged</div><div class="kpi-value">{{ p.unchanged }}</div></div>
+  <div class="card kpi"><div class="kpi-label">Errors (not applied)</div><div class="kpi-value{% if p.errors %} warn-text{% endif %}">{{ p.errors|length }}</div></div>
+</div>
+{% if p.errors %}<div class="card"><h2>Errors - these rows are not applied</h2>
+  <table class="tbl stack"><thead><tr><th>Excel row</th><th>Row</th><th>Problem</th></tr></thead>
+  <tbody>{% for e in p.errors %}<tr><td data-label="Excel row">{{ e.row }}</td><td data-label="Row">{{ e.key }}</td><td data-label="Problem" class="warn-text">{{ e.message }}</td></tr>{% endfor %}</tbody></table>
+  <p class="muted">Correct them in the file and upload it again - or apply the rest now and correct these later.</p></div>{% endif %}
+{% if p.new %}<div class="card"><h2>New ({{ p.new|length }})</h2>{% include "core/_mf_rows.html" with items=p.new %}</div>{% endif %}
+{% if p.changed %}<div class="card"><h2>Changed ({{ p.changed|length }})</h2>{% include "core/_mf_rows.html" with items=p.changed %}</div>{% endif %}
+{% if p.left %}<div class="card"><h2>Left - no longer copied ({{ p.left|length }})</h2>{% include "core/_mf_rows.html" with items=p.left %}</div>{% endif %}
+{% if p.removed %}<div class="card"><h2>Removed ({{ p.removed|length }})</h2>{% include "core/_mf_rows.html" with items=p.removed %}</div>{% endif %}
+{% if p.missing %}<details class="card"><summary><b>In the app but not in the file - kept as they are ({{ p.missing|length }})</b></summary><p class="muted">{{ p.missing|join:" · " }}</p></details>{% endif %}
+{% if up.status == 'PREVIEW' and can_upload %}<form method="post" action="{% url 'core:masterfile_decide' up.pk %}" class="bar">{% csrf_token %}
+  <button type="submit" name="action" value="confirm" class="btn btn-primary"{% if not to_apply %} disabled{% endif %}>Apply {{ to_apply }} change{{ to_apply|pluralize }}</button>
+  <button type="submit" name="action" value="cancel" class="btn">Cancel - change nothing</button></form>
+{% elif up.status == 'APPLIED' %}<div class="alert alert-success">Applied: {% for k, v in result.items %}{{ v }} {{ k }}{% if not forloop.last %} · {% endif %}{% endfor %}. Every change is in the history and the audit trail.</div>{% endif %}
+{% endblock %}

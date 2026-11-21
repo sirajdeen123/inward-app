@@ -230,8 +230,13 @@ def final(a: Approver | None) -> Approver | None:
 
 @transaction.atomic
 def save_approver(user: User, pk: int, email: str, active: bool, redirect_pk: str = "") -> Approver:
-    from inward.iw.comms import _clean_emails
     require(user, "RMA_MASTER")
+    return _save_approver(user, pk, email, active, redirect_pk)
+
+
+def _save_approver(user: User, pk: int, email: str, active: bool, redirect_pk: str = "", reason: str = "") -> Approver:
+    """Without the permission check: the Approvers screen (RMA_MASTER) and the master file upload (MASTER_UPLOAD)."""
+    from inward.iw.comms import _clean_emails
     a = Approver.objects.select_for_update().get(pk=pk)
     addrs = _clean_emails(email)
     if email.strip() and len(addrs) != 1:
@@ -248,7 +253,8 @@ def save_approver(user: User, pk: int, email: str, active: bool, redirect_pk: st
     a.save()
     after = {"email": a.email, "active": a.active, "redirect": redirect.name if redirect else ""}
     if before != after:
-        audit.record("RMA_APPROVER_CHANGED", "rma_approver", a.pk, user=user, before=before, after=after)
+        audit.record("RMA_APPROVER_CHANGED", "rma_approver", a.pk, user=user, before=before,
+                     after={**after, **({"reason": reason} if reason else {})})
     return a
 
 
@@ -266,8 +272,12 @@ def update_sales_officer(user: User, territory_no: str, reason: str, name: str =
     (never copied again, even if a later TSI Master still has it) and the new Sales Officer is set - or, with nobody
     yet, the territory is vacant (no Sales Officer copied). Correction: a wrong name / e-mail fixed. 'Use the TSI
     Master again' drops the screen update. Every change is kept with who, when, why, before and after."""
-    from inward.iw.comms import _clean_emails
     require(user, "RMA_MASTER")
+    return _update_sales_officer(user, territory_no, reason, name, email)
+
+
+def _update_sales_officer(user: User, territory_no: str, reason: str, name: str = "", email: str = "") -> Territory:
+    from inward.iw.comms import _clean_emails
     if reason not in SO_REASONS:
         raise RmaError(f"Territory {territory_no}: choose why the Sales Officer changes.")
     t = Territory.objects.select_for_update().get(pk=territory_no)

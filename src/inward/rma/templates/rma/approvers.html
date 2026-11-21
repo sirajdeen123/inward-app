@@ -33,6 +33,7 @@
 </div>{% endif %}
 <p><button type="submit" class="btn btn-primary">Save</button></p>
 </form>
+<div class="card"><h2>Change many at once</h2><p>Download the TSI Master, Customer Master or portal approvers as Excel, edit them and upload them back with a preview: <a href="{% url 'core:masterfiles' %}" class="btn btn-sm btn-primary">Master files</a></p></div>
 <div class="card"><h2>Upload a new TSI Master</h2>
   <p class="muted">When the company sends a new TSI Master (Territory, Sales rep, BL, Email). Territories are updated; changes made on this screen stay, and anyone on the "left" list stays out.{% if tsi %} Last upload {{ tsi.uploaded_at|date:"d-M-Y h:i A" }} ({{ tsi.filename }}).{% endif %}</p>
   <form method="post" action="{% url 'rma:upload' %}" enctype="multipart/form-data" class="inline">{% csrf_token %}<input type="hidden" name="kind" value="TSI"><input type="hidden" name="back" value="approvers">

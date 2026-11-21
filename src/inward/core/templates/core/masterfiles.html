@@ -1,0 +1,21 @@
+{% extends "web/base.html" %}
+{% block title %}Master files{% endblock %}
+{% block content %}
+<h1>Master files - download &amp; upload</h1>
+<p class="muted">Download a master as Excel, change it (new rows, e-mails, people who left...), upload it back. You see a preview of every change before anything is applied; rows missing from the file are kept, nothing is deleted silently, and every change is recorded with who, when and why.{% if not can_upload %} Uploading is given by the CFA Manager (Roles &amp; permissions: MASTER_UPLOAD).{% endif %}</p>
+{% for x in specs %}<div class="card">
+  <div class="bar"><h2 style="margin:0">{{ x.s.label }}</h2><span class="muted">{{ x.s.module }}{% if x.count is not None %} · {{ x.count }} row{{ x.count|pluralize }}{% endif %}</span><div class="grow"></div>
+    <a class="btn btn-primary" href="{% url 'core:masterfile_download' x.s.key %}">Download Excel</a></div>
+  <ul class="muted" style="margin:8px 0 6px 18px;padding:0">{% for h in x.s.help %}<li>{{ h }}</li>{% endfor %}</ul>
+  {% if x.last %}<p class="muted small">Last upload {{ x.last.uploaded_at|date:"d-M-Y h:i A" }} by {{ x.last.uploaded_by }} - {{ x.last.get_status_display }}{% if x.last.decided_by and x.last.status == 'APPLIED' %} by {{ x.last.decided_by }}{% endif %}. <a href="{% url 'core:masterfile_preview' x.last.pk %}">Open</a></p>{% endif %}
+  {% if can_upload %}<form method="post" action="{% url 'core:masterfile_upload' x.s.key %}" enctype="multipart/form-data" class="inline">{% csrf_token %}
+    <label class="sr-only" for="mf-{{ x.s.key }}">Edited {{ x.s.label }}</label><input id="mf-{{ x.s.key }}" type="file" name="file" accept=".xlsx" required>
+    <button type="submit" class="btn">Upload and preview</button></form>{% endif %}
+</div>{% endfor %}
+{% if recent %}<div class="card"><h2>Recent uploads</h2>
+  <table class="tbl stack"><thead><tr><th>When</th><th>Master</th><th>File</th><th>By</th><th>Result</th></tr></thead>
+  <tbody>{% for u in recent %}<tr><td data-label="When">{{ u.uploaded_at|date:"d-M-Y h:i A" }}</td><td data-label="Master">{% for k, v in labels.items %}{% if k == u.kind %}{{ v }}{% endif %}{% endfor %}</td>
+    <td data-label="File"><a href="{% url 'core:masterfile_preview' u.pk %}">{{ u.filename }}</a></td><td data-label="By">{{ u.uploaded_by }}</td>
+    <td data-label="Result"><span class="chip{% if u.status == 'APPLIED' %} chip-ok{% elif u.status == 'PREVIEW' %} chip-warn{% endif %}">{{ u.get_status_display }}</span></td></tr>{% endfor %}</tbody></table>
+</div>{% endif %}
+{% endblock %}

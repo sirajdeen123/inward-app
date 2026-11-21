@@ -319,7 +319,7 @@ def test_screens(client, env, monkeypatch):
     assert "Approval pending - by approver" in c.get(reverse("rma:daily_preview")).content.decode()
     a = Approver.objects.get(key="JAGAN V")
     c.post(reverse("rma:approvers"), {f"email_{a.pk}": "jagan@example.com", f"redirect_{a.pk}": "",
-                                      "so_29": "other@example.com"})
+                                      "so_reason_29": "CORRECTION", "so_mail_29": "other@example.com"})
     assert Approver.objects.get(pk=a.pk).email == "jagan@example.com"
     assert svc.Territory.objects.get(pk="29").mail == "other@example.com"
     assert "Copy the <b>RCM</b>" in c.get(reverse("core:notifications")).content.decode()
@@ -567,3 +567,43 @@ def test_search_finds_a_request_in_any_stage(client, env):
     assert _counts(page)["Approval pending"] == 1 and _counts(page)["Before go-live (reference)"] == 1
     assert page.index('class="stages"') < page.index('id="uploads"')        # stages and list first, uploads below
     assert 'action="#list"' in page and "?stage=CN#list" in page              # Find / a card open at the list
+
+
+def test_sales_officer_resigned_and_replaced(client, env):
+    """21-Nov-2026: a Sales Officer who resigned is never copied again (even when a later TSI Master still has him);
+    the territory gets the new Sales Officer - or nobody for now - and every change is kept with the reason."""
+    from inward.rma.models import SalesOfficerChange, SalesOfficerLeft
+    cfa, tmp = env["cfa"], env["tmp"]
+    so = svc.SalesOfficers
+    assert so().for_site("1792722") == ("Prasad", "prasath@example.com", "19")
+    with pytest.raises(svc.RmaError, match="choose why"):
+        svc.update_sales_officer(cfa, "19", "", "Ravi", "ravi@example.com")
+    svc.update_sales_officer(cfa, "19", "RESIGNED")                                   # nobody yet
+    assert so().for_site("1792722") == ("no Sales Officer (left)", "", "19")
+    assert SalesOfficerLeft.objects.filter(email="prasath@example.com").exists()
+    svc.update_sales_officer(cfa, "19", "RESIGNED", "Ravi Kumar", "ravi@example.com")  # the new one
+    assert so().for_site("1792722") == ("Ravi Kumar", "ravi@example.com", "19")
+    with pytest.raises(svc.RmaError, match="who left"):
+        svc.update_sales_officer(cfa, "19", "TRANSFERRED", "Ravi", "ravi@example.com")
+    # a new TSI Master still carrying the man who left: he stays out; the screen update stays
+    _book(tmp / "tsi2.xlsx", {"S": [["Territory", "Sales rep", "BL", "Email"], [19, "Prasad", "RETAIL", "prasath@example.com"],
+                                    [29, "Other", "RETAIL", "prasath@example.com"]]})
+    res = svc.import_tsi(env["clerk"], tmp / "tsi2.xlsx", "tsi2.xlsx")
+    assert len(res["kept_out"]) == 2 and res["screen"] == ["19 Ravi Kumar"]
+    assert so().territory("29") == ("Other (left - not copied)", "", "29")
+    assert so().for_site("1792722") == ("Ravi Kumar", "ravi@example.com", "19")
+    svc.update_sales_officer(cfa, "19", "TSI")                                         # back to the TSI: still left
+    assert so().territory("19") == ("Prasad (left - not copied)", "", "19")
+    svc.remove_left(cfa, "prasath@example.com")                                        # undo
+    assert so().territory("19") == ("Prasad", "prasath@example.com", "19")
+    hist = list(SalesOfficerChange.objects.filter(territory_id="19").order_by("at", "id"))
+    assert [h.reason for h in hist] == ["Resigned", "Resigned", "Use the TSI Master again"]
+    assert hist[0].before["email"] == "prasath@example.com" and hist[0].after["vacant"]
+    c = verified_client(client, cfa)
+    page = c.get(reverse("rma:approvers")).content.decode()
+    assert "Upload a new TSI Master" in page and "Sales Officer changes - history" in page and "so_reason_19" in page
+    resp = c.post(reverse("rma:approvers"), {"so_reason_29": "", "so_name_29": "Someone"}, follow=True).content.decode()
+    assert "choose why the Sales Officer changes" in resp
+    c.post(reverse("rma:approvers"), {"so_reason_29": "RESIGNED"})
+    assert svc.Territory.objects.get(pk="29").vacant
+    assert "Sales Officers who left - never copied" in c.get(reverse("rma:approvers")).content.decode()

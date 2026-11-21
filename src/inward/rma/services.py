@@ -26,7 +26,8 @@ from inward.domain.normalize import clean_text
 from inward.importers.common import file_sha256
 from inward.rma import importers as imp
 from inward.rma.models import (
-    Approver, CnLine, Condition, CustomerSite, Grn, GrnLine, IrrLink, Request, RequestLine, StageEvent, Territory,
+    Approver, CnLine, Condition, CustomerSite, Grn, GrnLine, IrrLink, Request, RequestLine, SalesOfficerChange,
+    SalesOfficerLeft, StageEvent, Territory,
     TransportMode,
 )
 
@@ -169,12 +170,20 @@ class SalesOfficers:
 
     def __init__(self):
         self._terr = {t.territory_no: t for t in Territory.objects.all()}
+        self._left = set(SalesOfficerLeft.objects.values_list("email", flat=True))
         self._site: dict[str, CustomerSite | None] = {}
         self._acct: dict[str, set] = {}
 
     def territory(self, no: str):
         t = self._terr.get(no)
-        return (t.sales_officer, t.mail, no) if t else None
+        if not t:
+            return None
+        if t.vacant:
+            return ("no Sales Officer (left)", "", no)
+        mail = t.email_override or t.email
+        if mail and mail.lower() in self._left:
+            return (f"{t.officer} (left - not copied)", "", no)
+        return (t.officer, mail, no)
 
     def for_site(self, site: str):
         if not site:
@@ -243,21 +252,70 @@ def save_approver(user: User, pk: int, email: str, active: bool, redirect_pk: st
     return a
 
 
+SO_REASONS = {"RESIGNED": "Resigned", "TRANSFERRED": "Transferred", "CORRECTION": "Correction (wrong name / e-mail)",
+              "TSI": "Use the TSI Master again"}
+
+
+def _so_state(t: Territory) -> dict:
+    return {"sales_officer": t.officer, "email": t.email_override or t.email, "vacant": t.vacant}
+
+
 @transaction.atomic
-def save_territory_mail(user: User, territory_no: str, email: str) -> Territory:
+def update_sales_officer(user: User, territory_no: str, reason: str, name: str = "", email: str = "") -> Territory:
+    """A territory's Sales Officer changed (21-Nov-2026). Resigned / Transferred: the old address goes on the left list
+    (never copied again, even if a later TSI Master still has it) and the new Sales Officer is set - or, with nobody
+    yet, the territory is vacant (no Sales Officer copied). Correction: a wrong name / e-mail fixed. 'Use the TSI
+    Master again' drops the screen update. Every change is kept with who, when, why, before and after."""
     from inward.iw.comms import _clean_emails
     require(user, "RMA_MASTER")
+    if reason not in SO_REASONS:
+        raise RmaError(f"Territory {territory_no}: choose why the Sales Officer changes.")
     t = Territory.objects.select_for_update().get(pk=territory_no)
-    addrs = _clean_emails(email)
+    name = clean_text(name)[:120]
+    addrs = _clean_emails(email) if email.strip() else []
     if email.strip() and len(addrs) != 1:
         raise RmaError(f"Territory {territory_no}: enter one valid e-mail address.")
-    before = t.email_override
-    t.email_override = addrs[0] if addrs else ""
-    t.save(update_fields=["email_override", "updated_at"])
-    if before != t.email_override:
-        audit.record("RMA_SALES_OFFICER_MAIL", "rma_territory", territory_no, user=user,
-                     before={"email": before}, after={"email": t.email_override})
+    new_mail = addrs[0].lower() if addrs else ""
+    before = _so_state(t)
+    old_mail = (before["email"] or "").lower()
+    if reason == "TSI":
+        t.officer_override, t.email_override, t.vacant = "", "", False
+    elif reason == "CORRECTION":
+        if not (name or new_mail):
+            raise RmaError(f"Territory {territory_no}: enter the corrected name and / or e-mail.")
+        t.officer_override = name or t.officer_override
+        t.email_override = new_mail or t.email_override
+        t.vacant = False
+    else:
+        if new_mail and new_mail == old_mail:
+            raise RmaError(f"Territory {territory_no}: {new_mail} is the e-mail of the Sales Officer who left.")
+        if old_mail:
+            SalesOfficerLeft.objects.update_or_create(email=old_mail, defaults={
+                "name": before["sales_officer"], "reason": SO_REASONS[reason], "by": user})
+        if name or new_mail:
+            t.officer_override, t.email_override, t.vacant = name, new_mail, False
+            if new_mail:
+                SalesOfficerLeft.objects.filter(email=new_mail).delete()
+        else:
+            t.officer_override, t.email_override, t.vacant = "", "", True
+    t.save(update_fields=["officer_override", "email_override", "vacant", "updated_at"])
+    after = _so_state(t)
+    SalesOfficerChange.objects.create(territory=t, reason=SO_REASONS[reason], before=before, after=after, by=user)
+    audit.record("RMA_SALES_OFFICER_CHANGED", "rma_territory", territory_no, user=user, before=before,
+                 after={**after, "reason": SO_REASONS[reason], "left_list": old_mail if reason in ("RESIGNED", "TRANSFERRED")
+                        else ""})
     return t
+
+
+@transaction.atomic
+def remove_left(user: User, email: str) -> None:
+    """Undo: the address may be copied again (e.g. marked as left by mistake)."""
+    require(user, "RMA_MASTER")
+    row = SalesOfficerLeft.objects.filter(email=email.lower()).first()
+    if row:
+        audit.record("RMA_SALES_OFFICER_LEFT_REMOVED", "rma_sales_officer_left", row.email, user=user,
+                     before={"name": row.name, "reason": row.reason, "since": row.at.isoformat()})
+        row.delete()
 
 # ---------------------------------------------------------------- imports
 
@@ -415,12 +473,21 @@ def import_tsi(user: User, path: Path, filename: str) -> dict:
     require(user, "RMA_WORK")
     terrs = imp.parse_tsi(path)
     batch = _batch("RMA_TSI", path, filename, user)
+    left = set(SalesOfficerLeft.objects.values_list("email", flat=True))
+    kept_out, screen = [], []
     for t in terrs:
-        Territory.objects.update_or_create(territory_no=t["territory_no"], defaults={
+        obj, _ = Territory.objects.update_or_create(territory_no=t["territory_no"], defaults={
             "sales_officer": t["sales_officer"], "business_line": t["business_line"], "email": t["email"]})
+        if t["email"] and t["email"].lower() in left:
+            kept_out.append(f"{t['territory_no']} {t['sales_officer']}")      # still in the TSI, but has left
+        if obj.updated_on_screen:
+            screen.append(f"{t['territory_no']} {obj.officer}")              # the screen update stays
+    missing = sorted(set(Territory.objects.values_list("territory_no", flat=True)) - {t["territory_no"] for t in terrs})
     audit.record("RMA_TSI_IMPORTED", "import_batch", batch.pk, user=user,
-                 after={"file": filename, "territories": len(terrs)})
-    return {"territories": len(terrs), "without_mail": sum(1 for t in terrs if not t["email"])}
+                 after={"file": filename, "territories": len(terrs), "left_kept_out": kept_out,
+                        "screen_updates_kept": screen, "not_in_file": missing})
+    return {"territories": len(terrs), "without_mail": sum(1 for t in terrs if not t["email"]),
+            "kept_out": kept_out, "screen": screen, "missing": missing}
 
 # ---------------------------------------------------------------- GRN
 

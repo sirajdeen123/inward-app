@@ -16,7 +16,8 @@ from inward.core import documents
 from inward.importers.common import ImportFailed
 from inward.rma import autofetch, mails, register, report
 from inward.rma import services as svc
-from inward.rma.models import Approver, ApproverMail, Condition, CustomerSite, Grn, IrrLink, Request, Territory, TransportMode
+from inward.rma.models import (Approver, ApproverMail, Condition, CustomerSite, Grn, IrrLink, Request, SalesOfficerChange,
+                               SalesOfficerLeft, Territory, TransportMode)
 from inward.web.views import needs, upload_done
 
 ERRORS = (svc.RmaError, ImportFailed, PermissionDenied)
@@ -151,7 +152,7 @@ def _save_upload(upload, suffixes) -> Path:
 def upload(request):
     kind = request.POST.get("kind", "")
     f = request.FILES.get("file")
-    back = reverse("rma:index")
+    back = reverse("rma:approvers") if request.POST.get("back") == "approvers" else reverse("rma:index")
     if f is None:
         messages.error(request, "Choose the file.")
         return upload_done(request, back)
@@ -207,6 +208,14 @@ def upload(request):
             else:
                 messages.success(request, f"{label}: {res['territories']} territories"
                                           + (f", {res['without_mail']} without a Sales Officer e-mail" if res["without_mail"] else "") + ".")
+                if res["kept_out"]:
+                    messages.warning(request, "Still in the TSI Master but marked as left - not copied: "
+                                              + "; ".join(res["kept_out"]) + ".")
+                if res["screen"]:
+                    messages.info(request, "Updated on screen - the screen update stays (choose 'Use the TSI Master "
+                                           "again' to drop it): " + "; ".join(res["screen"]) + ".")
+                if res["missing"]:
+                    messages.info(request, f"Territories not in this file (kept as they were): {', '.join(res['missing'])}.")
         else:
             raise svc.RmaError("Choose what is being uploaded.")
     except ERRORS as exc:
@@ -380,13 +389,21 @@ def approvers(request):
             except ERRORS as exc:
                 messages.error(request, str(exc))
         for t in Territory.objects.all():
-            key = f"so_{t.territory_no}"
-            if key in request.POST and request.POST[key].strip().lower() != (t.email_override or ""):
-                try:
-                    svc.save_territory_mail(request.user, t.territory_no, request.POST[key])
-                    done += 1
-                except ERRORS as exc:
-                    messages.error(request, str(exc))
+            no = t.territory_no
+            reason, name, mail = (request.POST.get(f"so_{k}_{no}", "").strip() for k in ("reason", "name", "mail"))
+            if not reason:
+                if name or mail:
+                    messages.error(request, f"Territory {no}: choose why the Sales Officer changes (Resigned, "
+                                            "Transferred, Correction...) - not saved.")
+                continue
+            try:
+                svc.update_sales_officer(request.user, no, reason, name, mail)
+                done += 1
+            except ERRORS as exc:
+                messages.error(request, str(exc))
+        for addr in request.POST.getlist("unleft"):
+            svc.remove_left(request.user, addr)
+            done += 1
         messages.success(request, f"Saved - {done} change(s).")
         return redirect("rma:approvers")
     rws = svc.rows(Request.objects.filter(closed_at__isnull=True))
@@ -398,7 +415,10 @@ def approvers(request):
         a.pending = counts.get(a.pk, 0) or waiting.get(a.key, 0)
     people.sort(key=lambda a: (bool(a.email) or bool(a.redirect_to_id), a.name))
     return render(request, "rma/approvers.html", {
-        "people": people, "territories": Territory.objects.all(),
+        "people": people, "territories": Territory.objects.all(), "so_reasons": svc.SO_REASONS,
+        "left": SalesOfficerLeft.objects.select_related("by"),
+        "so_changes": SalesOfficerChange.objects.select_related("territory", "by")[:40],
+        "tsi": svc.last_upload("RMA_TSI"),
         "sites": CustomerSite.objects.count(), "cc_rcm": mails.cc_rcm()})
 
 

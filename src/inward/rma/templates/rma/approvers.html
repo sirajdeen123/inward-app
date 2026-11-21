@@ -15,14 +15,34 @@
     <td data-label="Pending" class="num">{{ a.pending }}</td></tr>
   {% empty %}<tr><td colspan="4" class="muted">No approver yet - they appear with the first RMA Portal Report upload.</td></tr>{% endfor %}</tbody></table>
 </div>
-<div class="card"><h2>Sales Officers by territory (TSI Master)</h2>
-  <p class="muted">Copied on the approval mails of their dealers ({{ sites }} Bill-To sites loaded from the Customer Master). Upload a new TSI Master or Dealer master under <a href="{% url 'rma:index' %}">Material returns &rarr; Uploads</a>; a corrected e-mail typed here stays until you clear it.</p>
-  <table class="tbl stack"><thead><tr><th>Territory</th><th>Sales Officer</th><th>BL</th><th>E-mail (TSI)</th><th>Corrected e-mail</th></tr></thead>
-  <tbody>{% for t in territories %}<tr><td data-label="Territory">{{ t.territory_no }}</td><td data-label="Sales Officer">{{ t.sales_officer|default:"-" }}</td><td data-label="BL">{{ t.business_line }}</td>
-    <td data-label="TSI e-mail">{{ t.email|default:"-" }}</td><td data-label="Corrected"><input name="so_{{ t.territory_no }}" type="email" value="{{ t.email_override }}" class="input-inline" aria-label="Corrected e-mail for territory {{ t.territory_no }}"></td></tr>
-  {% empty %}<tr><td colspan="5" class="muted">Upload the TSI Master.</td></tr>{% endfor %}</tbody></table>
+<div class="card" id="sales-officers"><h2>Sales Officers by territory (TSI Master)</h2>
+  <p class="muted">Copied on the approval mails of their dealers ({{ sites }} Bill-To sites loaded from the Customer Master). When a Sales Officer resigns or is transferred, choose the reason on the territory's row and type the new Sales Officer (leave both blank if nobody has taken over yet - then no Sales Officer is copied). The person who left is never copied again, even if a later TSI Master still has the address. Every change is kept in the history below.</p>
+  <table class="tbl stack"><thead><tr><th>Territory</th><th>Sales Officer now</th><th>TSI Master says</th><th>Change - why</th><th>New Sales Officer</th><th>New e-mail</th></tr></thead>
+  <tbody>{% for t in territories %}<tr><td data-label="Territory"><b>{{ t.territory_no }}</b><div class="muted small">{{ t.business_line }}</div></td>
+    <td data-label="Sales Officer now">{% if t.vacant %}<span class="chip chip-warn">no Sales Officer - nobody copied</span>{% else %}<b>{{ t.officer|default:"-" }}</b><div class="small">{% if t.mail %}{{ t.mail }}{% elif t.email_override or t.email %}<span class="warn-text">{{ t.email_override|default:t.email }} - left, not copied</span>{% else %}<span class="muted">no e-mail</span>{% endif %}</div>{% if t.updated_on_screen %}<span class="chip">updated on screen</span>{% endif %}{% endif %}</td>
+    <td data-label="TSI Master" class="muted small">{{ t.sales_officer|default:"-" }}<br>{{ t.email|default:"-" }}</td>
+    <td data-label="Why"><select name="so_reason_{{ t.territory_no }}" aria-label="Why the Sales Officer of territory {{ t.territory_no }} changes"><option value="">-</option>{% for k, v in so_reasons.items %}<option value="{{ k }}">{{ v }}</option>{% endfor %}</select></td>
+    <td data-label="New Sales Officer"><input name="so_name_{{ t.territory_no }}" class="input-inline" maxlength="120" aria-label="New Sales Officer of territory {{ t.territory_no }}"></td>
+    <td data-label="New e-mail"><input name="so_mail_{{ t.territory_no }}" type="email" class="input-inline" aria-label="New Sales Officer e-mail of territory {{ t.territory_no }}" placeholder="name@bergerindia.com"></td></tr>
+  {% empty %}<tr><td colspan="6" class="muted">Upload the TSI Master below.</td></tr>{% endfor %}</tbody></table>
 </div>
+{% if left %}<div class="card"><h2>Sales Officers who left - never copied</h2>
+  <table class="tbl stack"><thead><tr><th>E-mail</th><th>Name</th><th>Why</th><th>Since</th><th>Undo</th></tr></thead>
+  <tbody>{% for x in left %}<tr><td data-label="E-mail">{{ x.email }}</td><td data-label="Name">{{ x.name|default:"-" }}</td><td data-label="Why">{{ x.reason }}</td><td data-label="Since">{{ x.at|date:"d-M-Y" }} by {{ x.by }}</td>
+    <td data-label="Undo"><label class="check"><input type="checkbox" name="unleft" value="{{ x.email }}"> copy again</label></td></tr>{% endfor %}</tbody></table>
+</div>{% endif %}
 <p><button type="submit" class="btn btn-primary">Save</button></p>
 </form>
+<div class="card"><h2>Upload a new TSI Master</h2>
+  <p class="muted">When the company sends a new TSI Master (Territory, Sales rep, BL, Email). Territories are updated; changes made on this screen stay, and anyone on the "left" list stays out.{% if tsi %} Last upload {{ tsi.uploaded_at|date:"d-M-Y h:i A" }} ({{ tsi.filename }}).{% endif %}</p>
+  <form method="post" action="{% url 'rma:upload' %}" enctype="multipart/form-data" class="inline">{% csrf_token %}<input type="hidden" name="kind" value="TSI"><input type="hidden" name="back" value="approvers">
+    <label class="sr-only" for="tsi-file">TSI Master</label><input id="tsi-file" type="file" name="file" accept=".xls,.xlsx" required> <button type="submit" class="btn btn-primary">Upload TSI Master</button></form>
+</div>
+{% if so_changes %}<div class="card"><h2>Sales Officer changes - history</h2>
+  <table class="tbl stack"><thead><tr><th>When</th><th>Territory</th><th>Why</th><th>Before</th><th>After</th><th>By</th></tr></thead>
+  <tbody>{% for c in so_changes %}<tr><td data-label="When">{{ c.at|date:"d-M-Y h:i A" }}</td><td data-label="Territory">{{ c.territory_id }}</td><td data-label="Why">{{ c.reason }}</td>
+    <td data-label="Before" class="small">{{ c.before.sales_officer|default:"-" }}<br>{{ c.before.email|default:"-" }}{% if c.before.vacant %} (vacant){% endif %}</td>
+    <td data-label="After" class="small">{% if c.after.vacant %}<b>no Sales Officer</b>{% else %}{{ c.after.sales_officer|default:"-" }}<br>{{ c.after.email|default:"-" }}{% endif %}</td><td data-label="By">{{ c.by }}</td></tr>{% endfor %}</tbody></table>
+</div>{% endif %}
 <p class="muted">Cc of the approval mails: Admin Officer and Godown; daily report: Admin Officer, Cc CFA Manager{% if cc_rcm %} and RCM{% else %} (RCM copy off){% endif %} - set under Notification e-mails.</p>
 {% endblock %}

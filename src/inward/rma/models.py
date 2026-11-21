@@ -73,6 +73,8 @@ class Territory(models.Model):
     business_line = models.CharField(max_length=30, blank=True)
     email = models.EmailField(max_length=256, blank=True)          # from the TSI Master
     email_override = models.EmailField(max_length=256, blank=True)  # set on screen (transfer / correction)
+    officer_override = models.CharField(max_length=120, blank=True)  # new Sales Officer set on screen (21-Nov-2026)
+    vacant = models.BooleanField(default=False)                       # Sales Officer left, nobody yet: no Cc
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
@@ -80,8 +82,48 @@ class Territory(models.Model):
         ordering = ["territory_no"]
 
     @property
+    def officer(self) -> str:
+        return self.officer_override or self.sales_officer
+
+    @property
     def mail(self) -> str:
-        return self.email_override or self.email
+        """The address copied on the approval mails: none when vacant or when the person is on the left list."""
+        if self.vacant:
+            return ""
+        m = self.email_override or self.email
+        return "" if m and SalesOfficerLeft.objects.filter(email=m.lower()).exists() else m
+
+    @property
+    def updated_on_screen(self) -> bool:
+        return bool(self.email_override or self.officer_override or self.vacant)
+
+
+class SalesOfficerLeft(models.Model):
+    """A Sales Officer who resigned / was transferred (21-Nov-2026): the address is never copied again, even when a
+    later TSI Master still carries it."""
+    email = models.EmailField(max_length=256, primary_key=True)
+    name = models.CharField(max_length=120, blank=True)
+    reason = models.CharField(max_length=60, blank=True)
+    by = models.ForeignKey(USER, on_delete=models.PROTECT, related_name="+")
+    at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "rma_sales_officer_left"
+        ordering = ["-at"]
+
+
+class SalesOfficerChange(models.Model):
+    """History of a territory's Sales Officer updated on screen (who, when, why, before / after)."""
+    territory = models.ForeignKey(Territory, on_delete=models.CASCADE, related_name="changes")
+    reason = models.CharField(max_length=60)
+    before = models.JSONField(default=dict)
+    after = models.JSONField(default=dict)
+    by = models.ForeignKey(USER, on_delete=models.PROTECT, related_name="+")
+    at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "rma_sales_officer_change"
+        ordering = ["-at", "-id"]
 
 
 # ---------------------------------------------------------------- portal / CN data

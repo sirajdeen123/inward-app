@@ -37,8 +37,11 @@ def home(request):
     last = {}
     for up in MasterUpload.objects.select_related("uploaded_by", "decided_by")[:200]:
         last.setdefault(up.kind, up)
+    groups: dict[str, list] = {}
+    for s in specs:
+        groups.setdefault(s.module, []).append({"s": s, "count": s.count() if s.count else None, "last": last.get(s.key)})
     return render(request, "core/masterfiles.html", {
-        "specs": [{"s": s, "count": s.count() if s.count else None, "last": last.get(s.key)} for s in specs],
+        "groups": list(groups.items()),
         "can_upload": _can(request.user, "MASTER_UPLOAD"),
         "recent": MasterUpload.objects.select_related("uploaded_by", "decided_by")[:15],
         "labels": {k: s.label for k, s in mf.REGISTRY.items()}})

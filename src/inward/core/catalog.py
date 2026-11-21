@@ -39,7 +39,7 @@ PERMISSIONS = {
     "IW_VOID": "VOID IW (before MRA only)",
     "IW_CORRECT": "Correct an IW after its MRA, before any ERP entry (reopened; the MRA is re-issued)",
     "MAIL_PENDING_RELEASE": "Mail-Pending Release",
-    "MASTER_UPLOAD": "Upload master files (TSI, Customer Master, portal approvers) - changes who gets the mails",
+    "MASTER_UPLOAD": "Upload master files (organisations, vendors, senders, transporters, notification e-mails, TSI, Customer Master, portal approvers) - changes who gets the mails",
     "EWB_MAIL": "Outbound transhipment: E-way bill Nos, Transporter ID update mail to the source, confirmation",
     "EWB_MRA_RELEASE": "Issue the MRA without the E-way bill Transporter ID update mail (CFA Manager approves)",
     "EXCEPTION_RESOLVE": "Resolve critical exceptions",

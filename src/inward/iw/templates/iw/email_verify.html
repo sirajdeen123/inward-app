@@ -11,4 +11,5 @@
         {% if r.kind == 'ORGNEW' %}<input name="corrected" placeholder="correct the name (optional)" aria-label="Corrected name for {{ r.owner }}" class="input-inline caps">{% else %}<input name="corrected" type="email" placeholder="correct it (optional)" aria-label="Corrected e-mail for {{ r.owner }}" class="input-inline">{% endif %}<button type="submit" class="btn btn-sm btn-primary">Confirm</button></form></td></tr>{% endfor %}</tbody></table>
   {% else %}<p class="muted">Nothing waiting.</p>{% endif %}
 </div>
+<p class="muted">Many e-mails at once: <a href="{% url 'core:masterfiles' %}">Master files</a> - organisations, vendors, senders as Excel.</p>
 {% endblock %}

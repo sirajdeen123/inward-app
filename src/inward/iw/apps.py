@@ -16,3 +16,5 @@ class IwConfig(AppConfig):
         approvals.register("IW_REOPEN", closure.apply_reopen)
         from inward.iw import ewb
         approvals.register("EWB_MRA_RELEASE", ewb.apply_release)
+        from inward.iw import masterfiles
+        masterfiles.setup()
